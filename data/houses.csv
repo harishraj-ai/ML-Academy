@@ -1,0 +1,13 @@
+id,area,size_m2,bedrooms,dist_km,age_yrs,description,price_lakh,sold_fast
+1,Central,65,1,2,5,bright compact flat near metro,58,1
+2,Central,90,2,3,12,spacious flat near metro with balcony,82,1
+3,Central,120,3,4,20,large family flat needs renovation,95,0
+4,Suburb,80,2,9,8,quiet flat with parking,55,1
+5,Suburb,110,3,11,3,new spacious villa with garden,88,1
+6,Suburb,140,3,10,25,old villa needs renovation,79,0
+7,Suburb,100,2,12,15,flat with parking near school,64,0
+8,Outskirts,150,4,22,6,new large villa with garden,84,0
+9,Outskirts,95,2,25,10,quiet flat far from city,42,0
+10,Outskirts,130,3,20,30,old house needs renovation,50,0
+11,Central,75,2,5,2,new bright flat near metro,72,1
+12,Suburb,125,3,8,4,new spacious villa near school,96,1

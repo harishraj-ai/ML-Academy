@@ -1,0 +1,29 @@
+/* Printable workbook */
+@page { size: A4; margin: 16mm 15mm 18mm; }
+html, body { background: #fff !important; color: #111 !important; }
+.wb-body { font-size: 10.5pt; line-height: 1.55; max-width: 180mm; margin: 0 auto; padding: 0 4mm; }
+.wb-body .prose { max-width: none; }
+.wb-cover { min-height: 250mm; padding-top: 40mm; break-after: page; }
+.wb-cover h1 { font-size: 30pt; margin: 4mm 0; } .wb-cover .lead { font-size: 13pt; color: #333; }
+.wb-toc { columns: 2; column-gap: 10mm; font-size: 10pt; } .wb-toc a { color: #111; text-decoration: none; }
+.wb-lesson { break-before: page; }
+.wb-lesson h1 { font-size: 22pt; margin: 2mm 0 2mm; } .wb-lesson .lead { color: #333; }
+.wb-body h2 { break-after: avoid; margin-top: 7mm; font-size: 15pt; } .wb-body h3 { break-after: avoid; }
+.wb-body .box, .wb-body figure, .wb-body .stepper, .wb-body .decode, .wb-body .ex, .wb-body .q, .wb-body table, .wb-body pre, .wb-body .faq-item, .wb-body .myth { break-inside: avoid; }
+.wb-body pre, .wb-body pre code { white-space: pre-wrap; word-break: break-word; font-size: 8.6pt; }
+.wb-body .fig svg { max-height: 95mm; }
+.wb-body .walk .wf { display: inline !important; }
+.wb-steps { font-size: 9.5pt; } .wb-steps li { margin-bottom: 2mm; }
+.wb-note { border: 1px dashed #888; border-radius: 6px; padding: 3mm 4mm; margin: 4mm 0; font-size: 9.5pt; color: #333; }
+.wb-opts { list-style: lower-alpha; margin: 1mm 0 3mm; }
+.wb-body .q { margin-bottom: 4mm; }
+.wb-work, .wb-notes { position: relative; height: 55mm; margin: 3mm 0 2mm; border: 1px solid #bbb; border-radius: 6px;
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent 7.5mm, #e3e3e3 7.5mm, #e3e3e3 7.8mm); break-inside: avoid; }
+.wb-notes { height: 70mm; margin-top: 8mm; }
+.wb-work span, .wb-notes span { position: absolute; top: -2.6mm; left: 4mm; background: #fff; padding: 0 2mm; font: 600 8pt var(--font-mono); color: #666; letter-spacing: .08em; text-transform: uppercase; }
+.wb-appendix { break-before: page; } .wb-appendix h1 { font-size: 22pt; }
+.wb-ans-lesson { break-inside: auto; } .wb-ans-lesson h2 { break-after: avoid; border-top: 1px solid #ccc; padding-top: 4mm; }
+.wb-qa li, .wb-sol li { margin-bottom: 2.5mm; } .wb-sol pre { font-size: 8pt; }
+.wb-body .toc, .wb-body .level-switch, .wb-body .sr-only { display: none !important; }
+.wb-body a { color: #0b4f6c; }
+@media screen { .wb-body { padding-top: 10mm; } .wb-lesson, .wb-appendix { border-top: 3px solid #ccc; margin-top: 14mm; padding-top: 8mm; } }
