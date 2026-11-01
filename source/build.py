@@ -218,7 +218,7 @@ def nav_html(path_href, primary, cls="nav"):
     return (f'<nav class="{cls}" aria-label="Main">' + "".join(f'<a href="{h}">{t}</a>' for h, t in prim) +
             f'<details class="nav-more"><summary>More <span aria-hidden="true">▾</span></summary><div class="nav-menu">{menu}</div></details></nav>')
 
-SITE_URL = "https://harishraj07022004-cpu.github.io/ML-Academy/"   # change this if you publish the course elsewhere
+SITE_URL = "https://harishraj-ai.github.io/ML-Academy/"   # change this if you publish the course elsewhere
 def head(title, desc, math=False, demos=True):
     m = ('<link rel="stylesheet" href="assets/katex.min.css"><script defer src="assets/katex.min.js"></script>'
          '<script defer src="assets/auto-render.min.js"></script>' + ('<script defer src="assets/demos.js"></script><script defer src="assets/whatif.js"></script>' if demos else '')) if math else ""
