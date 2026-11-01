@@ -1,0 +1,188 @@
+<h2 id="why">Why "accuracy" is not enough</h2>
+<p>You've trained a classifier. Is it good? The obvious answer is <strong>accuracy</strong>: the fraction of predictions that are correct. But accuracy can be badly misleading.</p>
+<div class="box example"><div class="box-title">The accuracy trap</div>
+<p>A disease affects 1 in 100 people. A "model" that simply says <em>"healthy"</em> for everyone is <strong>99% accurate</strong> — and completely useless, because it never finds a single sick person.</p></div>
+<p>Different mistakes have different costs. Missing a cancer is far worse than an unnecessary follow-up test; flagging a real email as spam is worse than letting one spam through. This lesson gives you the tools to see exactly <em>which</em> mistakes a model makes, and to measure what actually matters for your problem.</p>
+
+<h2 id="confusion">The confusion matrix</h2>
+<p>For a binary classifier, every prediction falls into one of four boxes:</p>
+<table class="tbl">
+<thead><tr><td></td><th>Predicted positive</th><th>Predicted negative</th></tr></thead>
+<tbody>
+<tr><th>Actually positive</th><td><strong>TP</strong> — true positive<br><small>correctly caught</small></td><td><strong>FN</strong> — false negative<br><small>missed ("Type II error")</small></td></tr>
+<tr><th>Actually negative</th><td><strong>FP</strong> — false positive<br><small>false alarm ("Type I error")</small></td><td><strong>TN</strong> — true negative<br><small>correctly ignored</small></td></tr>
+</tbody></table>
+<p>The word after "true/false" is what the model <em>predicted</em>; "true" means that prediction was right. So a false positive is a predicted positive that was wrong.</p>
+<div class="box example"><div class="box-title">Worked example — a screening test on 100 patients</div>
+<p>10 patients are actually sick, 90 are healthy. The model flags 18 patients: 8 of them are really sick.</p>
+<table class="tbl">
+<thead><tr><td></td><th>Predicted sick</th><th>Predicted healthy</th><th>Total</th></tr></thead>
+<tbody>
+<tr><th>Actually sick</th><td>TP = 8</td><td>FN = 2</td><td>10</td></tr>
+<tr><th>Actually healthy</th><td>FP = 10</td><td>TN = 80</td><td>90</td></tr>
+</tbody></table>
+<p>We'll compute every metric below from these four numbers.</p></div>
+
+<h2 id="metrics">Accuracy, precision, recall, specificity</h2>
+<p><strong>Accuracy</strong> — what fraction of all predictions were right?</p>
+$$\text{Accuracy} = \frac{TP + TN}{TP + TN + FP + FN} = \frac{8 + 80}{100} = 0.88$$
+<p><strong>Precision</strong> — of the ones we flagged, how many were really positive? ("When the model says yes, can I trust it?")</p>
+$$\text{Precision} = \frac{TP}{TP + FP} = \frac{8}{8 + 10} \approx 0.44$$
+<p><strong>Recall</strong> (also <em>sensitivity</em> or <em>true positive rate</em>) — of the real positives, how many did we catch? ("Does the model find what it should?")</p>
+$$\text{Recall} = \frac{TP}{TP + FN} = \frac{8}{8 + 2} = 0.80$$
+<p><strong>Specificity</strong> (true negative rate) — of the real negatives, how many did we correctly leave alone?</p>
+$$\text{Specificity} = \frac{TN}{TN + FP} = \frac{80}{90} \approx 0.89$$
+<div class="box intuition"><div class="box-title">Remember them with a fishing net</div>
+<p>You cast a net to catch a particular kind of fish. <strong>Recall</strong>: what fraction of those fish in the lake ended up in your net? <strong>Precision</strong>: what fraction of the things in your net are those fish (and not old boots)? A huge net has great recall but poor precision; a tiny careful net has great precision but poor recall.</p></div>
+<p>So our screening test catches 80% of sick patients (good recall), but only 44% of its alarms are real (low precision). Whether that's acceptable depends on the situation: for an initial screening followed by a more accurate test, it may be fine.</p>
+
+<h2 id="f1">The F1 score</h2>
+<p>To summarise precision and recall in one number, use their <strong>harmonic mean</strong>, the F1 score:</p>
+$$F_1 = 2\cdot\frac{\text{Precision}\cdot\text{Recall}}{\text{Precision} + \text{Recall}} = \frac{2\,TP}{2\,TP + FP + FN}$$
+<p>For our example: $F_1 = \frac{2\cdot8}{2\cdot8 + 10 + 2} = \frac{16}{28} \approx 0.57$.</p>
+<p>Why the harmonic mean rather than the ordinary average? It's dragged down by whichever value is smaller, so a model can't hide terrible precision behind great recall. A model with precision 1.0 and recall 0.01 has an ordinary average of about 0.5, but an F1 of only about 0.02.</p>
+<div class="box tip"><div class="box-title">Weighting precision vs recall</div>
+<p>The $F_\beta$ score lets you weight recall $\beta$ times as much as precision: $F_\beta = \frac{(1+\beta^2)\,TP}{(1+\beta^2)\,TP + \beta^2 FN + FP}$. $F_2$ favours recall (useful for medical screening); $F_{0.5}$ favours precision (useful for spam filtering).</p></div>
+
+<h2 id="threshold">The threshold trade-off</h2>
+<p>Most classifiers output a score or probability (Lesson 8). Turning it into a yes/no decision needs a <strong>threshold</strong>. Moving the threshold trades one kind of mistake for the other:</p>
+<ul>
+<li><strong>Lower threshold</strong> → flag more cases → more TPs <em>and</em> more FPs → recall ↑, precision ↓.</li>
+<li><strong>Higher threshold</strong> → flag fewer cases → fewer FPs <em>but</em> more FNs → precision ↑, recall ↓.</li>
+</ul>
+<p>There is no threshold that is "correct" in general; you choose it based on the cost of each type of mistake.</p>
+
+<h2 id="demo">Try it: move the threshold</h2>
+<p>The model gives each example a score from 0 to 1. Purple bars show the score distribution of real negatives, green bars of real positives. They overlap — as in real life — so no threshold is perfect. Drag the threshold and watch the confusion matrix, the metrics, and the point on the ROC curve (right) change.</p>
+<div class="demo" data-demo="threshold"></div>
+
+<h2 id="roc">ROC curves and AUC</h2>
+<p>Instead of picking one threshold, we can look at <em>all</em> of them at once. For each threshold, compute:</p>
+$$\text{TPR} = \text{Recall} = \frac{TP}{TP + FN} \qquad \text{FPR} = \frac{FP}{FP + TN} = 1 - \text{Specificity}$$
+<p>Plotting TPR (up) against FPR (across) for every threshold gives the <strong>ROC curve</strong> (receiver operating characteristic, a name from radar engineering).</p>
+<ul>
+<li>The bottom-left corner $(0, 0)$ is threshold = 1: flag nothing.</li>
+<li>The top-right corner $(1, 1)$ is threshold = 0: flag everything.</li>
+<li>A perfect model reaches the top-left corner $(0, 1)$: all positives caught, no false alarms.</li>
+<li>Random guessing gives the diagonal line.</li>
+</ul>
+<p>The <strong>area under the ROC curve (AUC)</strong> summarises the whole curve in one number from 0.5 (random) to 1.0 (perfect). It has a lovely interpretation:</p>
+<div class="box def"><div class="box-title">What AUC means</div>
+<p>AUC is the probability that the model gives a randomly chosen positive example a <em>higher score</em> than a randomly chosen negative example.</p></div>
+<div class="box example"><div class="box-title">Worked example — AUC by counting pairs</div>
+<p>Scores for 3 positives: $0.9, 0.7, 0.4$. Scores for 3 negatives: $0.8, 0.3, 0.2$.</p>
+<p>There are $3\times3 = 9$ positive–negative pairs. Count the pairs where the positive scores higher:</p>
+<ul>
+<li>$0.9$ beats $0.8, 0.3, 0.2$ → 3</li>
+<li>$0.7$ beats $0.3, 0.2$ (not $0.8$) → 2</li>
+<li>$0.4$ beats $0.3, 0.2$ → 2</li>
+</ul>
+<p>AUC $= 7/9 \approx 0.78$. The model ranks a positive above a negative 78% of the time.</p></div>
+<p>AUC is useful because it doesn't depend on any particular threshold. But when positives are very rare, the ROC curve can look flattering, because FPR divides by the huge number of negatives.</p>
+
+<h2 id="pr-curve">Precision–recall curves</h2>
+<p>When positives are rare (fraud, disease, defects), a <strong>precision–recall curve</strong> — precision (up) against recall (across) for every threshold — is usually more informative. Its summary is <strong>average precision (AP)</strong>, a weighted average of precision across recall levels. A random model's AP equals the fraction of positives (e.g. 0.01 for 1% fraud), so the baseline is much lower than ROC's 0.5, making differences between models easier to see.</p>
+
+<h2 id="multiclass">More than two classes</h2>
+<p>With $K$ classes the confusion matrix is $K\times K$: row = true class, column = predicted class, and the diagonal holds the correct predictions. Off-diagonal cells show which classes get confused (e.g. "3" mistaken for "8"). Precision, recall and F1 are computed per class, then averaged:</p>
+<ul>
+<li><strong>Macro average</strong>: plain average over classes — every class counts equally.</li>
+<li><strong>Weighted average</strong>: weighted by how many examples each class has.</li>
+</ul>
+
+<h2 id="regression">Metrics for regression</h2>
+<p>For predicting numbers, we measure the size of the errors $e_i = \hat{y}_i - y_i$:</p>
+<table class="tbl">
+<thead><tr><th>Metric</th><th>Formula</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><strong>MAE</strong> — mean absolute error</td><td>$\frac{1}{n}\sum|e_i|$</td><td>In the target's units; robust to outliers</td></tr>
+<tr><td><strong>MSE</strong> — mean squared error</td><td>$\frac{1}{n}\sum e_i^2$</td><td>Punishes large errors; squared units</td></tr>
+<tr><td><strong>RMSE</strong> — root MSE</td><td>$\sqrt{\text{MSE}}$</td><td>Back in the target's units</td></tr>
+<tr><td><strong>$R^2$</strong></td><td>$1 - \frac{\sum e_i^2}{\sum (y_i - \bar{y})^2}$</td><td>Fraction of variance explained (Lesson 6)</td></tr>
+</tbody></table>
+<div class="box example"><div class="box-title">Worked example</div>
+<p>True $y = 3, 5, 2, 7$; predicted $\hat{y} = 2.5, 5, 4, 8$. Errors: $-0.5, 0, 2, 1$.</p>
+<p>MAE $= (0.5 + 0 + 2 + 1)/4 = 0.875$.<br>
+MSE $= (0.25 + 0 + 4 + 1)/4 = 1.3125$, RMSE $= \sqrt{1.3125} \approx 1.15$.<br>
+$\bar{y} = 4.25$, $\sum(y_i - \bar{y})^2 = 14.75$, so $R^2 = 1 - 5.25/14.75 \approx 0.64$.</p>
+<p>Notice RMSE (1.15) > MAE (0.875): the single error of 2 counts extra in RMSE. If you care a lot about avoiding big misses, use RMSE; if every unit of error costs the same, use MAE.</p></div>
+
+<h2 id="choosing">Choosing the right metric</h2>
+<table class="tbl">
+<thead><tr><th>Situation</th><th>Focus on</th></tr></thead>
+<tbody>
+<tr><td>Balanced classes, mistakes cost the same</td><td>Accuracy</td></tr>
+<tr><td>Missing a positive is very costly (disease, fraud)</td><td>Recall (with acceptable precision), $F_2$</td></tr>
+<tr><td>False alarms are very costly (spam filter, legal flags)</td><td>Precision, $F_{0.5}$</td></tr>
+<tr><td>Need one balanced number for imbalanced data</td><td>F1, average precision</td></tr>
+<tr><td>Comparing models independent of threshold</td><td>ROC-AUC (or AP if positives are rare)</td></tr>
+<tr><td>Regression, all errors equally bad</td><td>MAE</td></tr>
+<tr><td>Regression, big errors especially bad</td><td>RMSE</td></tr>
+</tbody></table>
+<div class="box warn"><div class="box-title">Always compare to a baseline</div>
+<p>Before celebrating a score, compute what a trivial model gets: always predicting the most common class, or always predicting the mean. A 95% accurate model is unimpressive if the baseline is 94%. And always measure on data the model hasn't trained on (Lesson 5).</p></div>
+
+<h2 id="code">In Python</h2>
+<pre><code>from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score
+
+X, y = load_breast_cancer(return_X_y=True)
+y = 1 - y        # make "malignant" the positive class (1)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, stratify=y, random_state=0)
+
+model = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000)).fit(X_train, y_train)
+proba = model.predict_proba(X_test)[:, 1]          # P(malignant)
+
+for threshold in [0.5, 0.2]:
+    pred = (proba >= threshold).astype(int)
+    tn, fp, fn, tp = confusion_matrix(y_test, pred).ravel()
+    print(f"threshold {threshold}: TP={tp} FN={fn} FP={fp} TN={tn}  "
+          f"precision={tp/(tp+fp):.3f} recall={tp/(tp+fn):.3f}")
+
+print("ROC-AUC:", round(roc_auc_score(y_test, proba), 3))
+print(classification_report(y_test, (proba >= 0.5).astype(int), target_names=["benign", "malignant"]))</code></pre>
+<p>Output:</p>
+<pre><code>threshold 0.5: TP=51 FN=2 FP=0 TN=90  precision=1.000 recall=0.962
+threshold 0.2: TP=52 FN=1 FP=9 TN=81  precision=0.852 recall=0.981
+ROC-AUC: 0.996
+              precision    recall  f1-score   support
+
+      benign       0.98      1.00      0.99        90
+   malignant       1.00      0.96      0.98        53
+
+    accuracy                           0.99       143
+   macro avg       0.99      0.98      0.98       143
+weighted avg       0.99      0.99      0.99       143</code></pre>
+<p>At the default threshold of 0.5 the model missed 2 malignant tumours. Lowering the threshold to 0.2 missed only 1 (recall 0.96 → 0.98) but raised 9 false alarms (precision 1.00 → 0.85) — exactly the trade-off from the demo. For cancer screening, many doctors would accept those extra follow-up tests. (Splitting with different labels gives a slightly different test set than Lesson 8, so the numbers differ a little from there.)</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>The <strong>confusion matrix</strong> (TP, FP, FN, TN) shows exactly which mistakes a classifier makes.</li>
+<li><strong>Precision</strong> $= \frac{TP}{TP+FP}$: trust in positive predictions. <strong>Recall</strong> $= \frac{TP}{TP+FN}$: share of positives found. <strong>F1</strong> balances them.</li>
+<li>Accuracy misleads on imbalanced data — always compare with a trivial baseline.</li>
+<li>The <strong>threshold</strong> trades precision against recall; <strong>ROC-AUC</strong> and <strong>average precision</strong> summarise all thresholds.</li>
+<li>Regression: <strong>MAE</strong>, <strong>RMSE</strong> (punishes big errors) and <strong>$R^2$</strong>.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. TP = 30, FP = 10, FN = 20. What is the precision?</p>
+<button data-opt="a">0.60</button><button data-opt="b">0.75</button><button data-opt="c">0.50</button>
+<div class="q-explain">Precision $= 30/(30 + 10) = 0.75$. (Recall would be $30/(30+20) = 0.60$.)</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. A fraud detector must miss as few frauds as possible. Which metric matters most?</p>
+<button data-opt="a">Precision</button><button data-opt="b">Specificity</button><button data-opt="c">Recall</button>
+<div class="q-explain">Missing a fraud is a false negative; recall $= TP/(TP+FN)$ measures how many frauds are caught.</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. You lower the classification threshold from 0.5 to 0.3. What usually happens?</p>
+<button data-opt="a">Recall goes up, precision goes down</button><button data-opt="b">Precision goes up, recall goes down</button><button data-opt="c">Both go up</button>
+<div class="q-explain">More examples get flagged positive: more true positives are caught (recall ↑) but more false alarms too (precision ↓).</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. A model has ROC-AUC = 0.5. What does that suggest?</p>
+<button data-opt="a">It's perfect</button><button data-opt="b">It ranks no better than random</button><button data-opt="c">It's right half of the time on each class</button>
+<div class="q-explain">AUC 0.5 means a random positive is scored above a random negative only half the time — like a coin flip.</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. Errors are 1, −1, 1, −5. Which is larger, MAE or RMSE?</p>
+<button data-opt="a">MAE</button><button data-opt="b">They are equal</button><button data-opt="c">RMSE</button>
+<div class="q-explain">MAE $= 8/4 = 2$. MSE $= (1+1+1+25)/4 = 7$, RMSE $\approx 2.65$. Squaring makes the big error count more.</div></div>
+</div>

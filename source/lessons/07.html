@@ -1,0 +1,168 @@
+<h2 id="why">Why we need gradient descent</h2>
+<p>In Lesson 6, linear regression had a formula for the best weights: set the derivatives to zero and solve. That's a lucky special case. For almost every other model — logistic regression, neural networks, most of modern ML — no such formula exists. And even for linear regression, the formula becomes too slow with many features.</p>
+<p><strong>Gradient descent</strong> is the general-purpose answer. It doesn't need a formula for the minimum; it only needs to know which way is downhill. It is the optimisation method behind almost every model you'll meet from here on, including the largest neural networks.</p>
+
+<h2 id="hiker">The idea: a hiker in the fog</h2>
+<div class="box intuition"><div class="box-title">Analogy</div>
+<p>You're on a mountain in thick fog and want to reach the valley. You can't see the bottom, but you can feel the slope under your feet. Strategy: feel which way is steepest downhill, take a step that way, and repeat. Eventually you reach the bottom.</p>
+<p>In ML: your position is the model's <strong>parameters</strong>, your altitude is the <strong>loss</strong>, and "feeling the slope" is computing the <strong>gradient</strong> (Lesson 3).</p></div>
+<p>Recall that the gradient $\nabla L$ is the vector of partial derivatives and points <em>uphill</em> — the direction in which the loss grows fastest. So we step the opposite way:</p>
+$$\boxed{\ \mathbf{w} \leftarrow \mathbf{w} - \eta\,\nabla L(\mathbf{w})\ }$$
+<ul>
+<li>$\mathbf{w}$ — all the parameters (weights and bias).</li>
+<li>$\nabla L(\mathbf{w})$ — the gradient of the loss at the current parameters.</li>
+<li>$\eta$ ("eta") — the <strong>learning rate</strong>, a small positive number controlling the step size.</li>
+<li>$\leftarrow$ — "replace with". We repeat this update many times.</li>
+</ul>
+
+<h2 id="algorithm">The algorithm, step by step</h2>
+<ol class="steps">
+<li><strong>Initialise</strong> the parameters, e.g. all zeros or small random numbers.</li>
+<li><strong>Predict</strong> with the current parameters and compute the loss.</li>
+<li><strong>Compute the gradient</strong> of the loss with respect to every parameter.</li>
+<li><strong>Update</strong> every parameter: subtract learning rate × its partial derivative.</li>
+<li><strong>Repeat</strong> steps 2–4 until the loss stops improving (or for a fixed number of steps).</li>
+</ol>
+
+<h2 id="gradient-mse">The gradient for linear regression</h2>
+<p>For the model $\hat{y}_i = wx_i + b$ and loss $L = \frac{1}{n}\sum_i(\hat{y}_i - y_i)^2$, apply the chain rule to each term. The derivative of $(\hat{y}_i - y_i)^2$ is $2(\hat{y}_i - y_i)$ times the derivative of $\hat{y}_i$, which is $x_i$ (for $w$) or $1$ (for $b$):</p>
+$$\frac{\partial L}{\partial w} = \frac{2}{n}\sum_{i=1}^{n}(\hat{y}_i - y_i)\,x_i \qquad\qquad \frac{\partial L}{\partial b} = \frac{2}{n}\sum_{i=1}^{n}(\hat{y}_i - y_i)$$
+<p>Read it in words: <em>each example votes on how to move the parameter, in proportion to its error.</em> If predictions are too high on average ($\hat{y} > y$), the gradient for $b$ is positive and the update lowers $b$. Examples with larger $x_i$ get more say in how $w$ moves.</p>
+<p>With many features, in matrix form (using a column of ones for the bias):</p>
+$$\nabla L(\mathbf{w}) = \frac{2}{n}X^\top(X\mathbf{w} - \mathbf{y})$$
+
+<h2 id="worked">Worked example: three steps by hand</h2>
+<div class="box example"><div class="box-title">Worked example — same data as Lesson 6</div>
+<p>Data: $x = 1, 2, 3, 4, 5$, $y = 2, 4, 5, 4, 5$. We know the answer should be $w = 0.6$, $b = 2.2$. Start from $w = 0$, $b = 0$ with learning rate $\eta = 0.05$.</p>
+<p><strong>Step 1.</strong> Predictions are all $0$, so the errors $\hat{y}_i - y_i$ are $-2, -4, -5, -4, -5$. Loss $= (4+16+25+16+25)/5 = 17.2$.</p>
+<p>$\frac{\partial L}{\partial w} = \frac{2}{5}\big((-2)(1) + (-4)(2) + (-5)(3) + (-4)(4) + (-5)(5)\big) = \frac{2}{5}(-66) = -26.4$</p>
+<p>$\frac{\partial L}{\partial b} = \frac{2}{5}(-2-4-5-4-5) = \frac{2}{5}(-20) = -8$</p>
+<p>Update: $w = 0 - 0.05\times(-26.4) = 1.32$, $\ b = 0 - 0.05\times(-8) = 0.4$.</p>
+<p><strong>Step 2.</strong> New predictions $1.72, 3.04, 4.36, 5.68, 7.00$. Loss drops to $1.646$. Gradients: $\frac{\partial L}{\partial w} = 5.04$, $\frac{\partial L}{\partial b} = 0.72$ (now positive: we overshot a little). Update: $w = 1.32 - 0.252 = 1.068$, $b = 0.4 - 0.036 = 0.364$.</p>
+<p><strong>Step 3.</strong> Loss $1.105$. And so on.</p>
+<table class="tbl">
+<thead><tr><th>Steps</th><th><i>w</i></th><th><i>b</i></th><th>Loss (MSE)</th></tr></thead>
+<tbody>
+<tr><td>0</td><td>0</td><td>0</td><td>17.2</td></tr>
+<tr><td>1</td><td>1.32</td><td>0.40</td><td>1.646</td></tr>
+<tr><td>10</td><td>1.041</td><td>0.607</td><td>0.942</td></tr>
+<tr><td>100</td><td>0.695</td><td>1.857</td><td>0.501</td></tr>
+<tr><td>1000</td><td>0.600</td><td>2.200</td><td>0.480</td></tr>
+</tbody></table>
+<p>The loss falls fast at first, then slowly creeps to the minimum of 0.48 — exactly the least-squares answer from Lesson 6.</p></div>
+
+<h2 id="demo">Try it: gradient descent on a loss landscape</h2>
+<p>The left panel is a <strong>contour map</strong> of the loss: each ring joins parameter values $(w, b)$ with the same loss, like height lines on a hiking map. The star marks the minimum. The right panel shows the current line through the data. Press <em>Step</em> or <em>Run</em> and watch the parameters walk downhill.</p>
+<p>Things to try: (1) set the learning rate above about 0.085 and watch it <strong>diverge</strong>; (2) set it very low and watch it crawl; (3) tick <em>standardise x</em> and see the long, narrow valley become round — and descent become much faster.</p>
+<div class="demo" data-demo="gd-contour"></div>
+
+<h2 id="learning-rate">Choosing the learning rate</h2>
+<p>The learning rate $\eta$ is the most important setting in gradient descent.</p>
+<ul>
+<li><strong>Too small:</strong> each step is tiny, so training takes forever.</li>
+<li><strong>Too large:</strong> steps overshoot the valley, bouncing from side to side. If it's large enough, each bounce goes higher than the last and the loss <strong>explodes</strong> (divergence).</li>
+<li><strong>Just right:</strong> fast, steady progress to the minimum.</li>
+</ul>
+<div class="box example"><div class="box-title">Worked example — overshooting on $L(w) = w^2$</div>
+<p>The gradient is $2w$, so the update is $w \leftarrow w - \eta\cdot2w = (1 - 2\eta)\,w$. Start at $w = 1$:</p>
+<ul>
+<li>$\eta = 0.1$: multiply by $0.8$ each step → $0.8, 0.64, 0.51, \dots$ smooth convergence.</li>
+<li>$\eta = 0.9$: multiply by $-0.8$ → $-0.8, 0.64, -0.51, \dots$ bouncing across the valley, but still shrinking.</li>
+<li>$\eta = 1.1$: multiply by $-1.2$ → $-1.2, 1.44, -1.73, \dots$ growing: <strong>divergence</strong>.</li>
+</ul>
+<p>The stable limit here is $\eta &lt; 1$. Steeper bowls have smaller limits.</p></div>
+<div class="box tip"><div class="box-title">Practical recipe</div>
+<p>Try values spaced by factors of 10 (0.001, 0.01, 0.1, …) and plot loss vs step for each. Pick the largest one where the loss falls smoothly. Many libraries also <em>decrease</em> the learning rate during training — a <strong>learning-rate schedule</strong> — taking big steps early and small, careful steps near the minimum.</p></div>
+
+<h2 id="scaling">Why feature scaling matters</h2>
+<p>If one feature ranges from 0 to 1 and another from 0 to 100,000, the loss landscape becomes a long, narrow valley: very steep in one direction, almost flat in the other. A learning rate small enough to avoid bouncing in the steep direction is far too small for the flat direction, so gradient descent zigzags slowly along the valley floor.</p>
+<p><strong>Standardising</strong> features (subtract the mean, divide by the standard deviation, Lesson 4) makes the valley rounder, so the gradient points more directly at the minimum. In the demo, our $x$ values 1–5 aren't centred, which already creates a stretched valley; at $\eta = 0.05$, standardising $x$ cuts the number of steps needed to get within $0.001$ of the minimum loss from 190 to 47.</p>
+
+<h2 id="convergence">When to stop</h2>
+<ul>
+<li><strong>Fixed budget</strong> — run a set number of steps (or <em>epochs</em>: full passes over the data).</li>
+<li><strong>Tolerance</strong> — stop when the loss improves by less than a tiny amount, or the gradient is nearly zero.</li>
+<li><strong>Early stopping</strong> — watch the loss on a <em>validation</em> set (Lesson 5) and stop when it starts rising, which signals overfitting.</li>
+</ul>
+<div class="box warn"><div class="box-title">Local minima</div>
+<p>For linear regression, the loss is a single bowl (it's <strong>convex</strong>): every downhill path leads to the same, global minimum. For neural networks the landscape has many hills and valleys, so gradient descent may settle in a <strong>local minimum</strong>. In practice, for large networks, these local minima are usually good enough — but it's why the starting point and learning rate matter.</p></div>
+
+<h2 id="variants">Batch, stochastic and mini-batch</h2>
+<p>Computing the exact gradient uses every training example. With millions of examples that's expensive for a single step. Three variants trade accuracy of each step for speed:</p>
+<table class="tbl">
+<thead><tr><th>Variant</th><th>Examples per update</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td><strong>Batch GD</strong></td><td>All $n$</td><td>Exact gradient, smooth path</td><td>Slow per step on big data</td></tr>
+<tr><td><strong>Stochastic GD (SGD)</strong></td><td>1 (random)</td><td>Very cheap steps; noise can help escape bad spots</td><td>Noisy, zigzag path</td></tr>
+<tr><td><strong>Mini-batch GD</strong></td><td>A small batch, e.g. 32–256</td><td>Best of both; efficient on GPUs</td><td>One more setting (batch size)</td></tr>
+</tbody></table>
+<p>The update has the same form; only the gradient is estimated from fewer examples. Mini-batch is the standard choice for neural networks. An <strong>epoch</strong> means one full pass over the training data, however many updates that takes.</p>
+<div class="box intuition"><div class="box-title">Why can noisy steps still work?</div>
+<p>The gradient from a random sample points in the right direction <em>on average</em>. Like asking a few random people for directions instead of polling the whole town: each answer is a bit off, but you move much sooner, and the errors average out over many steps.</p></div>
+
+<h2 id="code">In Python</h2>
+<p>Gradient descent from scratch, exactly as in the worked example:</p>
+<pre><code>import numpy as np
+
+x = np.array([1, 2, 3, 4, 5], dtype=float)
+y = np.array([2, 4, 5, 4, 5], dtype=float)
+
+w, b = 0.0, 0.0
+lr = 0.05
+for step in range(1000):
+    y_hat = w * x + b
+    error = y_hat - y
+    grad_w = 2 * np.mean(error * x)     # dL/dw
+    grad_b = 2 * np.mean(error)         # dL/db
+    w -= lr * grad_w
+    b -= lr * grad_b
+    if step in (0, 9, 99, 999):
+        print(step + 1, round(w, 3), round(b, 3), round(np.mean((w * x + b - y) ** 2), 3))</code></pre>
+<p>Output (step, w, b, loss after the update):</p>
+<pre><code>1 1.32 0.4 1.646
+10 1.041 0.607 0.942
+100 0.695 1.857 0.501
+1000 0.6 2.2 0.48</code></pre>
+<p>Mini-batch SGD on many features, with scikit-learn. <code>SGDRegressor</code> is sensitive to feature scales, so we standardise inside a pipeline:</p>
+<pre><code>from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import SGDRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+
+X, y = load_diabetes(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+model = make_pipeline(StandardScaler(),
+                      SGDRegressor(learning_rate="invscaling", eta0=0.01, max_iter=1000, random_state=0))
+model.fit(X_train, y_train)
+print(round(model.score(X_test, y_test), 3))     # R² on the test set</code></pre>
+<p>Output: <code>0.456</code> — essentially the same $R^2$ as the exact solution in Lesson 6 (0.453), reached by walking downhill instead of solving equations.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Gradient descent repeats $\mathbf{w} \leftarrow \mathbf{w} - \eta\nabla L(\mathbf{w})$: step against the gradient.</li>
+<li>For MSE: $\frac{\partial L}{\partial w} = \frac{2}{n}\sum(\hat{y}_i - y_i)x_i$ and $\frac{\partial L}{\partial b} = \frac{2}{n}\sum(\hat{y}_i - y_i)$.</li>
+<li>The <strong>learning rate</strong> must be small enough not to diverge, large enough to make progress.</li>
+<li><strong>Standardise features</strong> so the loss landscape is round and descent is fast.</li>
+<li><strong>Mini-batch SGD</strong> estimates the gradient from small random batches — the standard for large data and neural networks.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. Current $w = 2$, gradient $\partial L/\partial w = 4$, learning rate $0.1$. What is the new $w$?</p>
+<button data-opt="a">2.4</button><button data-opt="b">1.6</button><button data-opt="c">-2</button>
+<div class="q-explain">$w - \eta\cdot\text{grad} = 2 - 0.1\times4 = 1.6$.</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. Your loss gets bigger every step and eventually becomes "nan". The most likely cause?</p>
+<button data-opt="a">Learning rate too small</button><button data-opt="b">Too much training data</button><button data-opt="c">Learning rate too large</button>
+<div class="q-explain">Steps overshoot the minimum by more each time — divergence. Reduce the learning rate (and check feature scaling).</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. Which variant uses a single random example per update?</p>
+<button data-opt="a">Stochastic gradient descent</button><button data-opt="b">Batch gradient descent</button><button data-opt="c">The normal equation</button>
+<div class="q-explain">SGD uses one example at a time; batch uses all; mini-batch uses a small group.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. Why does standardising features usually speed up gradient descent?</p>
+<button data-opt="a">It reduces the number of parameters</button><button data-opt="b">It makes the loss landscape rounder, so the gradient points more directly at the minimum</button><button data-opt="c">It removes the need for a learning rate</button>
+<div class="q-explain">Different feature scales create long narrow valleys that make descent zigzag. Similar scales give a rounder bowl.</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. All predictions are too high. What sign does $\partial L/\partial b$ have, and what happens to $b$?</p>
+<button data-opt="a">Negative; $b$ increases</button><button data-opt="b">Zero; $b$ stays the same</button><button data-opt="c">Positive; $b$ decreases</button>
+<div class="q-explain">$\frac{\partial L}{\partial b} = \frac{2}{n}\sum(\hat{y}_i - y_i) &gt; 0$ when predictions are too high, so $b \leftarrow b - \eta(\text{positive})$ decreases — lowering every prediction.</div></div>
+</div>

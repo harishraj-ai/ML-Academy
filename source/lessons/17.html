@@ -1,0 +1,156 @@
+<h2 id="why">Too many features</h2>
+<p>A small 8×8 image of a handwritten digit is 64 numbers. A 1-megapixel photo is 3 million. A customer record might have hundreds of columns. Lots of features cause real problems:</p>
+<ul>
+<li><strong>The curse of dimensionality</strong> (Lesson 11): in many dimensions, data is sparse and distances lose meaning.</li>
+<li><strong>Overfitting</strong>: more features means more parameters to fit noise (Lesson 10).</li>
+<li><strong>Slowness</strong> and memory use grow with the number of features.</li>
+<li><strong>We can't see it</strong>: humans can plot 2 or 3 dimensions, not 64.</li>
+</ul>
+<p>Fortunately, real features are often <strong>redundant</strong>. Height in cm and height in inches carry the same information; neighbouring pixels in an image are strongly correlated. <strong>Dimensionality reduction</strong> compresses many features into a few new ones while keeping most of the information. The most important method is <strong>principal component analysis (PCA)</strong>.</p>
+<div class="box intuition"><div class="box-title">Analogy: photographing a teapot</div>
+<p>You have to describe a 3D teapot with a single 2D photo. Some angles (straight down from the top) lose almost everything — you just see a circle. The best angle, from the side, shows the spout, handle and lid: the photo keeps the most "spread-out" view of the object. PCA finds the best camera angle for your data: the directions in which the data varies the most.</p></div>
+
+<h2 id="variance-idea">The key idea: keep the directions with the most variance</h2>
+<p>Imagine points in 2D that lie roughly along a diagonal line. Two numbers $(x_1, x_2)$ describe each point, but really the points differ mainly in one way: how far along the line they are. If we rotate our axes so the first axis runs along the line, then:</p>
+<ul>
+<li>the first new coordinate captures almost all the differences between points;</li>
+<li>the second new coordinate (perpendicular) is nearly the same for every point — mostly noise.</li>
+</ul>
+<p>Dropping the second coordinate loses very little. That's PCA: <strong>find new axes, ordered by how much of the data's variance they capture, and keep only the first few</strong>.</p>
+<div class="box def"><div class="box-title">Principal components</div>
+<p>The <strong>first principal component</strong> (PC1) is the direction along which the data has the largest variance. The second (PC2) is the direction of largest remaining variance that is perpendicular to PC1, and so on. With $d$ features there are $d$ principal components; we keep the first $k$.</p></div>
+
+<h2 id="demo">Try it: find the best direction</h2>
+<p>Rotate the orange line. Each point is projected (dropped at a right angle) onto the line, and the readout shows the variance of those projected positions — how much "spread" this 1D view keeps. Find the angle that maximises it: that's PC1. Press <em>Snap to PC1</em> to check, and notice that the best direction also minimises the total squared length of the projection lines (the information lost).</p>
+<div class="demo" data-demo="pca"></div>
+
+<h2 id="covariance">Measuring how features vary together: covariance</h2>
+<p>To find directions of maximum variance, we need to know how features vary <em>together</em>. The <strong>covariance</strong> of two features (after subtracting their means) is the average product of their deviations:</p>
+$$\text{cov}(x_1, x_2) = \frac{1}{n-1}\sum_{i=1}^{n}(x_{i1} - \bar{x}_1)(x_{i2} - \bar{x}_2)$$
+<ul>
+<li>Positive: they tend to be above average together (like height and weight).</li>
+<li>Negative: when one is above average, the other tends to be below.</li>
+<li>Near zero: no linear relationship.</li>
+</ul>
+<p>The covariance of a feature with itself is its variance (Lesson 4). Putting all the pairs in a table gives the <strong>covariance matrix</strong> $\Sigma$ ($d \times d$, symmetric). For centred data matrix $X_c$ it's simply</p>
+$$\Sigma = \frac{1}{n-1}X_c^\top X_c$$
+
+<h2 id="eigen">Eigenvectors: the directions PCA finds</h2>
+<p>Here's the central fact (proved in linear algebra courses): <strong>the principal components are the eigenvectors of the covariance matrix, and the variance along each one is its eigenvalue.</strong></p>
+<p>An <strong>eigenvector</strong> of a matrix $\Sigma$ is a special direction $\mathbf{v}$ that the matrix only stretches, without turning:</p>
+$$\Sigma\mathbf{v} = \lambda\mathbf{v}$$
+<p>The stretch factor $\lambda$ is the <strong>eigenvalue</strong>. For a covariance matrix, eigenvectors are perpendicular to each other and eigenvalues are never negative. Sorting the eigenvectors by eigenvalue, largest first, gives PC1, PC2, …</p>
+<p>The fraction of the total variance captured by component $j$ is the <strong>explained variance ratio</strong>:</p>
+$$\text{explained}_j = \frac{\lambda_j}{\lambda_1 + \lambda_2 + \dots + \lambda_d}$$
+<div class="box tip"><div class="box-title">For 2×2 matrices there's a formula</div>
+<p>For $\Sigma = \begin{bmatrix} a & b\\ b & c\end{bmatrix}$ the eigenvalues are $\lambda = \frac{a+c}{2} \pm \sqrt{\left(\frac{a-c}{2}\right)^2 + b^2}$. Bigger matrices are handled by software (scikit-learn computes PCA with the singular value decomposition, an equivalent and more numerically stable method).</p></div>
+
+<h2 id="worked">Worked example: PCA by hand</h2>
+<div class="box example"><div class="box-title">Worked example — five points in 2D</div>
+<p>Data: $(1, 2),\ (2, 3),\ (3, 5),\ (4, 4),\ (5, 6)$.</p>
+<p><strong>Step 1 — centre.</strong> Means: $\bar{x}_1 = 3$, $\bar{x}_2 = 4$. Subtract them:</p>
+$$(-2, -2),\ (-1, -1),\ (0, 1),\ (1, 0),\ (2, 2)$$
+<p><strong>Step 2 — covariance matrix</strong> (dividing by $n - 1 = 4$):</p>
+<p>$\text{var}(x_1) = \frac{4 + 1 + 0 + 1 + 4}{4} = 2.5$, $\ \text{var}(x_2) = \frac{4 + 1 + 1 + 0 + 4}{4} = 2.5$,<br>
+$\text{cov}(x_1, x_2) = \frac{4 + 1 + 0 + 0 + 4}{4} = 2.25$.</p>
+$$\Sigma = \begin{bmatrix} 2.5 & 2.25 \\ 2.25 & 2.5\end{bmatrix}$$
+<p><strong>Step 3 — eigenvalues:</strong> $\lambda = 2.5 \pm \sqrt{0 + 2.25^2} = 2.5 \pm 2.25$, so $\lambda_1 = 4.75$ and $\lambda_2 = 0.25$.</p>
+<p><strong>Step 4 — eigenvectors:</strong> PC1 $= \frac{1}{\sqrt2}(1, 1)$, the diagonal. Check: $\Sigma\,(1, 1) = (2.5 + 2.25,\ 2.25 + 2.5) = (4.75, 4.75) = 4.75\,(1, 1)$ ✓. PC2 $= \frac{1}{\sqrt2}(1, -1)$, perpendicular.</p>
+<p><strong>Step 5 — explained variance:</strong> PC1 keeps $\frac{4.75}{4.75 + 0.25} = 95\%$ of the variance. One number per point instead of two, losing only 5%.</p>
+<p><strong>Step 6 — project:</strong> each point's new coordinate is the dot product of its centred vector with PC1. For $(-2, -2)$: $\frac{-2 - 2}{\sqrt2} \approx -2.83$. All five: $-2.83,\ -1.41,\ 0.71,\ 0.71,\ 2.83$.</p></div>
+
+<h2 id="algorithm">PCA step by step</h2>
+<ol class="steps">
+<li><strong>Centre</strong> the data (subtract each feature's mean). Usually also <strong>standardise</strong> (divide by the standard deviation) if features are in different units — otherwise a feature measured in large numbers dominates the variance.</li>
+<li>Compute the <strong>covariance matrix</strong> (or use the SVD directly).</li>
+<li>Find its <strong>eigenvectors and eigenvalues</strong>, sorted by eigenvalue.</li>
+<li>Choose $k$ and keep the top $k$ eigenvectors as the columns of a matrix $W_k$ ($d \times k$).</li>
+<li><strong>Project</strong>: $Z = X_c W_k$, giving $n \times k$ new features.</li>
+</ol>
+<p>You can also approximately <strong>reconstruct</strong> the original data from the compressed version: $\hat{X} = Z W_k^\top + \bar{\mathbf{x}}$. The reconstruction error is exactly the variance you threw away.</p>
+
+<h2 id="choosing-k">How many components?</h2>
+<ul>
+<li><strong>Explained variance threshold:</strong> keep enough components to explain, say, 95% of the variance. In scikit-learn: <code>PCA(n_components=0.95)</code>.</li>
+<li><strong>Scree plot:</strong> plot eigenvalues in order and look for an elbow, as with k-means.</li>
+<li><strong>For a downstream model:</strong> treat $k$ as a hyperparameter and choose it by cross-validation.</li>
+<li><strong>For visualisation:</strong> $k = 2$ or $3$.</li>
+</ul>
+
+<h2 id="uses-limits">Uses and limitations</h2>
+<table class="tbl">
+<thead><tr><th>Good for</th><th>Watch out for</th></tr></thead>
+<tbody>
+<tr><td>Visualising high-dimensional data in 2D</td><td>Components are mixtures of features — harder to interpret</td></tr>
+<tr><td>Speeding up and regularizing other models</td><td>Only finds <em>linear</em> structure (straight directions)</td></tr>
+<tr><td>Removing noise (drop low-variance components)</td><td>High variance ≠ useful for prediction; a low-variance direction may matter for the label</td></tr>
+<tr><td>Compressing data</td><td>Sensitive to feature scale — standardise first</td></tr>
+</tbody></table>
+
+<h2 id="tsne">Beyond PCA: t-SNE and UMAP for visualisation</h2>
+<p>When structure is curved (like the moons in Lesson 16), a linear projection can squash different groups on top of each other. <strong>t-SNE</strong> is a non-linear method designed purely for visualisation: it places points in 2D so that points that were <em>neighbours</em> in the original space stay neighbours. Its main setting, <strong>perplexity</strong>, roughly controls how many neighbours each point pays attention to. <strong>UMAP</strong> is a newer, faster method with a similar goal.</p>
+<div class="box warn"><div class="box-title">Reading t-SNE plots safely</div>
+<p>t-SNE pictures are easy to over-interpret. The authors of the guide "How to Use t-SNE Effectively" show that cluster <em>sizes</em> in a t-SNE plot mean nothing, distances <em>between</em> well-separated clusters may not mean anything either, and with a low perplexity even pure random noise can appear to form clusters. Different runs can give different pictures. Use t-SNE to explore, never as proof — and unlike PCA, it can't transform new data for a model.</p></div>
+
+<h2 id="code">In Python</h2>
+<p>The digits dataset: 1,797 images of handwritten digits, each 8×8 = 64 pixel features.</p>
+<pre><code>import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+
+X, y = load_digits(return_X_y=True)
+pca = PCA().fit(X)
+cum = np.cumsum(pca.explained_variance_ratio_)
+for k in [2, 10, 20, 30]:
+    print(f"{k:2d} components keep {cum[k-1]:.1%} of the variance")
+print("components needed for 95%:", np.argmax(cum >= 0.95) + 1)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, stratify=y, random_state=0)
+for k in [5, 10, 20, 40, 64]:
+    model = make_pipeline(StandardScaler(), PCA(n_components=k), LogisticRegression(max_iter=2000))
+    model.fit(X_train, y_train)
+    print(f"{k:2d} components: test accuracy {model.score(X_test, y_test):.3f}")</code></pre>
+<p>Output:</p>
+<pre><code> 2 components keep 28.5% of the variance
+10 components keep 73.8% of the variance
+20 components keep 89.4% of the variance
+30 components keep 95.9% of the variance
+components needed for 95%: 29
+ 5 components: test accuracy 0.820
+10 components: test accuracy 0.867
+20 components: test accuracy 0.956
+40 components: test accuracy 0.971
+64 components: test accuracy 0.969</code></pre>
+<p>29 of the 64 pixel features hold 95% of the variance. With 40 components the classifier is as accurate as with all 64 (slightly better, in fact), using under two-thirds of the features. Even 20 components give 95.6%. To plot the digits in 2D, use <code>PCA(n_components=2).fit_transform(X)</code> — or <code>sklearn.manifold.TSNE</code> for a non-linear picture.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Dimensionality reduction compresses many correlated features into a few new ones.</li>
+<li><strong>PCA</strong> finds perpendicular directions of maximum variance: the <strong>eigenvectors</strong> of the covariance matrix, ordered by <strong>eigenvalue</strong>.</li>
+<li>Explained variance ratio $= \lambda_j / \sum\lambda$; keep enough components for e.g. 95%.</li>
+<li>Centre (and usually standardise) first; project with $Z = X_c W_k$.</li>
+<li>PCA is linear; <strong>t-SNE</strong>/<strong>UMAP</strong> give non-linear pictures for exploration only.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. What is the first principal component?</p>
+<button data-opt="a">The feature with the largest values</button><button data-opt="b">The direction along which the data varies the most</button><button data-opt="c">The average of all features</button>
+<div class="q-explain">PC1 is the direction of maximum variance — the eigenvector of the covariance matrix with the largest eigenvalue.</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. Eigenvalues are 6, 3 and 1. What fraction of the variance do the first two components explain?</p>
+<button data-opt="a">60%</button><button data-opt="b">70%</button><button data-opt="c">90%</button>
+<div class="q-explain">$(6 + 3)/(6 + 3 + 1) = 9/10 = 90\%$.</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. Why standardise features before PCA?</p>
+<button data-opt="a">Otherwise features with large units dominate the variance, and so the components</button><button data-opt="b">PCA only accepts values between 0 and 1</button><button data-opt="c">It removes the need for eigenvectors</button>
+<div class="q-explain">PCA maximises variance; a feature in millimetres has far more raw variance than the same feature in metres.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. $\Sigma\mathbf{v} = 3\mathbf{v}$. What is $\mathbf{v}$ and what is 3?</p>
+<button data-opt="a">$\mathbf{v}$ is an eigenvalue, 3 is an eigenvector</button><button data-opt="b">$\mathbf{v}$ is an eigenvector, 3 is its eigenvalue</button><button data-opt="c">$\mathbf{v}$ is the mean, 3 is the variance</button>
+<div class="q-explain">The matrix only stretches $\mathbf{v}$ by the factor 3, so $\mathbf{v}$ is an eigenvector with eigenvalue 3.</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. A t-SNE plot shows one big cluster and one small one. What can you conclude about their real sizes?</p>
+<button data-opt="a">The big one has more spread in the original space</button><button data-opt="b">The big one has more points</button><button data-opt="c">Nothing reliable — cluster sizes in t-SNE plots don't carry meaning</button>
+<div class="q-explain">t-SNE expands dense clusters and contracts sparse ones, so visual sizes aren't trustworthy.</div></div>
+</div>

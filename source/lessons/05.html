@@ -1,0 +1,164 @@
+<h2 id="why">The real goal: doing well on data you've never seen</h2>
+<p>In Lesson 1 we said learning means "find the parameters that make the loss small". That's true — but there's a catch. A model's job is not to describe the data it was trained on; we already <em>know</em> the answers for that data. Its job is to make good predictions on <strong>new</strong> data: next month's houses, tomorrow's emails, a patient who walks in next week.</p>
+<p>This ability is called <strong>generalization</strong>, and it is the single most important idea in machine learning. This lesson explains how data is organised, why a model can fool you by memorising, and the techniques everyone uses to measure generalization honestly.</p>
+<div class="box intuition"><div class="box-title">Analogy: the exam</div>
+<p>A teacher gives students 50 practice questions. Student A memorises the 50 answers. Student B learns the methods behind them. On the practice questions both score 100%. On the real exam — new questions — Student A fails and Student B passes. A model that memorises its training data is Student A. We want Student B, and we need a fair exam to tell them apart.</p></div>
+
+<h2 id="data">What a dataset looks like</h2>
+<p>A typical supervised dataset is a table: one row per <strong>example</strong>, one column per <strong>feature</strong>, plus a <strong>label</strong> column. From Lesson 2, the features form a matrix $X$ of shape $n \times d$ ($n$ examples, $d$ features) and the labels form a vector $\mathbf{y}$ of length $n$.</p>
+<h3>Kinds of features</h3>
+<ul>
+<li><strong>Numerical</strong> — measured quantities: size in m², age, temperature. Can be <em>continuous</em> (any value) or <em>discrete</em> (counts like number of bedrooms).</li>
+<li><strong>Categorical</strong> — one of a fixed set of categories: colour (red/green/blue), city, product type. Computers need these converted to numbers (Lesson 20 shows how).</li>
+<li><strong>Ordinal</strong> — categories with a natural order: small &lt; medium &lt; large; ratings 1–5 stars.</li>
+<li><strong>Binary</strong> — yes/no, true/false, encoded as 1/0.</li>
+<li><strong>Text, images, audio</strong> — unstructured data that must be turned into numbers first (e.g. word counts, pixel values).</li>
+</ul>
+<h3>Good data matters more than clever algorithms</h3>
+<p>A model can only learn patterns that are actually in the data. Common problems:</p>
+<ul>
+<li><strong>Missing values</strong> — blanks in the table.</li>
+<li><strong>Errors and outliers</strong> — a house listed at 5 m², a typo adding three zeros to a price.</li>
+<li><strong>Too few examples</strong> — the model can't tell real patterns from coincidences.</li>
+<li><strong>Unrepresentative data</strong> — training only on city flats, then predicting rural farmhouses.</li>
+<li><strong>Wrong labels</strong> — mislabelled examples teach the wrong lesson.</li>
+</ul>
+<div class="box tip"><div class="box-title">The i.i.d. assumption</div>
+<p>Most ML assumes examples are <em>independent and identically distributed</em> (i.i.d.): each one is drawn from the same underlying source, without depending on the others. In plain words: the future data will look like the past data. When that stops being true — fashions change, a new competitor arrives — models quietly get worse. This is called <strong>distribution shift</strong> or <strong>drift</strong>.</p></div>
+
+<h2 id="underfit-overfit">Underfitting, good fit and overfitting</h2>
+<p>Imagine data that follows a gentle curve, plus some random noise. We can fit models of different <strong>complexity</strong> (flexibility):</p>
+<ul>
+<li><strong>Underfitting</strong> — the model is too simple to capture the pattern, e.g. a straight line through a curve. It's wrong on the training data <em>and</em> on new data. High error everywhere.</li>
+<li><strong>Good fit</strong> — the model captures the real pattern and ignores the noise. Low error on training data, and similarly low on new data.</li>
+<li><strong>Overfitting</strong> — the model is so flexible that it bends to pass through every training point, noise included. Training error is tiny, but on new data it makes wild mistakes.</li>
+</ul>
+<div class="box def"><div class="box-title">Definitions</div>
+<p><strong>Training error</strong>: the loss measured on the data the model was trained on.<br>
+<strong>Test (generalization) error</strong>: the loss on new data the model has never seen.<br>
+<strong>Overfitting</strong>: training error ≪ test error. <strong>Underfitting</strong>: both are high.</p></div>
+<p>Training error almost always keeps falling as complexity grows — a more flexible model can always fit the training points better. Test error, however, falls at first and then <em>rises again</em> once the model starts fitting noise. The sweet spot is the bottom of the test-error curve.</p>
+
+<h2 id="demo-overfit">Try it: watch overfitting happen</h2>
+<p>The blue dots are training data and the orange dots are test data, both drawn from the same hidden curve plus noise. The green line is a polynomial of the chosen <strong>degree</strong> fitted to the training dots only. Increase the degree and watch: training error keeps shrinking, but past a point the curve starts wiggling to chase individual points, and the test error grows.</p>
+<div class="demo" data-demo="overfit"></div>
+<p>A polynomial of degree $k$ is $\hat{y} = w_0 + w_1x + w_2x^2 + \dots + w_kx^k$. With 12 training points, a degree-11 polynomial has 12 parameters and can pass through every point exactly — a perfect training score and a terrible model.</p>
+
+<h2 id="splits">The train / validation / test split</h2>
+<p>The fix is simple and non-negotiable: <strong>evaluate on data the model did not train on.</strong> Before doing anything else, split your data:</p>
+<table class="tbl">
+<thead><tr><th>Set</th><th>Used for</th><th>Typical share</th></tr></thead>
+<tbody>
+<tr><td><strong>Training set</strong></td><td>Fitting the model's parameters.</td><td>~70%</td></tr>
+<tr><td><strong>Validation set</strong></td><td>Comparing models and choosing settings (like the polynomial degree).</td><td>~15%</td></tr>
+<tr><td><strong>Test set</strong></td><td>One final, honest estimate of performance on new data.</td><td>~15%</td></tr>
+</tbody></table>
+<p>Google's Machine Learning Crash Course uses exactly this 70 / 15 / 15 illustration. The exact percentages vary; with very large datasets the validation and test sets can be a smaller share.</p>
+<div class="box warn"><div class="box-title">Why a separate validation set?</div>
+<p>If you try 20 different models and pick whichever scores best on the test set, you have used the test set to make decisions — you've tuned to it. Its score is now optimistic. The test set must stay locked away until the very end. Choices are made on the validation set; the test set gives the final verdict. Validation and test sets also "wear out": the more you reuse them, the less trustworthy they become.</p></div>
+<p>Rules for a good split:</p>
+<ul>
+<li><strong>Shuffle randomly</strong> before splitting (unless the data is a time series — then train on the past and test on the future).</li>
+<li>Make sure the test set is <strong>representative</strong> — the same mix of cases as real-world data.</li>
+<li><strong>No duplicates</strong> between training and test sets, or you're testing on memorised examples.</li>
+<li>For classification, use a <strong>stratified</strong> split so each set has the same proportion of each class.</li>
+</ul>
+
+<h2 id="cross-validation">k-fold cross-validation</h2>
+<p>With a small dataset, a single validation split is unreliable: the score depends heavily on <em>which</em> examples happened to land in it. <strong>k-fold cross-validation</strong> uses the data more efficiently:</p>
+<ol class="steps">
+<li>Split the training data into $k$ equal parts called <strong>folds</strong> (commonly $k = 5$ or $10$).</li>
+<li>Train on $k-1$ folds and evaluate on the remaining fold.</li>
+<li>Repeat $k$ times, so each fold is the validation fold exactly once.</li>
+<li>Report the <strong>mean</strong> (and standard deviation) of the $k$ scores.</li>
+</ol>
+$$\text{CV score} = \frac{1}{k}\sum_{j=1}^{k} \text{score}_j$$
+<div class="box example"><div class="box-title">Worked example — 5-fold CV</div>
+<p>A model's accuracy on the 5 validation folds: $0.82,\ 0.85,\ 0.80,\ 0.84,\ 0.84$.</p>
+<p>Mean: $(0.82 + 0.85 + 0.80 + 0.84 + 0.84)/5 = 4.15/5 = 0.83$.</p>
+<p>Deviations from the mean: $-0.01,\ 0.02,\ -0.03,\ 0.01,\ 0.01$. Squared: $0.0001,\ 0.0004,\ 0.0009,\ 0.0001,\ 0.0001$. Variance $= 0.0016/5 = 0.00032$, standard deviation $= \sqrt{0.00032} \approx 0.018$.</p>
+<p>We report <strong>0.83 ± 0.02</strong>. The ± tells you how much the score depends on the particular split — if two models differ by less than this, the difference may just be luck.</p></div>
+<p>Every example is used for validation exactly once and for training $k-1$ times. The cost: you train $k$ models instead of one. You still keep a separate test set for the very end.</p>
+
+<h2 id="leakage">Data leakage: the silent killer</h2>
+<p><strong>Data leakage</strong> happens when information from outside the training data sneaks into training, making evaluation look better than reality. Classic examples:</p>
+<ul>
+<li><strong>Preprocessing before splitting.</strong> Computing the mean and standard deviation for standardisation (Lesson 4) on <em>all</em> data, including the test set. The model has indirectly "seen" the test data.</li>
+<li><strong>Features that contain the answer.</strong> Predicting whether a customer will cancel, using a column "cancellation fee charged".</li>
+<li><strong>Time travel.</strong> Using future information to predict the past, e.g. randomly splitting stock prices so the model trains on Wednesday to predict Tuesday.</li>
+<li><strong>Duplicates</strong> across train and test.</li>
+</ul>
+<div class="box warn"><div class="box-title">The golden rule</div>
+<p>Split first. Then learn everything — scaling statistics, feature choices, model parameters — from the training data only, and merely <em>apply</em> it to validation and test data. scikit-learn's documentation states it directly: never call <code>fit</code> on the test data.</p></div>
+
+<h2 id="workflow">Putting it together</h2>
+<ol class="steps">
+<li>Split off a <strong>test set</strong> and don't look at it.</li>
+<li>On the training set, use <strong>cross-validation</strong> (or a validation set) to compare models and settings.</li>
+<li>Pick the best, then <strong>retrain</strong> it on the full training set.</li>
+<li>Evaluate <strong>once</strong> on the test set and report that number.</li>
+</ol>
+
+<h2 id="code">In Python</h2>
+<p>This experiment reproduces the demo: fit polynomials of increasing degree and compare training and test error.</p>
+<pre><code>import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import mean_squared_error
+
+rng = np.random.default_rng(0)
+x = rng.uniform(-3, 3, 30)
+y = np.sin(x) + rng.normal(0, 0.3, 30)          # hidden curve + noise
+X = x.reshape(-1, 1)                             # sklearn wants a 2D matrix
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=1)
+
+for degree in [1, 3, 9, 12]:
+    model = make_pipeline(PolynomialFeatures(degree), LinearRegression())
+    model.fit(X_train, y_train)
+    train_mse = mean_squared_error(y_train, model.predict(X_train))
+    test_mse = mean_squared_error(y_test, model.predict(X_test))
+    print(f"degree {degree:2d}: train MSE {train_mse:.3f}   test MSE {test_mse:.3f}")</code></pre>
+<p>Output:</p>
+<pre><code>degree  1: train MSE 0.217   test MSE 0.188
+degree  3: train MSE 0.041   test MSE 0.092
+degree  9: train MSE 0.010   test MSE 0.250
+degree 12: train MSE 0.006   test MSE 0.492</code></pre>
+<p>Degree 1 underfits: a straight line can't follow a sine wave, so both errors are high. Degree 3 fits well: both errors are low. As the degree rises to 9 and 12, training error keeps falling — but test error climbs to more than five times its best value. That's overfitting.</p>
+<p>And 5-fold cross-validation in two lines:</p>
+<pre><code>from sklearn.model_selection import cross_val_score
+
+model = make_pipeline(PolynomialFeatures(3), LinearRegression())
+scores = cross_val_score(model, X_train, y_train, cv=5, scoring="neg_mean_squared_error")
+print(-scores.mean(), scores.std())     # mean MSE across the 5 folds, and its spread</code></pre>
+<p>(scikit-learn reports errors as negative numbers so that "higher is better" for every score; we flip the sign back.)</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>The goal is <strong>generalization</strong>: good performance on new, unseen data.</li>
+<li><strong>Underfitting</strong> = too simple (both errors high). <strong>Overfitting</strong> = memorising noise (training error low, test error high).</li>
+<li>Always split: <strong>train</strong> to fit, <strong>validation</strong> to choose, <strong>test</strong> once at the end.</li>
+<li><strong>k-fold cross-validation</strong> gives a more reliable estimate: report mean ± standard deviation.</li>
+<li>Avoid <strong>data leakage</strong>: split first, fit everything on training data only.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="c"><p class="q-text">1. Training error 0.01, test error 2.5. What's happening?</p>
+<button data-opt="a">Underfitting</button><button data-opt="b">A good fit</button><button data-opt="c">Overfitting</button>
+<div class="q-explain">A huge gap between low training error and high test error means the model memorised the training data: <strong>overfitting</strong>.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. Training error 3.1, test error 3.3, and a simple model. What's the likely problem?</p>
+<button data-opt="a">Underfitting</button><button data-opt="b">Overfitting</button><button data-opt="c">Data leakage</button>
+<div class="q-explain">Both errors are high and similar: the model is too simple to capture the pattern — <strong>underfitting</strong>. Try a more flexible model or better features.</div></div>
+<div class="q" data-correct="b"><p class="q-text">3. Which set should you use to choose between 10 candidate models?</p>
+<button data-opt="a">The test set</button><button data-opt="b">The validation set (or cross-validation)</button><button data-opt="c">The training set</button>
+<div class="q-explain">Choices are made on validation data. The test set is reserved for one final, unbiased evaluation; the training score is too optimistic.</div></div>
+<div class="q" data-correct="c"><p class="q-text">4. In 5-fold cross-validation, how many models are trained?</p>
+<button data-opt="a">1</button><button data-opt="b">4</button><button data-opt="c">5</button>
+<div class="q-explain">One per fold: each of the 5 folds takes a turn as the validation set.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. You standardise all your data using its overall mean, then split into train and test. What's wrong?</p>
+<button data-opt="a">Data leakage: test data influenced the preprocessing</button><button data-opt="b">Nothing — that's the correct order</button><button data-opt="c">Overfitting caused by too many features</button>
+<div class="q-explain">The mean was computed partly from test data. Split first, compute statistics on the training set only, then apply them to the test set.</div></div>
+</div>

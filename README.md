@@ -1,12 +1,14 @@
 # ML Academy — machine learning from zero
 
+**Start learning: https://harishraj07022004-cpu.github.io/ML-Academy/**
+
 A free, beginner-first machine-learning course that runs entirely in the browser: 22 lessons (Lesson 0 to Lesson 21) with plain-English explanations, the maths step by step, worked examples, interactive demos and "what if?" calculators, real code with real outputs, quizzes, exercises that check your answers, end-of-part tests, spaced review, mini-projects, hidden interview questions and a printable workbook.
 
 No build step, no server code, no tracking, no external requests: everything — fonts, maths rendering, demos — is in this folder.
 
 ## Open it
 
-* **Online:** published with GitHub Pages (see below).
+* **Online:** https://harishraj07022004-cpu.github.io/ML-Academy/
 * **On your computer:** download or clone the repository and open `index.html` in a browser. Everything works from a local folder, offline.
   If your browser blocks something when opening files directly, serve the folder instead:
 
@@ -61,6 +63,10 @@ python tools/check_outputs.py --only 6 # just Lesson 6
 ```
 
 The report is written to `tools/check_report.md`. The library versions used for the published outputs are listed in `tools/versions.json` and on `changelog.html`.
+
+## Changing the course
+
+The pages, notebooks, code zip and workbook are generated from the files in [`source/`](source/). See [`source/BUILD.md`](source/BUILD.md) for what to edit and how to rebuild.
 
 ## Feedback
 

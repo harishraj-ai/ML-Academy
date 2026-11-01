@@ -1,0 +1,141 @@
+<h2 id="why">Why vectors and matrices?</h2>
+<p>In Lesson 1, each house was described by a list of numbers: size, bedrooms, distance. A whole dataset was a table of such lists. In maths, a list of numbers is called a <strong>vector</strong>, and a table of numbers is called a <strong>matrix</strong>. Almost every ML algorithm is written in this language, because it lets us describe operations on <em>thousands</em> of examples and features in one short line — and lets computers run them very fast.</p>
+<p>You only need a handful of ideas, and we'll build each one by hand before using code.</p>
+
+<h2 id="vectors">Vectors: lists of numbers with meaning</h2>
+<p>A vector is an ordered list of numbers. We write it in bold or with an arrow, and usually as a column:</p>
+$$\mathbf{x} = \begin{bmatrix} 50 \\ 1 \\ 2 \end{bmatrix}$$
+<p>This could be a house with size 50, 1 bedroom, 2 km from the city. The number of entries is the vector's <strong>dimension</strong>; this vector lives in 3-dimensional space, written $\mathbf{x} \in \mathbb{R}^3$ ("x is a vector of 3 real numbers"). The entries are called <strong>components</strong>, and we refer to them as $x_1, x_2, x_3$.</p>
+<div class="box intuition"><div class="box-title">Two ways to picture a vector</div>
+<p><strong>As a point</strong>: the vector $(3, 2)$ is the point 3 steps right and 2 steps up. <strong>As an arrow</strong>: an arrow from the origin $(0,0)$ to that point — it has a <em>direction</em> and a <em>length</em>. Both pictures are useful. In ML, each example is a point in "feature space", and similar examples are points close together.</p></div>
+
+<h2 id="vector-ops">Adding and scaling vectors</h2>
+<p><strong>Addition</strong> works component by component (the vectors must have the same dimension):</p>
+$$\begin{bmatrix} 1 \\ 2 \end{bmatrix} + \begin{bmatrix} 3 \\ -1 \end{bmatrix} = \begin{bmatrix} 1+3 \\ 2+(-1) \end{bmatrix} = \begin{bmatrix} 4 \\ 1 \end{bmatrix}$$
+<p>Geometrically: walk along the first arrow, then the second; you end at the sum.</p>
+<p><strong>Scalar multiplication</strong> multiplies every component by a single number (a <em>scalar</em>):</p>
+$$3 \begin{bmatrix} 1 \\ 2 \end{bmatrix} = \begin{bmatrix} 3 \\ 6 \end{bmatrix}$$
+<p>This stretches the arrow 3 times longer in the same direction. Multiplying by $-1$ flips it around.</p>
+<div class="box tip"><div class="box-title">Where you'll see this</div>
+<p>In gradient descent (Lesson 7), the update rule $\mathbf{w}_{\text{new}} = \mathbf{w} - \eta\,\nabla L$ is exactly "scale a vector, then subtract it from another vector".</p></div>
+
+<h2 id="length">Length (norm) and distance</h2>
+<p>The length of a vector — its <strong>norm</strong> — comes from Pythagoras' theorem. For $\mathbf{v} = (3, 4)$:</p>
+$$\|\mathbf{v}\| = \sqrt{3^2 + 4^2} = \sqrt{25} = 5$$
+<p>In general, for a vector with $d$ components:</p>
+$$\|\mathbf{v}\| = \sqrt{v_1^2 + v_2^2 + \dots + v_d^2} = \sqrt{\sum_{i=1}^{d} v_i^2}$$
+<p>This is the <strong>Euclidean</strong> (or L2) norm. The <strong>distance</strong> between two points is the length of their difference: $\text{dist}(\mathbf{a}, \mathbf{b}) = \|\mathbf{a} - \mathbf{b}\|$.</p>
+<div class="box example"><div class="box-title">Worked example — distance between two houses</div>
+<p>House A = (size 5, bedrooms 2), house B = (size 8, bedrooms 6). Difference $= (8-5,\ 6-2) = (3, 4)$. Distance $= \sqrt{9+16} = 5$.</p>
+<p>The k-nearest-neighbours algorithm (Lesson 11) classifies a new example by finding the training examples with the smallest distance to it — exactly this calculation.</p></div>
+<p>Another norm you'll meet is the <strong>L1 norm</strong>, the sum of absolute values: $\|\mathbf{v}\|_1 = |v_1| + |v_2| + \dots$. For $(3, 4)$ it is $7$ — the distance if you could only walk along a city grid. It appears in Lasso regularization (Lesson 10).</p>
+
+<h2 id="dot-product">The dot product — the most important operation in ML</h2>
+<p>The dot product takes two vectors of the same length and returns a single number: multiply matching components and add them up.</p>
+$$\mathbf{a} \cdot \mathbf{b} = a_1 b_1 + a_2 b_2 + \dots + a_d b_d = \sum_{i=1}^{d} a_i b_i$$
+<div class="box example"><div class="box-title">Worked example</div>
+<p>$\mathbf{a} = (2, 3, 1)$, $\mathbf{b} = (4, -1, 5)$.</p>
+<p>$\mathbf{a} \cdot \mathbf{b} = 2\cdot4 + 3\cdot(-1) + 1\cdot5 = 8 - 3 + 5 = 10$.</p></div>
+
+<h3>Why it matters: a prediction is a dot product</h3>
+<p>Suppose a model predicts price as $\text{price} = 3\cdot\text{size} + 20\cdot\text{bedrooms} - 5\cdot\text{distance}$. Put the <em>weights</em> in one vector $\mathbf{w} = (3, 20, -5)$ and the features in another $\mathbf{x} = (50, 1, 2)$. Then:</p>
+$$\hat{y} = \mathbf{w}\cdot\mathbf{x} = 3\cdot50 + 20\cdot1 + (-5)\cdot2 = 150 + 20 - 10 = 160$$
+<p>So a linear model's prediction <em>is</em> a dot product (plus a bias $b$): $\hat{y} = \mathbf{w}\cdot\mathbf{x} + b$. Each weight says how much its feature matters, and its sign says in which direction.</p>
+
+<h3>The geometric meaning: how aligned are two vectors?</h3>
+<p>The dot product also equals:</p>
+$$\mathbf{a}\cdot\mathbf{b} = \|\mathbf{a}\|\,\|\mathbf{b}\|\cos\theta$$
+<p>where $\theta$ is the angle between the arrows. Since $\cos 0° = 1$, $\cos 90° = 0$, $\cos 180° = -1$:</p>
+<ul>
+<li><strong>Positive</strong> dot product → vectors point in a similar direction.</li>
+<li><strong>Zero</strong> → perpendicular (called <em>orthogonal</em>): unrelated directions.</li>
+<li><strong>Negative</strong> → pointing in opposite directions.</li>
+</ul>
+<p>Dividing out the lengths gives <strong>cosine similarity</strong>, a score from $-1$ to $1$ widely used to compare documents, words and images:</p>
+$$\cos\theta = \frac{\mathbf{a}\cdot\mathbf{b}}{\|\mathbf{a}\|\,\|\mathbf{b}\|}$$
+
+<h2 id="demo-vectors">Try it: explore the dot product</h2>
+<p>Drag the tips of the two arrows. Watch how the dot product, the angle and the cosine similarity change. Notice the dot product is exactly zero when the arrows are at 90°.</p>
+<div class="demo" data-demo="dot-product"></div>
+
+<h2 id="matrices">Matrices: tables of numbers</h2>
+<p>A <strong>matrix</strong> is a rectangular grid of numbers. A matrix with $m$ rows and $n$ columns has <em>shape</em> $m \times n$. Our house dataset (4 houses × 3 features) is a $4 \times 3$ matrix, conventionally called $X$:</p>
+$$X = \begin{bmatrix} 50 & 1 & 2 \\ 80 & 2 & 5 \\ 120 & 3 & 12 \\ 150 & 4 & 3 \end{bmatrix}$$
+<p><strong>Each row is one example; each column is one feature.</strong> This convention is used throughout ML and in scikit-learn. The entry in row $i$, column $j$ is written $X_{ij}$; for example, $X_{32} = 3$ (house 3 has 3 bedrooms).</p>
+
+<h2 id="matvec">Matrix × vector: predicting for all examples at once</h2>
+<p>Multiplying a matrix by a vector means taking the <strong>dot product of each row</strong> with the vector:</p>
+$$X\mathbf{w} = \begin{bmatrix} \text{row}_1 \cdot \mathbf{w} \\ \text{row}_2 \cdot \mathbf{w} \\ \vdots \end{bmatrix}$$
+<div class="box example"><div class="box-title">Worked example — four predictions in one step</div>
+<p>With $\mathbf{w} = (3, 20, -5)$:</p>
+<p>Row 1: $3\cdot50 + 20\cdot1 - 5\cdot2 = 160$<br>
+Row 2: $3\cdot80 + 20\cdot2 - 5\cdot5 = 255$<br>
+Row 3: $3\cdot120 + 20\cdot3 - 5\cdot12 = 360$<br>
+Row 4: $3\cdot150 + 20\cdot4 - 5\cdot3 = 515$</p>
+$$X\mathbf{w} = \begin{bmatrix} 160 \\ 255 \\ 360 \\ 515 \end{bmatrix}$$
+<p>One expression, $\hat{\mathbf{y}} = X\mathbf{w}$, produced predictions for every house. That's why ML is written with matrices.</p></div>
+<p><strong>Shape rule:</strong> an $(m \times n)$ matrix times an $n$-vector gives an $m$-vector. The inner sizes ($n$) must match — each row needs exactly as many numbers as the vector has.</p>
+
+<h2 id="matmul">Matrix × matrix</h2>
+<p>To multiply $A$ ($m \times n$) by $B$ ($n \times p$), compute every row of $A$ dotted with every column of $B$. The result $C = AB$ has shape $m \times p$, with $C_{ij} = (\text{row } i \text{ of } A)\cdot(\text{column } j \text{ of } B)$.</p>
+<div class="box example"><div class="box-title">Worked example</div>
+$$\begin{bmatrix} 1 & 2 \\ 3 & 4 \end{bmatrix}\begin{bmatrix} 5 & 6 \\ 7 & 8 \end{bmatrix} = \begin{bmatrix} 1\cdot5+2\cdot7 & 1\cdot6+2\cdot8 \\ 3\cdot5+4\cdot7 & 3\cdot6+4\cdot8 \end{bmatrix} = \begin{bmatrix} 19 & 22 \\ 43 & 50 \end{bmatrix}$$</div>
+<div class="box warn"><div class="box-title">Order matters</div>
+<p>In general $AB \neq BA$. And the shapes must line up: $(m \times \mathbf{n})(\mathbf{n} \times p)$. If you ever see a "shapes not aligned" error in NumPy, this rule is why.</p></div>
+<p>Neural networks (Lesson 18) are mostly matrix multiplications: each layer computes $W\mathbf{x} + \mathbf{b}$ for a weight matrix $W$.</p>
+
+<h2 id="transpose">Transpose and the identity matrix</h2>
+<p>The <strong>transpose</strong> $A^\top$ flips a matrix over its diagonal: rows become columns.</p>
+$$\begin{bmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{bmatrix}^\top = \begin{bmatrix} 1 & 4 \\ 2 & 5 \\ 3 & 6 \end{bmatrix}$$
+<p>A $2\times3$ matrix becomes $3\times2$. You'll see it constantly: the dot product can be written $\mathbf{a}^\top\mathbf{b}$, and the linear regression solution (Lesson 6) contains $X^\top X$.</p>
+<p>The <strong>identity matrix</strong> $I$ has 1s on the diagonal and 0s elsewhere. It acts like the number 1: $I\mathbf{x} = \mathbf{x}$.</p>
+$$I_3 = \begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{bmatrix}$$
+
+<h2 id="numpy">Doing it in Python with NumPy</h2>
+<p>NumPy is the Python library for vectors and matrices. Everything above, in a few lines:</p>
+<pre><code>import numpy as np
+
+a = np.array([2, 3, 1])
+b = np.array([4, -1, 5])
+print(a + b)             # [6 2 6]      addition
+print(3 * a)             # [6 9 3]      scalar multiplication
+print(a @ b)             # 10           dot product
+print(np.linalg.norm(np.array([3, 4])))   # 5.0   length
+
+X = np.array([[50, 1, 2],
+              [80, 2, 5],
+              [120, 3, 12],
+              [150, 4, 3]])
+w = np.array([3, 20, -5])
+print(X.shape)           # (4, 3)  4 examples, 3 features
+print(X @ w)             # [160 255 360 515]   all predictions at once
+print(X.T.shape)         # (3, 4)  transpose</code></pre>
+<p>The <code>@</code> operator means matrix multiplication (or a dot product, for two vectors). Run this and compare with the hand calculations above — they match.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>A <strong>vector</strong> is a list of numbers — one example's features, or a model's weights.</li>
+<li>A <strong>matrix</strong> is a table — a dataset $X$ has one row per example and one column per feature.</li>
+<li>The <strong>norm</strong> measures length; $\|\mathbf{a}-\mathbf{b}\|$ measures distance between examples.</li>
+<li>The <strong>dot product</strong> $\mathbf{w}\cdot\mathbf{x} = \sum w_i x_i$ is how linear models make predictions, and it measures how aligned two vectors are.</li>
+<li>$X\mathbf{w}$ computes predictions for all examples at once. Inner dimensions must match.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. What is $(1, 2, 3)\cdot(4, 0, -1)$?</p>
+<button data-opt="a">-3</button><button data-opt="b">1</button><button data-opt="c">7</button>
+<div class="q-explain">$1\cdot4 + 2\cdot0 + 3\cdot(-1) = 4 + 0 - 3 = 1$.</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. What is the length of $(6, 8)$?</p>
+<button data-opt="a">14</button><button data-opt="b">7</button><button data-opt="c">10</button>
+<div class="q-explain">$\sqrt{36 + 64} = \sqrt{100} = 10$. (14 is the L1 norm.)</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. A dataset has 500 examples and 20 features. What is the shape of $X$?</p>
+<button data-opt="a">500 × 20</button><button data-opt="b">20 × 500</button><button data-opt="c">520 × 1</button>
+<div class="q-explain">Rows = examples, columns = features: $500 \times 20$.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. Two vectors have a dot product of 0. What does that tell you?</p>
+<button data-opt="a">They are identical</button><button data-opt="b">They are perpendicular</button><button data-opt="c">One of them must be zero</button>
+<div class="q-explain">$\cos 90° = 0$, so non-zero vectors with dot product 0 are at a right angle (orthogonal).</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. $A$ is $3\times4$ and $B$ is $4\times2$. What is the shape of $AB$?</p>
+<button data-opt="a">4 × 4</button><button data-opt="b">It's not allowed</button><button data-opt="c">3 × 2</button>
+<div class="q-explain">$(3\times\mathbf{4})(\mathbf{4}\times2)$: inner sizes match, result is outer sizes $3\times2$.</div></div>
+</div>

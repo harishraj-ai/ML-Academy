@@ -1,0 +1,167 @@
+<h2 id="idea">Learning without labels</h2>
+<p>Every model so far learned from labelled examples: houses with prices, emails marked spam. But most of the world's data has no labels. A shop has millions of purchase records; nobody has tagged each customer as "bargain hunter" or "loyal regular". <strong>Clustering</strong> finds natural groups in data on its own — examples within a group are similar to each other and different from those in other groups.</p>
+<p>Uses: customer segmentation, grouping news articles by topic, organising photos, finding unusual activity (points that fit no group), and compressing images by reducing them to a few colours.</p>
+<div class="box intuition"><div class="box-title">Analogy: sorting laundry</div>
+<p>Nobody tells you the categories, but looking at a pile of clothes you naturally form groups: whites, darks, colours. You're clustering by similarity. Different people might sort slightly differently — clustering has no single "right answer", which makes it both powerful and tricky to evaluate.</p></div>
+
+<h2 id="kmeans">k-means: the classic algorithm</h2>
+<p>k-means splits the data into exactly $k$ clusters (you choose $k$). Each cluster is represented by its <strong>centroid</strong> $\boldsymbol{\mu}_j$ — the average of its points. The goal is to make points close to their own centroid, measured by the <strong>inertia</strong> (within-cluster sum of squares):</p>
+$$\text{inertia} = \sum_{i=1}^{n}\ \min_{j}\ \|\mathbf{x}_i - \boldsymbol{\mu}_j\|^2$$
+<p>"For each point, the squared distance to its nearest centroid; add them all up." Lower is better.</p>
+<h3>Lloyd's algorithm</h3>
+<ol class="steps">
+<li><strong>Initialise:</strong> pick $k$ starting centroids (e.g. $k$ random data points).</li>
+<li><strong>Assign:</strong> put each point in the cluster of its nearest centroid.</li>
+<li><strong>Update:</strong> move each centroid to the mean of the points assigned to it.</li>
+<li><strong>Repeat</strong> steps 2–3 until the assignments stop changing.</li>
+</ol>
+<p>Each step can only lower (or keep) the inertia, so the algorithm always converges — usually within a few iterations.</p>
+<div class="box example"><div class="box-title">Worked example — k-means by hand in 1D</div>
+<p>Points: $1, 2, 3, 8, 9, 10$. $k = 2$. A deliberately bad start: centroids $\mu_1 = 1$, $\mu_2 = 2$.</p>
+<p><strong>Iteration 1 — assign:</strong> point 1 is nearest $\mu_1$; points 2, 3, 8, 9, 10 are nearest (or tied with) $\mu_2$. Clusters: $\{1\}$ and $\{2, 3, 8, 9, 10\}$.<br>
+<strong>Update:</strong> $\mu_1 = 1$, $\mu_2 = (2+3+8+9+10)/5 = 6.4$.</p>
+<p><strong>Iteration 2 — assign:</strong> point 2: distance 1 to $\mu_1$, 4.4 to $\mu_2$ → cluster 1. Point 3: 2 vs 3.4 → cluster 1. Points 8, 9, 10 → cluster 2. Clusters: $\{1, 2, 3\}$ and $\{8, 9, 10\}$.<br>
+<strong>Update:</strong> $\mu_1 = 2$, $\mu_2 = 9$.</p>
+<p><strong>Iteration 3:</strong> assignments don't change → converged.</p>
+<p>Inertia: $(1-2)^2 + 0 + (3-2)^2 + (8-9)^2 + 0 + (10-9)^2 = 4$.</p></div>
+
+<h2 id="demo">Try it: k-means step by step</h2>
+<p>Press <em>Step</em> to alternate between the assign and update steps and watch the centroids (✚) move. Try different $k$ values and new random starts. Then switch to the <em>moons</em> dataset: k-means tries to make round clusters and cuts the two curved shapes in the wrong place.</p>
+<div class="demo" data-demo="kmeans"></div>
+
+<h2 id="init">Initialisation matters: k-means++</h2>
+<p>Lloyd's algorithm always converges, but possibly to a <strong>local minimum</strong> — a poor clustering that a different start would beat. For example, two centroids might start inside the same natural group and split it, while another group gets merged with its neighbour.</p>
+<p>Two standard fixes:</p>
+<ul>
+<li><strong>k-means++</strong> initialisation: pick the first centroid at random, then pick each next one with probability proportional to its squared distance from the nearest centroid already chosen. Starting centroids end up spread out. It's scikit-learn's default.</li>
+<li><strong>Multiple restarts</strong> (<code>n_init</code>): run k-means several times from different starts and keep the result with the lowest inertia.</li>
+</ul>
+
+<h2 id="choosing-k">Choosing $k$</h2>
+<p>Inertia always decreases as $k$ grows — with $k = n$, every point is its own cluster and inertia is 0. So we can't just minimise it. Two common guides:</p>
+<h3>The elbow method</h3>
+<p>Plot inertia against $k$. It drops steeply while $k$ is below the true number of groups, then flattens. The "elbow" where it bends is a good choice.</p>
+<h3>The silhouette score</h3>
+<p>For each point $i$:</p>
+<ul>
+<li>$a(i)$ = average distance to the other points in its <strong>own</strong> cluster (how tight its cluster is);</li>
+<li>$b(i)$ = average distance to the points of the <strong>nearest other</strong> cluster (how far the next cluster is).</li>
+</ul>
+$$s(i) = \frac{b(i) - a(i)}{\max\big(a(i),\ b(i)\big)}$$
+<p>$s$ ranges from $-1$ to $1$: near 1 means well inside its cluster and far from others; near 0 means on a border; negative means probably in the wrong cluster. The <strong>silhouette score</strong> is the average over all points; choose the $k$ that maximises it.</p>
+<div class="box example"><div class="box-title">Worked example</div>
+<p>A point's average distance to its own cluster is $a = 1$, and to the nearest other cluster $b = 4$. Then $s = (4 - 1)/\max(1, 4) = 3/4 = 0.75$ — clearly well placed.</p>
+<p>If instead $a = 3$ and $b = 2$: $s = (2 - 3)/3 \approx -0.33$ — it's closer to the other cluster, so it's probably misassigned.</p></div>
+
+<h2 id="limits">Limitations of k-means</h2>
+<ul>
+<li>You must choose $k$ in advance.</li>
+<li>It assumes clusters are roughly <strong>round</strong> (spherical) and similar in size — because it assigns by distance to a centre. It fails on elongated, curved or nested shapes.</li>
+<li>It's sensitive to <strong>feature scales</strong> (use standardisation) and to outliers (they pull centroids).</li>
+<li>Every point is forced into some cluster, even outliers that belong nowhere.</li>
+</ul>
+
+<h2 id="hierarchical">Hierarchical clustering</h2>
+<p><strong>Agglomerative clustering</strong> builds clusters bottom-up:</p>
+<ol class="steps">
+<li>Start with every point as its own cluster.</li>
+<li>Merge the two closest clusters.</li>
+<li>Repeat until one cluster remains.</li>
+</ol>
+<p>The full history of merges forms a tree called a <strong>dendrogram</strong>. Cutting it at a chosen height gives any number of clusters — you don't have to pick $k$ before running it. "Closest clusters" needs a definition, called the <strong>linkage</strong>:</p>
+<table class="tbl">
+<thead><tr><th>Linkage</th><th>Distance between clusters</th><th>Tends to give</th></tr></thead>
+<tbody>
+<tr><td><strong>Single</strong></td><td>Closest pair of points</td><td>Long chains; follows curved shapes</td></tr>
+<tr><td><strong>Complete</strong></td><td>Farthest pair of points</td><td>Compact clusters</td></tr>
+<tr><td><strong>Average</strong></td><td>Average over all pairs</td><td>A compromise</td></tr>
+<tr><td><strong>Ward</strong></td><td>Merge that increases total within-cluster variance the least</td><td>Similar-sized round clusters, like k-means (scikit-learn default)</td></tr>
+</tbody></table>
+<p>The cost: it needs distances between all pairs of points, so it's slow for very large datasets.</p>
+
+<h2 id="dbscan">DBSCAN: clusters as dense regions</h2>
+<p><strong>DBSCAN</strong> (density-based spatial clustering of applications with noise) defines clusters as regions where points are packed closely together, separated by sparse regions. It has two settings:</p>
+<ul>
+<li><code>eps</code> ($\varepsilon$) — the radius of a point's neighbourhood;</li>
+<li><code>min_samples</code> — how many points must be within that radius for the region to count as dense.</li>
+</ul>
+<p>Each point becomes one of three types:</p>
+<ul>
+<li><strong>Core point</strong>: has at least <code>min_samples</code> points (counting itself, in scikit-learn) within distance $\varepsilon$.</li>
+<li><strong>Border point</strong>: not a core point itself, but within $\varepsilon$ of one.</li>
+<li><strong>Noise</strong>: neither — an outlier, labelled $-1$.</li>
+</ul>
+<p>Clusters grow by connecting core points that are within $\varepsilon$ of each other, then adding their border points.</p>
+<div class="box tip"><div class="box-title">Why DBSCAN is useful</div>
+<p>It finds clusters of <strong>any shape</strong>, works out the number of clusters itself, and explicitly flags outliers instead of forcing them into a cluster. Its weakness: a single $\varepsilon$ struggles when clusters have very different densities. <code>HDBSCAN</code> extends it to handle varying densities.</p></div>
+
+<h2 id="evaluating">How do you know a clustering is good?</h2>
+<p>Without labels, there's no accuracy to compute. Options:</p>
+<ul>
+<li><strong>Internal scores</strong> like silhouette — measure tightness and separation, but favour round clusters.</li>
+<li><strong>External scores</strong> when some true labels exist for checking, such as the <strong>adjusted Rand index (ARI)</strong>: 1 = identical to the true groups, about 0 = no better than random.</li>
+<li><strong>Usefulness</strong>: do the clusters make sense to domain experts and help the actual task?</li>
+</ul>
+
+<h2 id="code">In Python</h2>
+<p>Choosing $k$ on data with 4 hidden groups:</p>
+<pre><code>from sklearn.datasets import make_blobs, make_moons
+from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
+from sklearn.metrics import silhouette_score, adjusted_rand_score
+from sklearn.preprocessing import StandardScaler
+
+X, y_true = make_blobs(n_samples=500, centers=4, cluster_std=1.0, random_state=42)
+for k in range(2, 8):
+    km = KMeans(n_clusters=k, n_init=10, random_state=0).fit(X)
+    print(f"k={k}  inertia={km.inertia_:8.1f}  silhouette={silhouette_score(X, km.labels_):.3f}")</code></pre>
+<pre><code>k=2  inertia= 15737.1  silhouette=0.596
+k=3  inertia=  3426.3  silhouette=0.761
+k=4  inertia=   948.9  silhouette=0.791
+k=5  inertia=   855.9  silhouette=0.665
+k=6  inertia=   768.7  silhouette=0.561
+k=7  inertia=   681.0  silhouette=0.442</code></pre>
+<p>Inertia keeps falling, but its big drops stop after $k = 4$ (the elbow), and the silhouette score peaks at $k = 4$. Both point to the true number of groups.</p>
+<p>Curved clusters — where k-means struggles:</p>
+<pre><code>Xm, ym = make_moons(n_samples=300, noise=0.06, random_state=0)
+Xm = StandardScaler().fit_transform(Xm)
+
+km = KMeans(n_clusters=2, n_init=10, random_state=0).fit(Xm)
+db = DBSCAN(eps=0.3, min_samples=5).fit(Xm)
+ag = AgglomerativeClustering(n_clusters=2, linkage="single").fit(Xm)
+
+print("k-means ARI:", round(adjusted_rand_score(ym, km.labels_), 3))
+print("DBSCAN  ARI:", round(adjusted_rand_score(ym, db.labels_), 3),
+      " clusters:", len(set(db.labels_) - {-1}), " noise points:", list(db.labels_).count(-1))
+print("single-linkage ARI:", round(adjusted_rand_score(ym, ag.labels_), 3))</code></pre>
+<pre><code>k-means ARI: 0.47
+DBSCAN  ARI: 0.993  clusters: 2  noise points: 1
+single-linkage ARI: 1.0</code></pre>
+<p>k-means only half-recovers the two moons (ARI 0.47), because it cuts them with a straight line. DBSCAN finds both moons almost perfectly, works out by itself that there are 2 clusters, and flags 1 point as noise. Single-linkage hierarchical clustering follows the curves exactly.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Clustering finds groups in <strong>unlabelled</strong> data.</li>
+<li><strong>k-means</strong> alternates "assign to nearest centroid" and "move centroid to mean", minimising inertia $\sum\|\mathbf{x}_i - \boldsymbol{\mu}_{c(i)}\|^2$.</li>
+<li>Use <strong>k-means++</strong> and several restarts; choose $k$ with the elbow method or the <strong>silhouette score</strong> $\frac{b-a}{\max(a,b)}$.</li>
+<li>k-means assumes round clusters; <strong>hierarchical clustering</strong> and <strong>DBSCAN</strong> handle other shapes, and DBSCAN flags outliers.</li>
+<li>Scale features first, and judge clusters by whether they're useful.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. In k-means, after assigning points, each centroid is moved to…</p>
+<button data-opt="a">the point farthest from it</button><button data-opt="b">the mean of the points assigned to it</button><button data-opt="c">a random new location</button>
+<div class="q-explain">The update step sets each centroid to the average of its cluster, which minimises that cluster's sum of squared distances.</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. Why can't you choose $k$ by minimising inertia?</p>
+<button data-opt="a">Inertia can't be computed without labels</button><button data-opt="b">Inertia increases with $k$</button><button data-opt="c">Inertia always decreases as $k$ grows, reaching 0 when every point is its own cluster</button>
+<div class="q-explain">More clusters always fit at least as tightly, so inertia alone favours too many clusters. Look for the elbow or use silhouette.</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. A point has $a = 2$ and $b = 6$. What is its silhouette value?</p>
+<button data-opt="a">0.67</button><button data-opt="b">0.33</button><button data-opt="c">3</button>
+<div class="q-explain">$(6 - 2)/\max(2, 6) = 4/6 \approx 0.67$.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. Your data has two interlocking crescent shapes and a few outliers. Which method fits best?</p>
+<button data-opt="a">k-means with $k = 2$</button><button data-opt="b">DBSCAN</button><button data-opt="c">k-means with $k = 10$</button>
+<div class="q-explain">DBSCAN follows dense regions of any shape and labels outliers as noise.</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. In DBSCAN, what is a core point?</p>
+<button data-opt="a">The centre of a cluster</button><button data-opt="b">A point labelled as noise</button><button data-opt="c">A point with at least <code>min_samples</code> points within distance $\varepsilon$</button>
+<div class="q-explain">Core points sit in dense regions; clusters grow outwards from them.</div></div>
+</div>

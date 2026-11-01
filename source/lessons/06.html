@@ -1,0 +1,179 @@
+<h2 id="idea">The idea: draw the best straight line</h2>
+<p><strong>Linear regression</strong> is the "hello world" of machine learning — and still one of the most used models in industry. It predicts a number by assuming the label changes in a straight-line way with each feature. You met it in Lesson 1 when you moved sliders; now you'll learn exactly how the best line is computed, and why.</p>
+<p>It's worth learning thoroughly: logistic regression (Lesson 8), regularized models (Lesson 10), support vector machines (Lesson 15) and every neuron in a neural network (Lesson 18) are built on the same pattern of <em>weights × features + bias</em>.</p>
+
+<h2 id="model">The model</h2>
+<p>With a single feature $x$, the model is a straight line:</p>
+$$\hat{y} = w x + b$$
+<ul>
+<li>$w$ — the <strong>weight</strong> (slope): how much $\hat{y}$ changes when $x$ goes up by 1.</li>
+<li>$b$ — the <strong>bias</strong> (intercept): the prediction when $x = 0$.</li>
+</ul>
+<p>With $d$ features $x_1, \dots, x_d$, each gets its own weight:</p>
+$$\hat{y} = w_1x_1 + w_2x_2 + \dots + w_dx_d + b = \mathbf{w}\cdot\mathbf{x} + b$$
+<p>That's the dot product from Lesson 2. With two features the model is a flat <em>plane</em>; with more, a "hyperplane" — the same idea in more dimensions.</p>
+
+<h2 id="loss">What does "best" mean? Least squares</h2>
+<p>For each example $i$, the <strong>residual</strong> is the vertical gap between the true value and the line: $r_i = y_i - \hat{y}_i$. The best line is the one that makes the residuals as small as possible overall. Linear regression uses the <strong>mean squared error</strong>:</p>
+$$L(w, b) = \frac{1}{n}\sum_{i=1}^{n}\big(y_i - (wx_i + b)\big)^2$$
+<p>Minimising this is called <strong>ordinary least squares (OLS)</strong>. Why squares?</p>
+<ul>
+<li>Squaring makes every error positive, so errors above and below the line don't cancel out.</li>
+<li>Big errors are punished much more than small ones (an error of 4 costs 16; an error of 1 costs 1).</li>
+<li>The squared loss is a smooth bowl with exactly one bottom, so we can find the minimum with calculus.</li>
+</ul>
+<div class="box intuition"><div class="box-title">Picture it</div>
+<p>Each residual squared is literally the <em>area of a square</em> whose side is the residual. Least squares finds the line that makes the total area of all those squares as small as possible. The demo below draws them.</p></div>
+
+<h2 id="derivation">Finding the best line with calculus</h2>
+<p>At the bottom of a bowl the slope is zero in every direction. So we take the partial derivatives of $L$ (Lesson 3), set them to zero, and solve.</p>
+<p><strong>Step 1 — derivative with respect to $b$.</strong> By the chain rule, the derivative of $(y_i - wx_i - b)^2$ with respect to $b$ is $2(y_i - wx_i - b)\cdot(-1)$:</p>
+$$\frac{\partial L}{\partial b} = -\frac{2}{n}\sum_{i=1}^{n}(y_i - wx_i - b) = 0$$
+<p>Divide by $-2$, and split the sum: $\frac{1}{n}\sum y_i - w\frac{1}{n}\sum x_i - b = 0$. Using the means $\bar{x}$ and $\bar{y}$:</p>
+$$b = \bar{y} - w\bar{x}$$
+<p>So the best line always passes through the point $(\bar{x}, \bar{y})$ — the centre of the data.</p>
+<p><strong>Step 2 — derivative with respect to $w$.</strong> The inner derivative is now $-x_i$:</p>
+$$\frac{\partial L}{\partial w} = -\frac{2}{n}\sum_{i=1}^{n}(y_i - wx_i - b)\,x_i = 0$$
+<p>Substitute $b = \bar{y} - w\bar{x}$ and rearrange (a few lines of algebra) to get:</p>
+$$w = \frac{\sum_{i=1}^{n}(x_i - \bar{x})(y_i - \bar{y})}{\sum_{i=1}^{n}(x_i - \bar{x})^2}$$
+<div class="box tip"><div class="box-title">What the formula means</div>
+<p>The top measures how $x$ and $y$ move <em>together</em> (if $x$ is above its average when $y$ is above its average, the products are positive). The bottom measures how much $x$ varies. The slope is "how much $y$ moves with $x$, per unit of $x$'s own spread". In statistics these are the <em>covariance</em> and <em>variance</em>: $w = \text{cov}(x, y)/\text{var}(x)$.</p></div>
+
+<h2 id="worked">Worked example by hand</h2>
+<div class="box example"><div class="box-title">Worked example — fit a line to 5 points</div>
+<p>Data: $x = 1, 2, 3, 4, 5$ and $y = 2, 4, 5, 4, 5$.</p>
+<p><strong>Means:</strong> $\bar{x} = 15/5 = 3$, $\bar{y} = 20/5 = 4$.</p>
+<table class="tbl">
+<thead><tr><th><i>x<sub>i</sub></i></th><th><i>y<sub>i</sub></i></th><th><i>x<sub>i</sub></i> − <i>x̄</i></th><th><i>y<sub>i</sub></i> − <i>ȳ</i></th><th>product</th><th>(<i>x<sub>i</sub></i> − <i>x̄</i>)<sup>2</sup></th></tr></thead>
+<tbody>
+<tr><td>1</td><td>2</td><td>−2</td><td>−2</td><td>4</td><td>4</td></tr>
+<tr><td>2</td><td>4</td><td>−1</td><td>0</td><td>0</td><td>1</td></tr>
+<tr><td>3</td><td>5</td><td>0</td><td>1</td><td>0</td><td>0</td></tr>
+<tr><td>4</td><td>4</td><td>1</td><td>0</td><td>0</td><td>1</td></tr>
+<tr><td>5</td><td>5</td><td>2</td><td>1</td><td>2</td><td>4</td></tr>
+<tr><td colspan="4"><strong>Sum</strong></td><td><strong>6</strong></td><td><strong>10</strong></td></tr>
+</tbody></table>
+<p><strong>Slope:</strong> $w = 6/10 = 0.6$. <strong>Intercept:</strong> $b = 4 - 0.6\times3 = 2.2$.</p>
+<p>Best line: $\hat{y} = 0.6x + 2.2$.</p>
+<p><strong>Check the fit:</strong> predictions $2.8, 3.4, 4.0, 4.6, 5.2$; residuals $-0.8, 0.6, 1.0, -0.6, -0.2$; squared $0.64, 0.36, 1.00, 0.36, 0.04$, which sum to $2.4$. So $\text{MSE} = 2.4/5 = 0.48$. No other straight line gets a smaller MSE on these five points.</p>
+<p><strong>Use it:</strong> for $x = 6$, predict $\hat{y} = 0.6\times6 + 2.2 = 5.8$.</p></div>
+
+<h2 id="demo">Try it: least squares, live</h2>
+<p>Click on the chart to add points (click a point to remove it). The line is recalculated with the formulas above every time. The shaded squares are the squared residuals — the line always positions itself to make their total area as small as possible. Notice how a single far-away point (an outlier) drags the whole line towards it.</p>
+<div class="demo" data-demo="least-squares"></div>
+
+<h2 id="r2">How good is the fit? $R^2$</h2>
+<p>MSE depends on the units of $y$, so on its own it's hard to judge. The <strong>coefficient of determination</strong>, $R^2$, compares the model with the simplest possible baseline — always predicting the mean $\bar{y}$:</p>
+$$R^2 = 1 - \frac{\sum_i (y_i - \hat{y}_i)^2}{\sum_i (y_i - \bar{y})^2} = 1 - \frac{\text{SS}_{\text{res}}}{\text{SS}_{\text{tot}}}$$
+<ul>
+<li>$R^2 = 1$: perfect predictions.</li>
+<li>$R^2 = 0$: no better than predicting the average every time.</li>
+<li>$R^2 &lt; 0$: worse than the average (possible on test data with a bad model).</li>
+</ul>
+<div class="box example"><div class="box-title">Worked example</div>
+<p>From before: $\text{SS}_{\text{res}} = 2.4$. And $\text{SS}_{\text{tot}} = (-2)^2 + 0^2 + 1^2 + 0^2 + 1^2 = 6$.</p>
+<p>$R^2 = 1 - 2.4/6 = 0.6$. The line explains 60% of the variation in $y$.</p></div>
+
+<h2 id="multiple">Many features and the normal equation</h2>
+<p>With many features, writing separate formulas gets messy. Matrices (Lesson 2) make it clean. A neat trick: add a column of 1s to the data matrix $X$, so the bias becomes just another weight. Then all predictions are:</p>
+$$\hat{\mathbf{y}} = X\mathbf{w}$$
+<p>and the loss is $L(\mathbf{w}) = \frac{1}{n}\|X\mathbf{w} - \mathbf{y}\|^2$. Setting the gradient to zero, $\nabla L = \frac{2}{n}X^\top(X\mathbf{w} - \mathbf{y}) = \mathbf{0}$, gives the <strong>normal equation</strong>:</p>
+$$X^\top X\,\mathbf{w} = X^\top\mathbf{y} \quad\Longrightarrow\quad \mathbf{w} = (X^\top X)^{-1}X^\top\mathbf{y}$$
+<p>Here $(X^\top X)^{-1}$ is the <strong>inverse</strong> matrix — the matrix version of dividing.</p>
+<div class="box example"><div class="box-title">Worked example — the same 5 points, with matrices</div>
+<p>Each row of $X$ is $[1,\ x_i]$ (the 1 is for the bias):</p>
+$$X = \begin{bmatrix}1&1\\1&2\\1&3\\1&4\\1&5\end{bmatrix},\quad X^\top X = \begin{bmatrix}5 & 15\\15 & 55\end{bmatrix},\quad X^\top\mathbf{y} = \begin{bmatrix}20\\66\end{bmatrix}$$
+<p>($5$ = number of points, $15 = \sum x_i$, $55 = \sum x_i^2$, $20 = \sum y_i$, $66 = \sum x_iy_i$.)</p>
+<p>The inverse of a $2\times2$ matrix $\begin{bmatrix}a&b\\c&d\end{bmatrix}$ is $\frac{1}{ad-bc}\begin{bmatrix}d&-b\\-c&a\end{bmatrix}$. Here $ad - bc = 275 - 225 = 50$:</p>
+$$\mathbf{w} = \frac{1}{50}\begin{bmatrix}55 & -15\\-15 & 5\end{bmatrix}\begin{bmatrix}20\\66\end{bmatrix} = \frac{1}{50}\begin{bmatrix}110\\30\end{bmatrix} = \begin{bmatrix}2.2\\0.6\end{bmatrix}$$
+<p>Bias $2.2$, slope $0.6$ — exactly what we found before.</p></div>
+<div class="box warn"><div class="box-title">When the normal equation struggles</div>
+<p>Inverting $X^\top X$ costs roughly $d^3$ operations, so with hundreds of thousands of features it becomes slow. It also breaks when features are perfectly correlated (e.g. a price in dollars <em>and</em> the same price in euros), because $X^\top X$ has no inverse. Libraries use numerically safer methods, and for huge problems we use <strong>gradient descent</strong> instead — the subject of Lesson 7.</p></div>
+
+<h2 id="interpret">Interpreting the weights</h2>
+<p>A big advantage of linear regression is that you can read it. If a house-price model learns</p>
+$$\widehat{\text{price}} = 2.5\cdot\text{size} + 12\cdot\text{bedrooms} - 4\cdot\text{distance} + 40$$
+<p>(price in thousands, size in m², distance in km), then, holding the other features fixed:</p>
+<ul>
+<li>each extra m² adds about 2.5k to the price;</li>
+<li>each extra bedroom adds about 12k;</li>
+<li>each extra km from the city <em>subtracts</em> about 4k.</li>
+</ul>
+<div class="box warn"><div class="box-title">Two cautions</div>
+<p><strong>Units matter.</strong> A weight's size depends on its feature's units (m² vs km). To compare which feature "matters most", standardise features first (z-scores, Lesson 4) so all weights are per standard deviation.</p>
+<p><strong>Correlation is not causation.</strong> A weight shows association in this data, not that changing the feature would cause the change. Adding a bedroom by splitting a room won't necessarily add 12k.</p></div>
+
+<h2 id="assumptions">Limitations and how to extend it</h2>
+<ul>
+<li><strong>Linearity.</strong> If the true relationship curves, a straight line underfits. Fix: create new features such as $x^2$, $x^3$ (<em>polynomial features</em>, as in Lesson 5's demo) — the model is still "linear" in its weights, so the same maths works.</li>
+<li><strong>Outliers.</strong> Squared error lets a single extreme point pull the line a long way (try it in the demo).</li>
+<li><strong>Correlated features</strong> make individual weights unstable and hard to interpret; regularization (Lesson 10) helps.</li>
+<li><strong>Residuals</strong> should look like random noise with no pattern. A curved pattern in the residuals means the model is missing something.</li>
+</ul>
+
+<h2 id="code">In Python: from scratch, then with scikit-learn</h2>
+<p>From scratch with NumPy, using the formulas above:</p>
+<pre><code>import numpy as np
+
+x = np.array([1, 2, 3, 4, 5], dtype=float)
+y = np.array([2, 4, 5, 4, 5], dtype=float)
+
+# Simple formulas
+w = np.sum((x - x.mean()) * (y - y.mean())) / np.sum((x - x.mean()) ** 2)
+b = y.mean() - w * x.mean()
+print(w, b)                         # 0.6 2.2
+
+# Normal equation with a column of ones for the bias
+X = np.column_stack([np.ones_like(x), x])
+w_vec = np.linalg.solve(X.T @ X, X.T @ y)   # solves (XᵀX) w = Xᵀy
+print(w_vec)                        # [2.2 0.6]
+
+y_hat = X @ w_vec
+r2 = 1 - np.sum((y - y_hat) ** 2) / np.sum((y - y.mean()) ** 2)
+print(round(r2, 3))                 # 0.6</code></pre>
+<p>On a real dataset with scikit-learn — the built-in diabetes dataset (442 patients, 10 features, predicting disease progression one year later):</p>
+<pre><code>from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+
+X, y = load_diabetes(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+model = LinearRegression().fit(X_train, y_train)
+print(model.coef_.round(1))          # one weight per feature
+print(round(model.intercept_, 1))
+print(round(r2_score(y_test, model.predict(X_test)), 3))   # R² on unseen data</code></pre>
+<p>Output:</p>
+<pre><code>[  37.9 -242.   542.4  347.7 -931.5  518.1  163.4  275.3  736.2   48.7]
+151.3
+0.453</code></pre>
+<p>(The weights look large because this dataset's features were already rescaled to small values by its creators.) An $R^2$ of about 0.45 on the test set: the model explains roughly 45% of the variation in disease progression for patients it has never seen — useful, but far from perfect, which is typical for medical data.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Linear regression predicts $\hat{y} = \mathbf{w}\cdot\mathbf{x} + b$.</li>
+<li><strong>Least squares</strong> chooses the weights that minimise the mean squared error.</li>
+<li>One feature: $w = \frac{\sum(x_i-\bar{x})(y_i-\bar{y})}{\sum(x_i-\bar{x})^2}$, $b = \bar{y} - w\bar{x}$. Many features: $\mathbf{w} = (X^\top X)^{-1}X^\top\mathbf{y}$.</li>
+<li>$R^2$ measures the fraction of variation explained, compared with always predicting the mean.</li>
+<li>Weights are interpretable — but watch units, outliers and the difference between correlation and causation.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. A model is $\hat{y} = 3x - 2$. What does it predict for $x = 4$?</p>
+<button data-opt="a">12</button><button data-opt="b">10</button><button data-opt="c">14</button>
+<div class="q-explain">$3 \times 4 - 2 = 10$.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. The least-squares line always passes through which point?</p>
+<button data-opt="a">$(\bar{x}, \bar{y})$, the mean of the data</button><button data-opt="b">The origin $(0,0)$</button><button data-opt="c">The first data point</button>
+<div class="q-explain">From $\partial L/\partial b = 0$ we got $b = \bar{y} - w\bar{x}$, i.e. $\bar{y} = w\bar{x} + b$: the line goes through the mean point.</div></div>
+<div class="q" data-correct="c"><p class="q-text">3. A model's $R^2$ on test data is 0. What does that mean?</p>
+<button data-opt="a">It's perfect</button><button data-opt="b">It predicts the opposite of the truth</button><button data-opt="c">It's no better than always predicting the average</button>
+<div class="q-explain">$R^2 = 0$ means $\text{SS}_{\text{res}} = \text{SS}_{\text{tot}}$: the same error as the mean-only baseline.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. For data with $\sum(x_i-\bar{x})(y_i-\bar{y}) = 12$ and $\sum(x_i-\bar{x})^2 = 4$, what is the slope?</p>
+<button data-opt="a">0.33</button><button data-opt="b">3</button><button data-opt="c">48</button>
+<div class="q-explain">$w = 12 / 4 = 3$.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. Why might you prefer gradient descent over the normal equation?</p>
+<button data-opt="a">With very many features, inverting $X^\top X$ is too slow</button><button data-opt="b">Gradient descent always gives a more accurate answer</button><button data-opt="c">The normal equation only works for one feature</button>
+<div class="q-explain">The normal equation works for any number of features, but its cost grows roughly like $d^3$. Gradient descent scales to huge problems (Lesson 7).</div></div>
+</div>

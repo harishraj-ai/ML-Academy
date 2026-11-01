@@ -1,0 +1,17 @@
+# Not part of the published course
+Claude outputs/
+
+# macOS / Windows system files
+.DS_Store
+Thumbs.db
+
+# Python and Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+ml-env/
+
+# Files created when you run the code yourself
+*.joblib

@@ -1,0 +1,175 @@
+<h2 id="recap">The problem: flexible models overfit</h2>
+<p>In Lesson 5 you watched a degree-11 polynomial thread through every training point and fail on new data. More flexible models can fit more patterns — including patterns that are just noise. But we don't want to give up flexibility, because real relationships are often complicated.</p>
+<p>This lesson answers two questions. <strong>Why</strong> does overfitting happen? (The bias–variance trade-off.) And <strong>how</strong> can we keep a flexible model from overfitting? (Regularization — one of the most widely used ideas in all of ML.)</p>
+
+<h2 id="bias-variance">Bias and variance</h2>
+<p>Imagine you could collect many different training sets from the same source, and train the same kind of model on each. You'd get a slightly different model each time. Two things can go wrong:</p>
+<ul>
+<li><strong>Bias</strong> — error from wrong assumptions. Even averaged over all those training sets, the model misses the true pattern. A straight line fitted to a curve has high bias. High bias → <strong>underfitting</strong>.</li>
+<li><strong>Variance</strong> — error from sensitivity to the particular training set. The model changes a lot depending on which examples it happened to see, because it's fitting their noise. A degree-11 polynomial has high variance. High variance → <strong>overfitting</strong>.</li>
+</ul>
+<div class="box intuition"><div class="box-title">Analogy: throwing darts</div>
+<p>Each training set gives you one dart throw; the bullseye is the true pattern.</p>
+<ul>
+<li><strong>Low bias, low variance</strong>: darts tightly grouped on the bullseye. The goal.</li>
+<li><strong>High bias, low variance</strong>: tightly grouped, but off-centre. Consistently wrong.</li>
+<li><strong>Low bias, high variance</strong>: centred on the bullseye on average, but scattered all over.</li>
+<li><strong>High bias, high variance</strong>: scattered and off-centre.</li>
+</ul></div>
+<p>For squared-error loss, the expected error on a new example splits exactly into three parts:</p>
+$$\mathbb{E}\big[(y - \hat{y})^2\big] = \underbrace{\text{Bias}^2}_{\text{wrong assumptions}} + \underbrace{\text{Variance}}_{\text{sensitivity to data}} + \underbrace{\sigma^2}_{\text{irreducible noise}}$$
+<p>The noise $\sigma^2$ is randomness in the data itself; no model can remove it. The other two we can trade against each other.</p>
+
+<h2 id="tradeoff">The trade-off</h2>
+<p>As model complexity grows:</p>
+<ul>
+<li>bias <strong>falls</strong> (the model can represent more patterns), but</li>
+<li>variance <strong>rises</strong> (it can also fit more noise).</li>
+</ul>
+<p>Total error is lowest somewhere in between — at the bottom of the U-shaped test-error curve you saw in Lesson 5's demo.</p>
+<table class="tbl">
+<thead><tr><th>Symptom</th><th>Diagnosis</th><th>What helps</th></tr></thead>
+<tbody>
+<tr><td>Training error high, test error high and similar</td><td>High bias (underfitting)</td><td>More flexible model, better features, less regularization</td></tr>
+<tr><td>Training error low, test error much higher</td><td>High variance (overfitting)</td><td>More data, simpler model, <strong>more regularization</strong>, fewer features</td></tr>
+</tbody></table>
+<div class="box tip"><div class="box-title">More data reduces variance</div>
+<p>With more training examples, random noise averages out, so a flexible model has less room to chase it. That's why large datasets let us use very complex models. When getting more data isn't possible, regularization is the next best tool.</p></div>
+
+<h2 id="regularization">Regularization: penalise complexity</h2>
+<p>Overfitted models usually have <strong>large weights</strong>: to bend sharply through individual noisy points, a polynomial needs huge coefficients that cancel each other out. Regularization adds a penalty for large weights to the loss:</p>
+$$\text{Loss}_{\text{regularized}} = \underbrace{\text{data loss (e.g. MSE)}}_{\text{fit the data}} + \underbrace{\lambda\cdot\text{penalty}(\mathbf{w})}_{\text{keep weights small}}$$
+<p>$\lambda$ ("lambda", called <code>alpha</code> in scikit-learn) controls the balance:</p>
+<ul>
+<li>$\lambda = 0$: no penalty — ordinary least squares.</li>
+<li>Small $\lambda$: a gentle push towards smaller weights.</li>
+<li>Large $\lambda$: weights forced towards zero — the model becomes very simple and may underfit.</li>
+</ul>
+<p>Regularization deliberately adds a little bias in exchange for a big reduction in variance. The bias term $b$ is normally <em>not</em> penalised — it only shifts predictions up or down and doesn't make the model wiggly.</p>
+
+<h2 id="ridge">Ridge regression (L2)</h2>
+<p><strong>Ridge</strong> penalises the sum of squared weights — the squared L2 norm from Lesson 2:</p>
+$$L(\mathbf{w}) = \sum_{i=1}^{n}(y_i - \mathbf{w}\cdot\mathbf{x}_i - b)^2 + \lambda\sum_{j=1}^{d} w_j^2$$
+<p>Setting the gradient to zero gives a closed-form solution, just like the normal equation but with $\lambda$ added on the diagonal:</p>
+$$\mathbf{w} = (X^\top X + \lambda I)^{-1}X^\top\mathbf{y}$$
+<p>Adding $\lambda I$ has a bonus: the matrix always has an inverse, so ridge also fixes the problem of perfectly correlated features from Lesson 6.</p>
+<div class="box example"><div class="box-title">Worked example — watch the weight shrink</div>
+<p>One feature, no intercept: $x = 1, 2, 3$ and $y = 2, 4, 7$. With one weight, the ridge formula becomes</p>
+$$w = \frac{\sum x_iy_i}{\sum x_i^2 + \lambda} = \frac{1\cdot2 + 2\cdot4 + 3\cdot7}{1 + 4 + 9 + \lambda} = \frac{31}{14 + \lambda}$$
+<table class="tbl">
+<thead><tr><th>λ</th><td>0</td><td>1</td><td>10</td><td>100</td></tr></thead>
+<tbody><tr><th><i>w</i></th><td>2.214</td><td>2.067</td><td>1.292</td><td>0.272</td></tr></tbody></table>
+<p>As $\lambda$ grows, the weight is pulled towards zero. It never reaches exactly zero — that's a property of L2.</p></div>
+<p>With gradient descent, the penalty adds $2\lambda w_j$ to each weight's gradient. Every update then shrinks the weight slightly before applying the data gradient — which is why L2 regularization is also called <strong>weight decay</strong>.</p>
+
+<h2 id="lasso">Lasso regression (L1)</h2>
+<p><strong>Lasso</strong> penalises the sum of <em>absolute</em> weights — the L1 norm:</p>
+$$L(\mathbf{w}) = \frac{1}{2n}\sum_{i=1}^{n}(y_i - \mathbf{w}\cdot\mathbf{x}_i - b)^2 + \lambda\sum_{j=1}^{d}|w_j|$$
+<p>(This is the scaling scikit-learn uses.) The key difference from ridge: lasso drives many weights to <strong>exactly zero</strong>. Those features are effectively removed, so lasso performs automatic <strong>feature selection</strong> and gives simpler, more interpretable models.</p>
+<div class="box intuition"><div class="box-title">Why does L1 give exact zeros?</div>
+<p>Look at the penalty's slope. For L2, the penalty $w^2$ has slope $2w$, which gets tiny as $w$ approaches 0 — the push towards zero fades away, so weights get small but rarely reach 0. For L1, the penalty $|w|$ has slope $\pm1$ everywhere: a constant-strength push all the way to zero. If a feature isn't helping enough to resist that constant push, its weight lands on exactly 0.</p>
+<p>Geometrically: L2's "budget" region $w_1^2 + w_2^2 \le t$ is a circle; L1's $|w_1| + |w_2| \le t$ is a diamond with sharp corners on the axes. The best solution tends to touch the diamond at a corner — where one weight is zero.</p></div>
+<p><strong>ElasticNet</strong> mixes both penalties (scikit-learn's <code>l1_ratio</code> sets the mix). It's useful when you want sparsity but have groups of correlated features, where pure lasso tends to pick one arbitrarily.</p>
+<table class="tbl">
+<thead><tr><td></td><th>Ridge (L2)</th><th>Lasso (L1)</th></tr></thead>
+<tbody>
+<tr><td>Penalty</td><td>$\lambda\sum w_j^2$</td><td>$\lambda\sum|w_j|$</td></tr>
+<tr><td>Effect on weights</td><td>Shrinks all smoothly</td><td>Sets many exactly to 0</td></tr>
+<tr><td>Feature selection</td><td>No</td><td>Yes</td></tr>
+<tr><td>Closed-form solution</td><td>Yes</td><td>No (iterative solvers)</td></tr>
+<tr><td>Good when</td><td>Many features each matter a bit</td><td>Only a few features really matter</td></tr>
+</tbody></table>
+
+<h2 id="demo">Try it: regularization tames a wild model</h2>
+<p>A degree-9 polynomial is fitted to 12 noisy training points using ridge regression. Slide $\lambda$ from almost zero (wild overfitting) to very large (a nearly flat line that underfits). Watch the training and test errors, and the size of the weights. Somewhere in between is the sweet spot.</p>
+<div class="demo" data-demo="ridge"></div>
+
+<h2 id="scaling">Always scale features before regularizing</h2>
+<p>The penalty treats all weights equally. But a weight's size depends on its feature's units: a feature measured in millimetres needs a weight 1000 times smaller than the same feature in metres. Without scaling, regularization would unfairly punish some features and barely touch others. <strong>Standardise features first</strong> (Lesson 4) — in a pipeline, so it's fitted on training data only (Lesson 5).</p>
+
+<h2 id="choosing-lambda">Choosing $\lambda$</h2>
+<p>$\lambda$ is a <strong>hyperparameter</strong>: a setting you choose, rather than a parameter learned from the data. Pick it with cross-validation (Lesson 5):</p>
+<ol class="steps">
+<li>Try a range of values spaced by factors, e.g. $0.01, 0.1, 1, 10, 100$.</li>
+<li>For each, compute the cross-validation score on the training data.</li>
+<li>Pick the $\lambda$ with the best CV score, then retrain on all training data.</li>
+</ol>
+<p>scikit-learn's <code>RidgeCV</code> and <code>LassoCV</code> do this automatically.</p>
+<div class="box tip"><div class="box-title">Logistic regression is regularized too</div>
+<p>scikit-learn's <code>LogisticRegression</code> uses L2 regularization by default, controlled by <code>C</code>, which is the <em>inverse</em> strength: $C = 1/\lambda$. Smaller <code>C</code> means <em>stronger</em> regularization. Set <code>penalty="l1"</code> (with a compatible solver such as <code>"liblinear"</code> or <code>"saga"</code>) for lasso-style feature selection.</p></div>
+
+<h2 id="other">Other ways to fight overfitting</h2>
+<ul>
+<li><strong>More training data</strong> — the most reliable fix when available.</li>
+<li><strong>Simpler model</strong> — fewer features, lower polynomial degree, shallower trees (Lesson 13).</li>
+<li><strong>Early stopping</strong> — stop gradient descent when validation error starts rising (Lesson 7).</li>
+<li><strong>Ensembles</strong> — averaging many models reduces variance (Lesson 14).</li>
+<li><strong>Dropout and data augmentation</strong> — for neural networks (Lesson 19).</li>
+</ul>
+
+<h2 id="code">In Python</h2>
+<p>Using the diabetes dataset with all pairwise feature products added (65 features from 10), a model with lots of room to overfit:</p>
+<pre><code>import numpy as np
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, RidgeCV
+from sklearn.pipeline import make_pipeline
+
+X, y = load_diabetes(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+def build(reg):
+    return make_pipeline(PolynomialFeatures(2, include_bias=False), StandardScaler(), reg)
+
+models = [("no regularization", LinearRegression())] + \
+         [(f"Ridge alpha={a}", Ridge(alpha=a)) for a in [1, 10, 100]]
+for name, reg in models:
+    m = build(reg).fit(X_train, y_train)
+    print(f"{name:20s} train R2 {m.score(X_train, y_train):.3f}  test R2 {m.score(X_test, y_test):.3f}")
+
+for a in [0.1, 1, 5]:
+    m = build(Lasso(alpha=a, max_iter=50000)).fit(X_train, y_train)
+    coef = m[-1].coef_
+    print(f"Lasso alpha={a}: test R2 {m.score(X_test, y_test):.3f}, non-zero weights {np.sum(coef != 0)} of {coef.size}")
+
+m = build(RidgeCV(alphas=np.logspace(-2, 3, 30))).fit(X_train, y_train)
+print("best alpha", round(m[-1].alpha_, 2), "test R2", round(m.score(X_test, y_test), 3))</code></pre>
+<p>Output:</p>
+<pre><code>no regularization    train R2 0.606  test R2 0.416
+Ridge alpha=1        train R2 0.601  test R2 0.456
+Ridge alpha=10       train R2 0.590  test R2 0.503
+Ridge alpha=100      train R2 0.561  test R2 0.498
+Lasso alpha=0.1: test R2 0.479, non-zero weights 54 of 65
+Lasso alpha=1: test R2 0.516, non-zero weights 36 of 65
+Lasso alpha=5: test R2 0.488, non-zero weights 12 of 65
+best alpha 92.37 test R2 0.5</code></pre>
+<p>Read it carefully. As regularization increases, the <em>training</em> score drops slightly (the model fits the training data less tightly) while the <em>test</em> score rises from 0.416 to about 0.50 — less overfitting. Lasso reaches the best test score while using only 36 of the 65 features, and with $\alpha = 5$ it keeps just 12 features and still beats the unregularized model. Too much regularization would eventually hurt again.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Error = <strong>bias²</strong> (wrong assumptions) + <strong>variance</strong> (sensitivity to the training set) + irreducible noise.</li>
+<li>More complexity lowers bias but raises variance; the best model balances them.</li>
+<li><strong>Regularization</strong> adds $\lambda\cdot$penalty to the loss to keep weights small and reduce variance.</li>
+<li><strong>Ridge (L2)</strong> shrinks all weights; <strong>Lasso (L1)</strong> sets many to exactly zero (feature selection).</li>
+<li>Scale features first, and choose $\lambda$ by cross-validation.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="a"><p class="q-text">1. Your model's training and test errors are both high and close together. What should you try?</p>
+<button data-opt="a">A more flexible model or less regularization</button><button data-opt="b">Stronger regularization</button><button data-opt="c">Removing features</button>
+<div class="q-explain">Both errors high and similar = high bias (underfitting). Make the model more flexible; more regularization would make it worse.</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. What happens as $\lambda \to \infty$ in ridge regression?</p>
+<button data-opt="a">The weights grow without limit</button><button data-opt="b">Nothing changes</button><button data-opt="c">All weights approach 0, so the model predicts a constant</button>
+<div class="q-explain">An enormous penalty forces every weight towards zero; only the (unpenalised) bias remains, so predictions are roughly the mean of $y$.</div></div>
+<div class="q" data-correct="b"><p class="q-text">3. You have 500 features but suspect only about 10 matter. Which regularization fits best?</p>
+<button data-opt="a">Ridge (L2)</button><button data-opt="b">Lasso (L1)</button><button data-opt="c">No regularization</button>
+<div class="q-explain">Lasso sets unhelpful weights exactly to zero, keeping a small set of useful features.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. One feature, no intercept: $\sum x_iy_i = 20$, $\sum x_i^2 = 8$. What is the ridge weight with $\lambda = 2$?</p>
+<button data-opt="a">2.5</button><button data-opt="b">2.0</button><button data-opt="c">10</button>
+<div class="q-explain">$w = 20/(8 + 2) = 2$. Without regularization it would be $20/8 = 2.5$.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. In scikit-learn's <code>LogisticRegression</code>, you change <code>C</code> from 1 to 0.01. Regularization becomes…</p>
+<button data-opt="a">much stronger</button><button data-opt="b">much weaker</button><button data-opt="c">switched off</button>
+<div class="q-explain">$C = 1/\lambda$, so a smaller $C$ means a larger $\lambda$ — stronger regularization.</div></div>
+</div>

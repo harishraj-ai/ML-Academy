@@ -1,0 +1,155 @@
+<h2 id="idea">The wisdom of crowds</h2>
+<p>In 1906, at a country fair, about 800 people guessed the weight of an ox. Individual guesses were all over the place — but their median was within 1% of the true weight. Many independent, imperfect opinions, combined, beat almost any single expert.</p>
+<p><strong>Ensemble methods</strong> apply this to models: train many models and combine their predictions. Lesson 13 showed that a single decision tree is unstable — small changes in data produce a different tree. Ensembles turn that weakness into a strength. Random forests and gradient boosting, the two families in this lesson, win a large share of real-world competitions on tabular data.</p>
+
+<h2 id="why-it-works">Why combining models works: the maths</h2>
+<p>Suppose you have 25 classifiers, each correct 60% of the time, and — crucially — they make their mistakes <strong>independently</strong>. You take a majority vote. The vote is right whenever at least 13 of the 25 are right. Using the binomial distribution:</p>
+$$P(\text{majority correct}) = \sum_{k=13}^{25}\binom{25}{k}(0.6)^k(0.4)^{25-k} \approx 0.846$$
+<p>Twenty-five 60%-accurate models make an <strong>85%-accurate</strong> committee. With 101 such models it rises to about 98%.</p>
+<p>($\binom{25}{k}$, "25 choose $k$", counts the ways to pick which $k$ of the 25 models are right.)</p>
+<div class="box warn"><div class="box-title">The catch: independence</div>
+<p>This only works if the models make <em>different</em> mistakes. Twenty-five copies of the same model all fail on the same examples, so voting gains nothing. The art of ensembles is making models that are individually good <em>and</em> diverse. Bagging and random forests create diversity through randomness; boosting creates it by making each model focus on the previous ones' errors.</p></div>
+<p>For regression the effect is easy to see too: averaging $M$ predictions with independent errors divides the variance by $M$ — exactly the "variance" part of the bias–variance trade-off from Lesson 10.</p>
+
+<h2 id="bagging">Bagging: bootstrap aggregating</h2>
+<p>We only have one training set. How do we train many different trees? <strong>Bagging</strong> creates a new training set for each tree by <strong>bootstrap sampling</strong>: draw $n$ examples from the $n$ originals <em>with replacement</em>. Some examples appear twice or more, some not at all.</p>
+<div class="box example"><div class="box-title">Worked example — how much of the data does each tree see?</div>
+<p>The chance a particular example is <em>not</em> picked in one draw is $1 - \frac{1}{n}$. Over $n$ draws: $\left(1 - \frac{1}{n}\right)^n$. For large $n$ this approaches $e^{-1} \approx 0.368$.</p>
+<p>So each bootstrap sample contains about $1 - 0.368 = 63.2\%$ of the distinct original examples. (For $n = 1000$: $1 - 0.999^{1000} \approx 0.632$.)</p></div>
+<p>The algorithm:</p>
+<ol class="steps">
+<li>For $m = 1, \dots, M$: draw a bootstrap sample and train a deep (low-bias, high-variance) tree on it.</li>
+<li>To predict: majority vote (classification) or average (regression) over the $M$ trees.</li>
+</ol>
+<p><strong>Out-of-bag (OOB) evaluation</strong> is a free bonus: each example was left out of about 37% of the trees, so we can predict it using only those trees and get a validation score without a separate validation set.</p>
+
+<h2 id="random-forest">Random forests</h2>
+<p>Bagged trees are still quite similar: if one feature is very strong, every tree splits on it first. A <strong>random forest</strong> (Breiman, 2001) adds a second source of randomness: <strong>at each split, only a random subset of the features is considered</strong>. A common default for classification is $\sqrt{d}$ features out of $d$ (scikit-learn: <code>max_features="sqrt"</code>).</p>
+<p>This forces trees to use different features, making them less correlated — and the less correlated the trees, the more averaging helps.</p>
+<table class="tbl">
+<thead><tr><th>Setting</th><th>Effect</th></tr></thead>
+<tbody>
+<tr><td><code>n_estimators</code> (number of trees)</td><td>More is better up to a plateau; more trees never cause overfitting, they just cost time.</td></tr>
+<tr><td><code>max_features</code></td><td>Smaller → more diverse trees but each is weaker.</td></tr>
+<tr><td><code>max_depth</code>, <code>min_samples_leaf</code></td><td>Trees are usually grown deep; limiting them adds bias but can help on noisy data.</td></tr>
+</tbody></table>
+<div class="box tip"><div class="box-title">Why random forests are so popular</div>
+<p>They work well "out of the box" with little tuning, need no feature scaling, handle many features, give feature importances, and are hard to badly overfit. They're an excellent default for tabular data.</p></div>
+
+<h2 id="boosting">Boosting: learning from mistakes</h2>
+<p>Bagging trains models <em>in parallel</em>, independently. <strong>Boosting</strong> trains them <em>in sequence</em>: each new model focuses on what the ensemble so far gets wrong. It typically uses weak, shallow trees (even depth-1 "stumps") and combines them into a strong model. Bagging mainly reduces variance; boosting mainly reduces bias.</p>
+<div class="box intuition"><div class="box-title">Analogy</div>
+<p>A student preparing for an exam does a practice test, then spends the next study session on the questions they got wrong, then retests, and repeats. Each session adds a little knowledge targeted at the remaining weaknesses.</p></div>
+
+<h2 id="adaboost">AdaBoost</h2>
+<p><strong>AdaBoost</strong> (adaptive boosting) gives every training example a weight, starting equal. Each round:</p>
+<ol class="steps">
+<li>Train a weak learner on the weighted data. Compute its weighted error rate $\varepsilon$.</li>
+<li>Give it a vote of strength $\alpha = \frac{1}{2}\ln\frac{1 - \varepsilon}{\varepsilon}$ — accurate learners get louder voices.</li>
+<li>Increase the weights of misclassified examples (multiply by $e^{\alpha}$) and decrease the correct ones (multiply by $e^{-\alpha}$), then renormalise so weights sum to 1.</li>
+</ol>
+<p>Final prediction: the $\alpha$-weighted vote of all learners.</p>
+<div class="box example"><div class="box-title">Worked example — one AdaBoost round</div>
+<p>10 examples, each weight 0.1. A stump misclassifies 3 of them: $\varepsilon = 0.3$.</p>
+<p>Vote strength: $\alpha = \frac12\ln\frac{0.7}{0.3} = \frac12\ln 2.333 \approx 0.424$.</p>
+<p>Wrong examples: $0.1\times e^{0.424} \approx 0.1\times1.528 = 0.153$. Correct ones: $0.1\times e^{-0.424} \approx 0.065$.</p>
+<p>Sum: $3\times0.153 + 7\times0.065 \approx 0.917$. After dividing by it: wrong examples weigh about $0.167$ each, correct ones about $0.071$.</p>
+<p>The 3 mistakes now hold <strong>50%</strong> of the total weight (up from 30%). The next stump is forced to pay attention to them.</p></div>
+
+<h2 id="gradient-boosting">Gradient boosting</h2>
+<p><strong>Gradient boosting</strong> (Friedman, 2001) is the most widely used form today. The idea for regression with squared error is wonderfully simple:</p>
+<ol class="steps">
+<li>Start with a constant prediction $F_0(x) = \bar{y}$ (the mean).</li>
+<li>Compute the <strong>residuals</strong> — what's still wrong: $r_i = y_i - F_{m-1}(x_i)$.</li>
+<li>Fit a small tree $h_m$ to predict those residuals.</li>
+<li>Add it in, scaled by a <strong>learning rate</strong> $\eta$ (e.g. 0.1): $F_m(x) = F_{m-1}(x) + \eta\,h_m(x)$.</li>
+<li>Repeat for $M$ rounds.</li>
+</ol>
+<p>Why "gradient"? For squared loss $\frac12(y - F)^2$, the negative gradient with respect to the prediction $F$ is exactly the residual $y - F$. So each tree takes a step of gradient descent (Lesson 7) — not in the space of weights, but in the space of predictions. Swapping in a different loss (log loss for classification, absolute error for robustness) gives a different "residual" to fit; the algorithm stays the same.</p>
+<div class="box example"><div class="box-title">Worked example — two rounds by hand</div>
+<p>Data: $x = 1, 2, 3$ with $y = 3, 5, 8$. Learning rate $\eta = 0.5$ (large, so the effect is visible).</p>
+<p><strong>Round 0:</strong> $F_0 = \bar{y} = 16/3 \approx 5.33$ for everyone. Residuals: $-2.33, -0.33, 2.67$. MSE $\approx 4.22$.</p>
+<p><strong>Round 1:</strong> fit a stump to the residuals. The best split is $x \le 2.5$: the left leaf predicts the mean residual of the first two, $(-2.33 - 0.33)/2 = -1.33$; the right leaf predicts $2.67$.</p>
+<p>Update: $F_1 = 5.33 + 0.5\times(-1.33) = 4.67$ for $x = 1, 2$, and $5.33 + 0.5\times2.67 = 6.67$ for $x = 3$.</p>
+<p>New residuals: $3 - 4.67 = -1.67$, $5 - 4.67 = 0.33$, $8 - 6.67 = 1.33$. MSE drops from 4.22 to $\approx 1.56$.</p>
+<p>Round 2 fits a new stump to these new residuals, and so on. Each round fixes part of what's left.</p></div>
+<p>The learning rate and number of trees trade off: a small $\eta$ (0.01–0.1) with many trees generalises better than a large $\eta$ with few. Unlike random forests, boosting <em>can</em> overfit with too many rounds, so the number of trees is tuned — often with <strong>early stopping</strong> on a validation set.</p>
+
+<h2 id="demo">Try it: gradient boosting, tree by tree</h2>
+<p>Gradient boosting with depth-1 trees (stumps) fits the blue points. Add trees one at a time and watch the green prediction become a better and better step-shaped fit. The bottom panel shows the residuals the <em>next</em> tree will try to fit. Try a large learning rate, then a small one with many trees.</p>
+<div class="demo" data-demo="boosting"></div>
+
+<h2 id="modern">Modern boosting libraries</h2>
+<p><strong>XGBoost</strong>, <strong>LightGBM</strong> and <strong>CatBoost</strong> are highly optimised gradient-boosting libraries. XGBoost, for example, adds regularization of the trees directly into its objective:</p>
+$$\text{obj} = \sum_i \ell(y_i, \hat{y}_i) + \sum_k \Omega(f_k), \qquad \Omega(f) = \gamma T + \tfrac{1}{2}\lambda\sum_j w_j^2$$
+<p>where $T$ is the number of leaves in a tree and $w_j$ are its leaf values — penalising both big trees and extreme predictions. scikit-learn's <code>HistGradientBoostingClassifier</code> uses a similar fast approach: it bins each feature into at most 255 bins, handles missing values natively, and turns on early stopping automatically for datasets with more than 10,000 samples.</p>
+
+<h2 id="compare">Bagging vs boosting at a glance</h2>
+<table class="tbl">
+<thead><tr><td></td><th>Random forest (bagging)</th><th>Gradient boosting</th></tr></thead>
+<tbody>
+<tr><td>Trees trained</td><td>Independently, in parallel</td><td>Sequentially, each fixing the last</td></tr>
+<tr><td>Individual trees</td><td>Deep (low bias, high variance)</td><td>Shallow (high bias, low variance)</td></tr>
+<tr><td>Mainly reduces</td><td>Variance</td><td>Bias</td></tr>
+<tr><td>Overfits with more trees?</td><td>No</td><td>Yes — tune the number of trees</td></tr>
+<tr><td>Tuning effort</td><td>Low</td><td>Moderate (learning rate, trees, depth)</td></tr>
+<tr><td>Typical accuracy on tabular data</td><td>Very good</td><td>Often the best</td></tr>
+</tbody></table>
+
+<h2 id="code">In Python</h2>
+<pre><code>from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import cross_val_score
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import (RandomForestClassifier, AdaBoostClassifier,
+                              GradientBoostingClassifier, HistGradientBoostingClassifier)
+
+X, y = load_breast_cancer(return_X_y=True)
+models = {
+    "single tree": DecisionTreeClassifier(random_state=0),
+    "random forest": RandomForestClassifier(n_estimators=300, random_state=0),
+    "AdaBoost": AdaBoostClassifier(n_estimators=200, random_state=0),
+    "gradient boosting": GradientBoostingClassifier(random_state=0),
+    "hist. gradient boosting": HistGradientBoostingClassifier(random_state=0),
+}
+for name, model in models.items():
+    s = cross_val_score(model, X, y, cv=5)
+    print(f"{name:24s} {s.mean():.3f} ± {s.std():.3f}")
+
+rf = RandomForestClassifier(n_estimators=300, oob_score=True, random_state=0).fit(X, y)
+print("out-of-bag accuracy:", round(rf.oob_score_, 3))</code></pre>
+<p>Output:</p>
+<pre><code>single tree              0.917 ± 0.016
+random forest            0.963 ± 0.022
+AdaBoost                 0.977 ± 0.009
+gradient boosting        0.963 ± 0.021
+hist. gradient boosting  0.965 ± 0.018
+out-of-bag accuracy: 0.965</code></pre>
+<p>Every ensemble beats the single tree by 5–6 percentage points, with default settings. Notice the out-of-bag accuracy (0.965) closely matches the cross-validated score (0.963) — a free and reliable estimate. On this particular dataset AdaBoost edges ahead; on another dataset the order could differ, which is why we compare with cross-validation.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Combining many diverse models reduces error — but only if their mistakes are not all the same.</li>
+<li><strong>Bagging</strong> trains models on bootstrap samples (~63% of the data each) and averages them, reducing variance.</li>
+<li><strong>Random forests</strong> also pick a random subset of features at each split, making trees more diverse.</li>
+<li><strong>Boosting</strong> trains models in sequence; <strong>AdaBoost</strong> re-weights mistakes, <strong>gradient boosting</strong> fits each new tree to the residuals (the negative gradient).</li>
+<li>Boosting needs the learning rate and number of trees tuned; random forests work well with little tuning.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="c"><p class="q-text">1. Why does a majority vote of many classifiers help?</p>
+<button data-opt="a">Each model sees more data</button><button data-opt="b">It always reaches 100% accuracy</button><button data-opt="c">Independent errors tend to cancel out when combined</button>
+<div class="q-explain">If models err on different examples, the majority is usually right even when individuals are wrong.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. What fraction of distinct examples does a bootstrap sample contain, roughly?</p>
+<button data-opt="a">63%</button><button data-opt="b">50%</button><button data-opt="c">100%</button>
+<div class="q-explain">$1 - (1 - 1/n)^n \approx 1 - e^{-1} \approx 0.632$.</div></div>
+<div class="q" data-correct="b"><p class="q-text">3. What does a random forest add on top of bagging?</p>
+<button data-opt="a">Sequential training</button><button data-opt="b">A random subset of features considered at each split</button><button data-opt="c">Example weights</button>
+<div class="q-explain">Feature subsampling decorrelates the trees, making the average stronger.</div></div>
+<div class="q" data-correct="c"><p class="q-text">4. In gradient boosting with squared error, each new tree is trained to predict…</p>
+<button data-opt="a">the original labels $y$</button><button data-opt="b">random noise</button><button data-opt="c">the residuals $y - F(x)$ of the current ensemble</button>
+<div class="q-explain">The residual is the negative gradient of the squared loss; fitting it is a gradient descent step in prediction space.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. A weak learner has weighted error $\varepsilon = 0.5$. What is its AdaBoost vote $\alpha$?</p>
+<button data-opt="a">0</button><button data-opt="b">0.5</button><button data-opt="c">1</button>
+<div class="q-explain">$\alpha = \frac12\ln\frac{0.5}{0.5} = \frac12\ln 1 = 0$. A coin-flip learner gets no say.</div></div>
+</div>

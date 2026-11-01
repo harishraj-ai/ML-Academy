@@ -1,0 +1,153 @@
+<h2 id="idea">Twenty questions with data</h2>
+<p>Remember the game "twenty questions"? You find an object by asking yes/no questions — "Is it alive?", "Is it bigger than a cat?" — each one narrowing down the possibilities. A <strong>decision tree</strong> classifies data the same way: it asks a sequence of simple questions about the features, like "Is petal width ≤ 0.8 cm?", until it reaches an answer.</p>
+<p>Trees are one of the most popular model families in practice. A single tree is easy to read and explain; combined into forests and boosted ensembles (Lesson 14), trees are often the strongest models available for tabular data — spreadsheets and databases.</p>
+
+<h2 id="structure">Anatomy of a tree</h2>
+<ul>
+<li>The <strong>root node</strong> at the top holds all the training data and asks the first question.</li>
+<li>Each <strong>internal node</strong> tests one feature against a threshold: "$x_j \le t$?". Yes goes left, no goes right.</li>
+<li>Each <strong>leaf</strong> at the bottom gives a prediction: the majority class of the training examples that ended up there (or their average value, for regression).</li>
+<li>The <strong>depth</strong> is the number of questions on the longest path from root to leaf.</li>
+</ul>
+<p>Here is a real depth-2 tree trained by scikit-learn on the Iris flower dataset (3 species, 4 measurements):</p>
+<pre><code>|--- petal width (cm) &lt;= 0.80
+|   |--- class: 0              (setosa)
+|--- petal width (cm) >  0.80
+|   |--- petal width (cm) &lt;= 1.75
+|   |   |--- class: 1          (versicolor)
+|   |--- petal width (cm) >  1.75
+|   |   |--- class: 2          (virginica)</code></pre>
+<p>To classify a flower with petal width 1.2 cm: is $1.2 \le 0.8$? No → go right. Is $1.2 \le 1.75$? Yes → <strong>versicolor</strong>. Anyone can follow that — a big advantage when decisions must be explained.</p>
+<div class="box intuition"><div class="box-title">What the tree does to the feature space</div>
+<p>Each question cuts the space with a straight line parallel to an axis. The tree chops the space into rectangles (boxes, in more dimensions), and each box gets one prediction. So decision boundaries look like staircases made of horizontal and vertical segments. You'll see this in the demo.</p></div>
+
+<h2 id="impurity">How does a tree choose its questions? Impurity</h2>
+<p>A good question separates the classes: after splitting, each side should be as "pure" as possible — ideally containing just one class. We need a number that measures impurity. Let $p_k$ be the fraction of examples in a node that belong to class $k$.</p>
+<p><strong>Gini impurity</strong> — the probability of mislabelling a random example if you labelled it randomly according to the node's class mix:</p>
+$$G = \sum_k p_k(1 - p_k) = 1 - \sum_k p_k^2$$
+<p><strong>Entropy</strong> — from information theory, the average number of yes/no questions (bits) needed to identify the class:</p>
+$$H = -\sum_k p_k \log_2 p_k$$
+<p>Both are 0 for a pure node and largest when classes are evenly mixed. For two classes the maximum Gini is 0.5 and the maximum entropy is 1 bit.</p>
+<div class="box example"><div class="box-title">Worked example — impurity of a node</div>
+<p>A node has 10 examples: 6 "yes", 4 "no". So $p_{\text{yes}} = 0.6$, $p_{\text{no}} = 0.4$.</p>
+<p>Gini: $1 - (0.6^2 + 0.4^2) = 1 - (0.36 + 0.16) = 0.48$.</p>
+<p>Entropy: $-(0.6\log_2 0.6 + 0.4\log_2 0.4) = -(0.6\times(-0.737) + 0.4\times(-1.322)) \approx 0.971$ bits.</p>
+<p>A pure node (10 yes, 0 no): Gini $= 1 - 1^2 = 0$, entropy $= -1\cdot\log_2 1 = 0$.</p></div>
+
+<h2 id="split">Scoring a split: information gain</h2>
+<p>A split sends $n_L$ examples left and $n_R$ right. Its quality is the <strong>weighted impurity</strong> of the two children, weighted by how many examples each gets:</p>
+$$G_{\text{split}} = \frac{n_L}{n}\,G(\text{left}) + \frac{n_R}{n}\,G(\text{right})$$
+<p>The improvement over the parent is the <strong>impurity decrease</strong> — called <strong>information gain</strong> when using entropy:</p>
+$$\text{Gain} = G(\text{parent}) - G_{\text{split}}$$
+<div class="box example"><div class="box-title">Worked example — compare two candidate splits</div>
+<p>Parent: 6 yes / 4 no, Gini 0.48 (from above).</p>
+<p><strong>Split A</strong> sends 4 examples left (4 yes, 0 no) and 6 right (2 yes, 4 no).</p>
+<ul>
+<li>Left Gini $= 0$ (pure).</li>
+<li>Right Gini $= 1 - \big((2/6)^2 + (4/6)^2\big) = 1 - (0.111 + 0.444) \approx 0.444$.</li>
+<li>Weighted: $\frac{4}{10}\times0 + \frac{6}{10}\times0.444 \approx 0.267$. Gain $= 0.48 - 0.267 = 0.213$.</li>
+</ul>
+<p><strong>Split B</strong> sends 5 left (3 yes, 2 no) and 5 right (3 yes, 2 no).</p>
+<ul>
+<li>Both children have the same 60/40 mix as the parent: Gini 0.48 each. Weighted: 0.48. Gain $= 0$.</li>
+</ul>
+<p>Split B is useless — it doesn't separate anything. Split A wins. (With entropy, split A's information gain is $0.971 - 0.6\times0.918 \approx 0.420$ bits; the ranking is the same.)</p></div>
+
+<h2 id="algorithm">Growing the tree: the CART algorithm</h2>
+<p>scikit-learn builds trees with an optimised version of <strong>CART</strong> (Classification And Regression Trees). It's <em>greedy</em> and <em>recursive</em>:</p>
+<ol class="steps">
+<li>At the current node, try every feature, and for each feature every possible threshold (the midpoints between sorted values).</li>
+<li>Pick the feature and threshold with the largest impurity decrease.</li>
+<li>Split the data into left and right children.</li>
+<li>Repeat on each child, until a stopping rule is met (node is pure, maximum depth reached, too few examples to split…).</li>
+</ol>
+<p>"Greedy" means it picks the best split <em>right now</em>, without looking ahead. That's not guaranteed to find the best possible tree (that problem is far too hard to solve exactly), but it works very well in practice.</p>
+
+<h2 id="demo">Try it: watch a tree carve up the space</h2>
+<p>The tree below is grown on the points using Gini impurity. Increase the maximum depth and watch it add axis-parallel cuts. At low depth it underfits; at high depth it carves tiny boxes around individual points — overfitting. The first few splits are listed underneath.</p>
+<div class="demo" data-demo="tree"></div>
+
+<h2 id="regression">Trees for regression</h2>
+<p>For predicting numbers, a leaf predicts the <strong>average</strong> $y$ of its training examples, and impurity is measured by the <strong>variance</strong> (equivalently the MSE) within the node. A split is good if it creates groups whose $y$ values are tightly clustered. The result is a step function: flat predictions within each box, with jumps between boxes.</p>
+
+<h2 id="overfitting">Trees overfit easily — and how to stop them</h2>
+<p>Left alone, a tree keeps splitting until every leaf is pure — it can memorise the training set perfectly, noise included. Ways to control it (all are hyperparameters, chosen by cross-validation):</p>
+<ul>
+<li><code>max_depth</code> — limit the number of questions.</li>
+<li><code>min_samples_split</code> / <code>min_samples_leaf</code> — don't split tiny groups; every leaf must contain at least this many examples.</li>
+<li><code>max_leaf_nodes</code> — cap the total number of leaves.</li>
+<li><strong>Cost-complexity pruning</strong> (<code>ccp_alpha</code>) — grow a full tree, then cut back branches that don't earn their keep. It minimises</li>
+</ul>
+$$R_\alpha(T) = R(T) + \alpha\,|T|$$
+<p>where $R(T)$ is the tree's training error (impurity), $|T|$ is its number of leaves, and $\alpha$ charges a price per leaf — the same "fit + penalty" idea as regularization in Lesson 10.</p>
+
+<h2 id="importance">Feature importance</h2>
+<p>Each split reduces impurity. Add up those reductions for each feature (weighted by the number of examples reaching the node) and normalise so they sum to 1: that's the tree's <strong>feature importance</strong>. It tells you which features the tree relied on most.</p>
+<div class="box warn"><div class="box-title">Read importances with care</div>
+<p>Impurity-based importance favours features with many distinct values (like IDs or continuous measurements), and when two features are correlated, the tree may use just one, making the other look unimportant. It describes the model, not causation.</p></div>
+
+<h2 id="pros-cons">Strengths and weaknesses</h2>
+<table class="tbl">
+<thead><tr><th>Strengths</th><th>Weaknesses</th></tr></thead>
+<tbody>
+<tr><td>Easy to read and explain</td><td>Overfit easily without limits</td></tr>
+<tr><td>No feature scaling needed — splits compare a feature with a threshold, so units don't matter</td><td><strong>Unstable</strong>: a small change in data can produce a very different tree (high variance)</td></tr>
+<tr><td>Handles numeric and categorical features, non-linear patterns and interactions</td><td>Boundaries are axis-parallel staircases; a diagonal boundary needs many steps</td></tr>
+<tr><td>Fast to train and predict</td><td>A single tree is rarely the most accurate model</td></tr>
+</tbody></table>
+<p>The instability problem has a beautiful fix: train <em>many</em> trees and combine them. That's Lesson 14.</p>
+
+<h2 id="code">In Python</h2>
+<pre><code>from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+
+data = load_breast_cancer()
+X_train, X_test, y_train, y_test = train_test_split(
+    data.data, data.target, test_size=0.25, stratify=data.target, random_state=0)
+
+for depth in [1, 2, 3, 5, None]:          # None = grow until leaves are pure
+    tree = DecisionTreeClassifier(max_depth=depth, random_state=0).fit(X_train, y_train)
+    print(f"max_depth={str(depth):4s} depth={tree.get_depth()} leaves={tree.get_n_leaves():2d} "
+          f"train={tree.score(X_train, y_train):.3f} test={tree.score(X_test, y_test):.3f}")
+
+tree = DecisionTreeClassifier(max_depth=3, random_state=0).fit(X_train, y_train)
+top = sorted(zip(tree.feature_importances_, data.feature_names), reverse=True)[:3]
+print([(str(name), round(float(imp), 3)) for imp, name in top])</code></pre>
+<p>Output:</p>
+<pre><code>max_depth=1    depth=1 leaves= 2 train=0.930 test=0.888
+max_depth=2    depth=2 leaves= 4 train=0.932 test=0.888
+max_depth=3    depth=3 leaves= 8 train=0.977 test=0.916
+max_depth=5    depth=5 leaves=18 train=1.000 test=0.902
+max_depth=None depth=5 leaves=18 train=1.000 test=0.902
+[('worst perimeter', 0.791), ('worst concave points', 0.115), ('worst radius', 0.04)]</code></pre>
+<p>Depth 3 does best on unseen data (91.6%). Deeper trees reach 100% training accuracy but do <em>worse</em> on the test set — overfitting again. The depth-3 tree leans heavily on one feature, "worst perimeter" (79% of the importance). Notice that a single tree (91.6%) is below logistic regression's ~96% on this data (Lesson 8) — Lesson 14 closes that gap.</p>
+<p>Print any tree as text with <code>sklearn.tree.export_text(tree, feature_names=...)</code>, or draw it with <code>sklearn.tree.plot_tree</code>.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>A decision tree asks a sequence of "feature ≤ threshold?" questions; leaves hold predictions.</li>
+<li>Splits are chosen to reduce impurity: <strong>Gini</strong> $1 - \sum p_k^2$ or <strong>entropy</strong> $-\sum p_k\log_2 p_k$.</li>
+<li>The CART algorithm greedily picks the split with the largest impurity decrease, then repeats on each child.</li>
+<li>Unrestricted trees overfit; control them with <code>max_depth</code>, <code>min_samples_leaf</code> or pruning (<code>ccp_alpha</code>).</li>
+<li>Trees are readable and need no scaling, but are unstable — which ensembles fix.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. A node has 5 examples of class A and 5 of class B. What is its Gini impurity?</p>
+<button data-opt="a">0</button><button data-opt="b">0.5</button><button data-opt="c">1</button>
+<div class="q-explain">$1 - (0.5^2 + 0.5^2) = 1 - 0.5 = 0.5$ — the maximum for two classes.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. Which split is better: one that creates two pure children, or one whose children have the same class mix as the parent?</p>
+<button data-opt="a">Two pure children</button><button data-opt="b">Same mix as the parent</button><button data-opt="c">They're equally good</button>
+<div class="q-explain">Pure children have impurity 0 — the maximum possible gain. Keeping the parent's mix gives zero gain.</div></div>
+<div class="q" data-correct="c"><p class="q-text">3. Why don't decision trees need feature scaling?</p>
+<button data-opt="a">They standardise features internally</button><button data-opt="b">They only work with categorical features</button><button data-opt="c">Each split compares one feature with a threshold, so the feature's units don't matter</button>
+<div class="q-explain">Rescaling a feature just rescales its thresholds; the same examples go left and right.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. A tree has 100% training accuracy and 85% test accuracy. What would most likely help?</p>
+<button data-opt="a">Allow deeper trees</button><button data-opt="b">Limit max_depth or increase min_samples_leaf</button><button data-opt="c">Use entropy instead of Gini</button>
+<div class="q-explain">That gap is overfitting; restricting the tree's growth reduces variance.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. What shape are a decision tree's decision boundaries?</p>
+<button data-opt="a">Axis-parallel staircases (boxes)</button><button data-opt="b">Single straight diagonal lines</button><button data-opt="c">Smooth curves</button>
+<div class="q-explain">Each split is "one feature ≤ threshold", a cut parallel to an axis. Together they make rectangles.</div></div>
+</div>

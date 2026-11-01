@@ -1,0 +1,165 @@
+<h2 id="welcome">Welcome: what you'll be able to do</h2>
+<p>By the end of this lesson you will be able to explain, in plain words, what machine learning is, how it differs from ordinary programming, and what the words <em>model</em>, <em>feature</em>, <em>label</em>, <em>training</em> and <em>prediction</em> mean. You'll also "be the algorithm" yourself in an interactive demo — which is the fastest way to understand what a computer does when it learns.</p>
+<p>No maths or programming knowledge is needed for this lesson. Everything is built up from scratch.</p>
+
+<h2 id="rules-vs-learning">Two ways to make a computer smart</h2>
+<p>Imagine you want a program that decides whether an email is spam.</p>
+<p><strong>Way 1 — write the rules yourself.</strong> You sit down and write instructions:</p>
+<pre><code>if "free money" in email: spam
+if "winner" in subject and sender is unknown: spam
+...</code></pre>
+<p>This is traditional programming. It works for simple problems, but it breaks down quickly: spammers change their wording, there are thousands of special cases, and you can never write them all.</p>
+<p><strong>Way 2 — show examples and let the computer find the rules.</strong> You collect 100,000 emails that people have already marked "spam" or "not spam", and give them to a learning algorithm. The algorithm looks for patterns — which words, senders and formats tend to appear in spam — and produces a program that can classify new emails it has never seen.</p>
+<p>That second way is <strong>machine learning</strong>.</p>
+<div class="box def"><div class="box-title">Definition</div>
+<p>Google's Machine Learning course puts it like this: machine learning is "a way to train software, called a <strong>model</strong>, to make predictions or generate content using data."</p></div>
+<div class="box intuition"><div class="box-title">Analogy</div>
+<p>Think about how a child learns what a "dog" is. Nobody gives the child a rulebook ("four legs, fur, tail, barks…"). Instead, the child sees many dogs, and many things that are not dogs, and gradually builds an internal sense of "dog-ness". If they call a cat a dog, someone corrects them, and their understanding adjusts. Machine learning works the same way: <em>examples + correction = learning</em>.</p></div>
+
+<h2 id="where">Where you already meet ML</h2>
+<ul>
+<li><strong>Your phone's keyboard</strong> predicts your next word.</li>
+<li><strong>Maps apps</strong> predict how long a trip will take.</li>
+<li><strong>Streaming services</strong> recommend what to watch next.</li>
+<li><strong>Banks</strong> flag card transactions that look fraudulent.</li>
+<li><strong>Photo apps</strong> group pictures by the faces in them.</li>
+<li><strong>Chatbots and image generators</strong> create new text and pictures.</li>
+</ul>
+<p>Each of these has the same core: a model that turns some input (your typing, a route, your viewing history) into an output (a word, a time, a recommendation).</p>
+
+<h2 id="vocabulary">The essential vocabulary</h2>
+<p>Let's use one running example: predicting the <strong>price of a house</strong>.</p>
+<table class="tbl">
+<thead><tr><th>Size (m²)</th><th>Bedrooms</th><th>Distance to city (km)</th><th>Price (k USD)</th></tr></thead>
+<tbody>
+<tr><td>50</td><td>1</td><td>2</td><td>210</td></tr>
+<tr><td>80</td><td>2</td><td>5</td><td>290</td></tr>
+<tr><td>120</td><td>3</td><td>12</td><td>340</td></tr>
+<tr><td>150</td><td>4</td><td>3</td><td>520</td></tr>
+</tbody></table>
+<ul>
+<li><strong>Example</strong> (also called a sample, row, or data point): one house — one row of the table.</li>
+<li><strong>Features</strong> (inputs, usually written $x$): the facts we know about each example — size, bedrooms, distance. A house is described by a list of features, e.g. $x = (50, 1, 2)$.</li>
+<li><strong>Label</strong> (target, output, written $y$): the thing we want to predict — price. For the first house, $y = 210$.</li>
+<li><strong>Dataset</strong>: the whole table — many examples, each with features and (usually) a label.</li>
+<li><strong>Model</strong>: a function that takes features and outputs a prediction, written $\hat{y}$ ("y-hat"). The hat means "our guess", as opposed to the true $y$.</li>
+<li><strong>Parameters</strong> (or weights): the adjustable numbers inside the model. Learning means finding good values for them.</li>
+<li><strong>Training</strong>: the process of adjusting the parameters so predictions match the labels in the dataset.</li>
+<li><strong>Inference</strong> (prediction): using the trained model on new examples whose labels we don't know.</li>
+</ul>
+<div class="box tip"><div class="box-title">Notation you'll see everywhere</div>
+<p>$x$ = features, $y$ = true label, $\hat{y}$ = predicted label, $n$ = number of examples, $d$ = number of features. A subscript picks out one example: $x_3$ and $y_3$ are the features and label of example 3.</p></div>
+
+<h2 id="types">The main types of machine learning</h2>
+<h3>1. Supervised learning</h3>
+<p>Every training example comes with the right answer (the label). The model learns the mapping from features to label. Two flavours:</p>
+<ul>
+<li><strong>Regression</strong> — the label is a number. <em>"What will this house sell for?"</em> → 340.</li>
+<li><strong>Classification</strong> — the label is a category. <em>"Is this email spam?"</em> → yes / no. <em>"Which digit is in this image?"</em> → 0–9.</li>
+</ul>
+<h3>2. Unsupervised learning</h3>
+<p>There are no labels. The goal is to discover structure in the data on its own — for example, grouping customers into segments with similar shopping habits (<em>clustering</em>), or compressing many features into a few (<em>dimensionality reduction</em>).</p>
+<h3>3. Reinforcement learning</h3>
+<p>An agent takes actions in an environment and receives rewards or penalties, learning by trial and error which actions lead to the most reward — the way a game-playing program learns to win.</p>
+<h3>4. Generative AI</h3>
+<p>Models that create new content — text, images, audio — learned from huge datasets. Chatbots and image generators are examples.</p>
+<p>This course focuses on <strong>supervised</strong> and <strong>unsupervised</strong> learning, which are the foundation for everything else.</p>
+
+<h2 id="how-learning-works">How does a model actually "learn"?</h2>
+<p>Let's make it concrete with the simplest possible model. Suppose we predict house price from size only, using a straight line:</p>
+$$\hat{y} = w \cdot x + b$$
+<ul>
+<li>$x$ is the size of the house,</li>
+<li>$\hat{y}$ is the predicted price,</li>
+<li>$w$ (the <em>weight</em>, or slope) says how much the price rises per extra m²,</li>
+<li>$b$ (the <em>bias</em>, or intercept) is the starting price when size is 0.</li>
+</ul>
+<p>$w$ and $b$ are the model's <strong>parameters</strong>. Different values give different lines. Learning means finding the $w$ and $b$ that make the line fit the data best. To do that we need three ingredients:</p>
+<ol class="steps">
+<li><strong>A model</strong> with adjustable parameters — here, the line $\hat{y} = wx + b$.</li>
+<li><strong>A way to measure how wrong it is</strong> — called the <em>loss</em> (or cost).</li>
+<li><strong>A way to improve the parameters</strong> — an optimisation method that changes $w$ and $b$ to reduce the loss.</li>
+</ol>
+
+<h3>Measuring wrongness: the loss</h3>
+<p>For each house, the <strong>error</strong> (or residual) is the gap between prediction and truth: $\hat{y}_i - y_i$. Some errors are positive, some negative, so we square them (making all positive, and punishing big errors more) and take the average. This is the <strong>mean squared error (MSE)</strong>:</p>
+$$\text{MSE} = \frac{1}{n}\sum_{i=1}^{n} (\hat{y}_i - y_i)^2$$
+<p>Reading the symbols: $\sum_{i=1}^{n}$ means "add up, for every example $i$ from 1 to $n$". So: compute the squared error for every house, add them up, divide by how many houses there are.</p>
+
+<div class="box example"><div class="box-title">Worked example — compute MSE by hand</div>
+<p>Three houses with sizes $x = 1, 2, 3$ (in 100 m²) and prices $y = 2, 4, 5$. Try the line $w = 2,\ b = 0$, i.e. $\hat{y} = 2x$.</p>
+<table class="tbl">
+<thead><tr><th><i>x</i></th><th><i>y</i></th><th><i>ŷ</i> = 2<i>x</i></th><th>error <i>ŷ</i> − <i>y</i></th><th>squared</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>2</td><td>2</td><td>0</td><td>0</td></tr>
+<tr><td>2</td><td>4</td><td>4</td><td>0</td><td>0</td></tr>
+<tr><td>3</td><td>5</td><td>6</td><td>1</td><td>1</td></tr>
+</tbody></table>
+<p>$\text{MSE} = \frac{0 + 0 + 1}{3} \approx 0.33$.</p>
+<p>Now try $w = 1.5,\ b = 0.67$: predictions are $2.17, 3.67, 5.17$; errors $0.17, -0.33, 0.17$; squared $0.028, 0.111, 0.028$; MSE $\approx 0.056$. Smaller loss — <strong>a better line</strong>. Learning is simply the search for the parameters with the smallest loss.</p></div>
+
+<h3>Improving the parameters</h3>
+<p>You could guess randomly, but that's slow. Instead, algorithms use <strong>calculus</strong> to work out which direction to nudge each parameter so the loss goes down, take a small step, and repeat. This is called <strong>gradient descent</strong>, and you'll build it yourself in Lesson 7 after learning derivatives in Lesson 3.</p>
+
+<h2 id="demo">Try it: be the learning algorithm</h2>
+<p>Below are some houses (dots). Move the sliders to change $w$ and $b$ and try to make the line fit the dots. Watch the MSE: your goal is to make it as small as possible. The red vertical lines are the errors. When you're done, press <em>Show best fit</em> to see what an algorithm finds.</p>
+<div class="demo" data-demo="fit-line"></div>
+<p>What you just did — adjust parameters, check the loss, adjust again — is exactly what a learning algorithm does. The only difference is that the computer does it with precise maths, millions of times faster, and with thousands of parameters instead of two.</p>
+
+<h2 id="workflow">The machine learning workflow</h2>
+<p>Real projects follow roughly the same steps:</p>
+<ol class="steps">
+<li><strong>Define the problem.</strong> What exactly do you want to predict, and how will you measure success?</li>
+<li><strong>Collect data.</strong> Gather examples with features (and labels, for supervised learning).</li>
+<li><strong>Split the data.</strong> Keep some examples aside as a <em>test set</em> that the model never sees during training, so you can check honestly how it does on new data (Lesson 5).</li>
+<li><strong>Prepare the data.</strong> Clean errors, handle missing values, convert text categories to numbers (Lesson 20).</li>
+<li><strong>Train a model.</strong> Start simple, then try better models.</li>
+<li><strong>Evaluate.</strong> Measure performance on data the model hasn't seen (Lesson 9).</li>
+<li><strong>Deploy and monitor.</strong> Use the model in the real world and watch that it keeps working.</li>
+</ol>
+<div class="box warn"><div class="box-title">The one big trap</div>
+<p>A model can memorise its training data — like a student who memorises the answers to last year's exam without understanding the subject. It looks perfect on data it has seen and fails on new data. This is called <strong>overfitting</strong>, and avoiding it is one of the central themes of this course.</p></div>
+
+<h2 id="code">Your first ML code</h2>
+<p>Here is the same "fit a line" task in Python, using the popular <strong>scikit-learn</strong> library. Don't worry about every detail yet — notice the pattern: create a model, <code>fit</code> it to data, then <code>predict</code>.</p>
+<pre><code>from sklearn.linear_model import LinearRegression
+
+# features: house size in 100 m² (each row is one house)
+X = [[1], [2], [3], [4], [5]]
+# labels: price in units of 100,000 USD
+y = [2.1, 3.9, 6.2, 7.8, 10.1]
+
+model = LinearRegression()   # 1. choose a model
+model.fit(X, y)              # 2. train: find the best w and b
+
+print(model.coef_, model.intercept_)   # the learned w and b
+print(model.predict([[6]]))            # 3. predict a new 600 m² house</code></pre>
+<p>Running this prints a slope of about <code>1.99</code>, an intercept of about <code>0.05</code>, and a prediction of about <code>12</code> (i.e. 1.2 million USD) for the new house. To run it yourself, see the setup steps on the home page.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Machine learning trains a <strong>model</strong> from <strong>data</strong> instead of hand-writing rules.</li>
+<li>Data is made of <strong>examples</strong>, each with <strong>features</strong> $x$ and (in supervised learning) a <strong>label</strong> $y$.</li>
+<li><strong>Supervised</strong> learning has labels (regression = numbers, classification = categories); <strong>unsupervised</strong> learning finds structure without labels.</li>
+<li>Learning = choosing <strong>parameters</strong> that minimise a <strong>loss</strong>, such as mean squared error.</li>
+<li>The real goal is to do well on <strong>new</strong> data, not just the training data.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. A model predicts tomorrow's temperature in °C. What kind of problem is this?</p>
+<button data-opt="a">Classification</button><button data-opt="b">Regression</button><button data-opt="c">Clustering</button>
+<div class="q-explain">The label is a number on a continuous scale, so it is <strong>regression</strong>. Classification would predict a category such as "hot / mild / cold".</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. In a dataset of emails labelled spam / not spam, what is the "label"?</p>
+<button data-opt="a">The words in the email</button><button data-opt="b">The sender's address</button><button data-opt="c">Whether the email is spam</button>
+<div class="q-explain">The label is the answer we want to predict. Words and sender are <strong>features</strong> — the inputs.</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. Predictions are 3, 5 and true values are 4, 5. What is the MSE?</p>
+<button data-opt="a">0.5</button><button data-opt="b">1</button><button data-opt="c">2</button>
+<div class="q-explain">Errors are $-1$ and $0$; squared: $1$ and $0$; average $= (1+0)/2 = 0.5$.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. You group shoppers by buying habits without any predefined categories. This is…</p>
+<button data-opt="a">Supervised learning</button><button data-opt="b">Unsupervised learning</button><button data-opt="c">Reinforcement learning</button>
+<div class="q-explain">There are no labels — the algorithm discovers the groups itself. That is <strong>unsupervised</strong> learning (specifically clustering).</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. A model scores 100% on its training data but poorly on new data. This is called…</p>
+<button data-opt="a">Underfitting</button><button data-opt="b">Regularization</button><button data-opt="c">Overfitting</button>
+<div class="q-explain">It memorised the training examples instead of learning the general pattern: <strong>overfitting</strong>.</div></div>
+</div>

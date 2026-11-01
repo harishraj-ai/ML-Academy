@@ -1,0 +1,145 @@
+<h2 id="why">Why fairness is a machine-learning problem</h2>
+<p>Imagine a bank that replaces its loan officers with a model trained on ten years of past decisions. The model is 88% accurate, fast and consistent. Is it fair? Accuracy alone can't tell you. If past officers turned down qualified applicants from one neighbourhood, the model has learned to do the same — automatically, at scale, and with an air of objectivity that makes it harder to challenge.</p>
+<p>Machine learning finds patterns in data, and data records the world as it was, including its unfairness. A model doesn't need to be told anyone's ethnicity or gender to discriminate: other features — a postcode, a first name, a gap in employment — can act as <strong>proxies</strong>. This lesson gives you the vocabulary, the numbers and the habits to notice and reduce these problems.</p>
+<div class="box intuition"><div class="box-title">The core idea</div><p>A model can be accurate <em>on average</em> while making very different kinds of mistakes for different groups of people. Fairness work means measuring those differences, deciding which ones matter for the situation, and acting on them — a job for people, informed by numbers.</p></div>
+
+<h2 id="harms">What can go wrong: kinds of harm</h2>
+<ul>
+<li><strong>Allocation harms:</strong> a resource or opportunity — a loan, a job interview, a medical referral — is withheld from some groups more than others.</li>
+<li><strong>Quality-of-service harms:</strong> the system simply works worse for some people, like face recognition or speech recognition with higher error rates for some groups.</li>
+<li><strong>Representation harms:</strong> outputs reinforce stereotypes or erase groups, such as image search or text generation that reproduces biased associations.</li>
+<li><strong>Privacy and autonomy harms:</strong> people are profiled, re-identified or manipulated using data they never agreed to share for that purpose.</li>
+</ul>
+
+<h2 id="sources">Where bias comes from</h2>
+<p>Bias can enter at every step of the workflow you learned in Lesson 5:</p>
+<ol class="steps">
+<li><strong>Historical bias:</strong> the world itself was unequal, so even a perfect record of it teaches the model those patterns (the Amazon hiring model, Lesson 1).</li>
+<li><strong>Representation (sampling) bias:</strong> some groups are under-represented in the training data, so the model is less accurate for them.</li>
+<li><strong>Measurement and label bias:</strong> the label is a <em>proxy</em> for what you care about. Using healthcare <em>cost</em> to stand for health <em>need</em> under-served Black patients (Obermeyer et al., 2019; Lesson 5).</li>
+<li><strong>Aggregation bias:</strong> one model for everyone ignores real differences between groups — for example, a medical threshold that suits one population but not another.</li>
+<li><strong>Evaluation bias:</strong> the test set or benchmark doesn't reflect the people the model will actually be used on.</li>
+<li><strong>Deployment and feedback loops:</strong> the model's decisions change the future data. Police sent where a model predicts crime record more crime there, which "confirms" the prediction.</li>
+</ol>
+
+<h2 id="metrics">Measuring fairness with group metrics</h2>
+<p>Split your test set by group and compute the confusion matrix (Lesson 9) <em>for each group separately</em>. From those counts come the standard fairness measures:</p>
+<div class="table-scroll"><table class="tbl">
+<thead><tr><th>Measure</th><th>Formula (per group)</th><th>"Fair" means equal…</th><th>Name of the criterion</th></tr></thead>
+<tbody>
+<tr><td>Selection rate</td><td>$\frac{TP + FP}{\text{all}}$</td><td>share of people approved</td><td>Demographic parity</td></tr>
+<tr><td>True-positive rate (recall)</td><td>$\frac{TP}{TP + FN}$</td><td>chance a qualified person is approved</td><td>Equal opportunity</td></tr>
+<tr><td>TPR <em>and</em> false-positive rate</td><td>$\frac{TP}{TP+FN}$ and $\frac{FP}{FP+TN}$</td><td>both kinds of error</td><td>Equalised odds</td></tr>
+<tr><td>Precision (PPV)</td><td>$\frac{TP}{TP + FP}$</td><td>how reliable an approval is</td><td>Predictive parity</td></tr>
+</tbody></table></div>
+<p>A common summary is the <strong>demographic-parity ratio</strong>: the lower selection rate divided by the higher one. In US employment law the "four-fifths rule" of thumb treats a ratio below 0.8 as evidence of possible adverse impact that needs explaining.</p>
+<div class="box example"><div class="box-title">Worked example — one loan model, two groups</div>
+<p>A bank tests its model on 100 applicants from each of two groups. In group A, 50 would repay; in group B, 20 would.</p>
+<div class="table-scroll"><table class="tbl"><thead><tr><th>Group</th><th>TP</th><th>FP</th><th>FN</th><th>TN</th></tr></thead><tbody><tr><td>A</td><td>40</td><td>5</td><td>10</td><td>45</td></tr><tr><td>B</td><td>12</td><td>4</td><td>8</td><td>76</td></tr></tbody></table></div>
+<p><strong>Selection rate:</strong> A $= 45/100 = 0.45$; B $= 16/100 = 0.16$. Ratio $0.16/0.45 \approx 0.36$ — far below 0.8.</p>
+<p><strong>True-positive rate:</strong> A $= 40/50 = 0.80$; B $= 12/20 = 0.60$. A qualified applicant from B is approved less often.</p>
+<p><strong>False-positive rate:</strong> A $= 5/50 = 0.10$; B $= 4/80 = 0.05$.</p>
+<p><strong>Precision:</strong> A $= 40/45 \approx 0.89$; B $= 12/16 = 0.75$.</p>
+<p><strong>Accuracy:</strong> A $= 85/100 = 0.85$; B $= 88/100 = 0.88$ — the model is <em>more accurate</em> for group B even though it fails B's qualified applicants more often. Accuracy alone hides the problem.</p></div>
+
+<h2 id="demo">Try it: one threshold or two?</h2>
+<p>Two groups, A (half would repay) and B (one in five would repay), each get a score from the same model. Move the thresholds and watch the per-group rates. Try to make the selection rates equal; then try to make the true-positive rates equal; then notice what happens to precision and accuracy.</p>
+<div class="demo" data-demo="fairness"></div>
+
+<h2 id="impossible">You can't have everything: the impossibility result</h2>
+<p>Why not just make every rate equal? Because, when the groups' <strong>base rates</strong> differ (here 50% vs 20%), it is mathematically impossible except for a perfect classifier. For any group, the four quantities are tied together by an identity (Chouldechova, 2017):</p>
+$$\text{FPR} = \frac{p}{1-p}\cdot\frac{1-\text{PPV}}{\text{PPV}}\cdot\text{TPR},$$
+<p>where $p$ is the group's base rate. If two groups have the same PPV and the same TPR but different $p$, their FPRs <em>must</em> differ.</p>
+<div class="box example"><div class="box-title">Worked example — checking the identity</div>
+<p>Group A: $p = 0.5$, PPV $= 40/45$, TPR $= 0.8$: $\ \frac{0.5}{0.5}\cdot\frac{5/45}{40/45}\cdot 0.8 = 1\times0.125\times0.8 = 0.10$ ✓ (the FPR we computed).</p>
+<p>Group B: $p = 0.2$, PPV $= 0.75$, TPR $= 0.6$: $\ \frac{0.2}{0.8}\cdot\frac{0.25}{0.75}\cdot0.6 = 0.25\times0.333\times0.6 = 0.05$ ✓.</p>
+<p>Now suppose we tuned group B to match A's PPV (0.889) and TPR (0.8). The identity forces B's FPR to be $0.25\times0.125\times0.8 = 0.025$ — no longer equal to A's 0.10. Equal precision and equal opportunity together rule out equal false-positive rates.</p></div>
+<p>So <strong>choosing a fairness criterion is a value judgement</strong>. In lending, a bank may care most that qualified applicants are treated alike (equal opportunity). In criminal justice, critics of the COMPAS risk score (ProPublica, 2016) focused on unequal false-positive rates, while its makers pointed to equal predictive value — and both were right about their own measure. Kleinberg, Mullainathan and Raghavan (2016) proved a closely related result for calibrated scores.</p>
+
+<h2 id="mitigation">What you can do about it</h2>
+<ul>
+<li><strong>Fix the data (before training):</strong> collect more data for under-represented groups, check that labels measure what you care about, remove or rethink proxy features, re-weight examples so groups count fairly.</li>
+<li><strong>Constrain the model (during training):</strong> add a fairness penalty or constraint to the loss, just as regularisation adds a penalty (Lesson 10). Libraries such as Fairlearn and AIF360 implement several methods.</li>
+<li><strong>Adjust decisions (after training):</strong> choose thresholds per group to equalise a chosen rate, as in the demo. This is effective but can be legally restricted, because it treats groups differently explicitly — get legal advice.</li>
+<li><strong>Change the system, not just the model:</strong> keep a human in the loop for consequential decisions, give people an explanation and a way to appeal, monitor outcomes after deployment, and be willing <em>not</em> to deploy.</li>
+</ul>
+<div class="box warn"><div class="box-title">"Fairness through unawareness" doesn't work</div><p>Deleting the protected attribute does not remove bias when other features are correlated with it — and it makes the bias harder to <em>measure</em>, because you can no longer compute group metrics. Most practitioners keep the attribute out of the model's inputs but use it for auditing.</p></div>
+
+<h2 id="beyond">Beyond fairness: privacy, transparency and accountability</h2>
+<ul>
+<li><strong>Privacy:</strong> collect only the data you need, with consent. Models can leak training data (membership inference, Lesson 10); <em>differential privacy</em> adds carefully calibrated random noise during training so that no single person's record changes the result much.</li>
+<li><strong>Transparency:</strong> prefer interpretable models for high-stakes decisions, and explain outputs to the people affected. Document data with <em>datasheets</em> (Gebru et al.) and models with <em>model cards</em> (Mitchell et al., 2019).</li>
+<li><strong>Accountability:</strong> someone must be responsible for a model's decisions, and there must be a route to contest them. Laws such as the EU AI Act (see <a href="recent.html">Recent developments</a>) now require risk management, documentation and human oversight for high-risk uses such as hiring and credit.</li>
+<li><strong>Wider impact:</strong> energy use, effects on workers, and misuse (deepfakes, surveillance) are part of the responsibility too.</li>
+</ul>
+
+<h2 id="checklist">A practical checklist before you deploy</h2>
+<ol class="steps">
+<li><strong>Purpose:</strong> who is affected, what decision does the model inform, and is ML appropriate at all?</li>
+<li><strong>Data:</strong> who is missing or under-represented? Is the label a fair proxy for the real goal?</li>
+<li><strong>Metrics:</strong> compute the confusion matrix, selection rate, TPR, FPR and PPV for every relevant group — and the uncertainty when groups are small.</li>
+<li><strong>Choose:</strong> decide with stakeholders which errors matter most here, and which fairness criterion you will hold the model to.</li>
+<li><strong>Document:</strong> write a model card: intended use, evaluation by group, known limitations.</li>
+<li><strong>Monitor:</strong> after deployment, track group metrics over time and watch for feedback loops; provide explanations and appeals.</li>
+</ol>
+
+<h2 id="code">In Python: a fairness report from scratch</h2>
+<p>Everything above is just the confusion matrix computed per group. Here is a small report on a synthetic loan dataset in which group B has a lower base rate:</p>
+<pre><code>import numpy as np
+import pandas as pd
+
+# A synthetic loan dataset: two groups with different base rates of repayment
+rng = np.random.default_rng(0)
+n = 2000
+group = rng.choice(["A", "B"], size=n, p=[0.6, 0.4])
+base = np.where(group == "A", 0.5, 0.2)              # share who would repay
+repay = (rng.random(n) &lt; base).astype(int)
+score = np.clip(0.5 + 0.25 * (repay - 0.5) * 2 + rng.normal(0, 0.18, n), 0, 1)  # model's score
+df = pd.DataFrame({"group": group, "repay": repay, "score": score})
+
+def group_report(df, threshold):
+    d = df.assign(approve=(df["score"] &gt;= threshold).astype(int))
+    rows = {}
+    for g, s in d.groupby("group"):
+        tp = ((s.approve == 1) &amp; (s.repay == 1)).sum(); fp = ((s.approve == 1) &amp; (s.repay == 0)).sum()
+        fn = ((s.approve == 0) &amp; (s.repay == 1)).sum(); tn = ((s.approve == 0) &amp; (s.repay == 0)).sum()
+        rows[g] = {"selection rate": (tp + fp) / len(s), "TPR": tp / (tp + fn), "FPR": fp / (fp + tn), "PPV": tp / (tp + fp)}
+    return pd.DataFrame(rows).T.round(3)
+
+r = group_report(df, threshold=0.6)
+print(r)
+print("demographic-parity ratio:", round(r.loc["B", "selection rate"] / r.loc["A", "selection rate"], 3))</code></pre>
+<pre><code>   selection rate    TPR    FPR    PPV
+A           0.430  0.799  0.039  0.956
+B           0.178  0.801  0.025  0.887
+demographic-parity ratio: 0.414</code></pre>
+<p>Read it like a fairness auditor: with one shared threshold, qualified applicants are treated alike — the true-positive rates are both 0.80 (<strong>equal opportunity holds</strong>). But group B is approved far less often (ratio 0.41, well below 0.8) and an approval is less reliable for B (PPV 0.89 vs 0.96) — both consequences of B's lower base rate, exactly as the impossibility result predicts.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<ul>
+<li>Models learn the unfairness in their data; proxies let them discriminate without seeing protected attributes.</li>
+<li>Bias can enter through history, sampling, labels, aggregation, evaluation and feedback loops.</li>
+<li>Fairness is measured by comparing per-group rates: selection rate (demographic parity), TPR (equal opportunity), TPR and FPR (equalised odds), precision (predictive parity).</li>
+<li>When base rates differ, these criteria cannot all hold at once — choosing one is a value judgement to make with the people affected.</li>
+<li>Mitigation happens in the data, the training, the thresholds and, above all, the surrounding system: documentation, human oversight, appeal and monitoring.</li>
+</ul>
+<div class="box tip"><div class="box-title">You've finished the course</div><p>That was the last lesson. To turn what you've learned into real skill, see <a href="next.html">What next: your learning plan</a> — directions, a 12-week plan, project ideas and free resources.</p></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. A model never receives applicants' ethnicity. Can it still discriminate by ethnicity?</p>
+<button data-opt="a">No — it can't use information it doesn't have</button><button data-opt="b">Yes — other features can act as proxies for ethnicity</button><button data-opt="c">Only if it is a neural network</button>
+<div class="q-explain">Features like postcode or school are often correlated with protected attributes, so a model can reproduce group differences without the attribute itself.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. Group A's selection rate is 0.50 and group B's is 0.30. What is the demographic-parity ratio, and does it pass the four-fifths rule of thumb?</p>
+<button data-opt="a">0.6 — it does not pass</button><button data-opt="b">0.6 — it passes</button><button data-opt="c">0.2 — it passes</button>
+<div class="q-explain">$0.30/0.50 = 0.6$, which is below 0.8, so it would be flagged for possible adverse impact.</div></div>
+<div class="q" data-correct="c"><p class="q-text">3. "Equal opportunity" asks which rate to be the same for every group?</p>
+<button data-opt="a">The selection rate</button><button data-opt="b">The precision</button><button data-opt="c">The true-positive rate</button>
+<div class="q-explain">Equal opportunity (Hardt, Price &amp; Srebro, 2016) requires that qualified people — the true positives — are approved at the same rate in every group.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. Two groups have different base rates. A model has equal precision and equal TPR for both. What must be true?</p>
+<button data-opt="a">Their false-positive rates are also equal</button><button data-opt="b">Their false-positive rates differ (unless the model is perfect)</button><button data-opt="c">Their accuracies are equal</button>
+<div class="q-explain">By the identity $\text{FPR} = \frac{p}{1-p}\cdot\frac{1-\text{PPV}}{\text{PPV}}\cdot\text{TPR}$, different base rates $p$ force different FPRs.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. A hospital model predicts healthcare <em>spending</em> to decide who gets extra care. What kind of bias is the biggest risk?</p>
+<button data-opt="a">Label (measurement) bias — spending is a proxy for need</button><button data-opt="b">Too little regularisation</button><button data-opt="c">The learning rate is too high</button>
+<div class="q-explain">This is the Obermeyer et al. (2019) case: groups with less access to care spend less at the same level of need, so the label understates their need.</div></div>
+</div>

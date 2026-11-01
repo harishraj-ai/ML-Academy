@@ -1,0 +1,157 @@
+<h2 id="why">Why probability and statistics?</h2>
+<p>Real data is messy. Two houses of the same size sell for different prices; the same symptoms can come from different illnesses. ML models live with this uncertainty, so they speak the language of probability: a spam filter doesn't say "spam", it says "97% likely spam". Statistics gives us tools to summarise data — averages, spread — that we'll use in almost every lesson.</p>
+
+<h2 id="probability">Probability basics</h2>
+<p>A <strong>probability</strong> is a number between 0 and 1 that measures how likely an event is: 0 = impossible, 1 = certain, 0.5 = as likely as not. We write $P(A)$ for "the probability of event $A$".</p>
+<p>When all outcomes are equally likely:</p>
+$$P(A) = \frac{\text{number of outcomes where } A \text{ happens}}{\text{total number of outcomes}}$$
+<div class="box example"><div class="box-title">Worked example — a fair die</div>
+<p>$P(\text{roll a 6}) = \frac{1}{6} \approx 0.167$. $P(\text{roll an even number}) = \frac{3}{6} = 0.5$ (outcomes 2, 4, 6).</p></div>
+<p>Three rules do most of the work:</p>
+<ul>
+<li><strong>Complement</strong>: $P(\text{not } A) = 1 - P(A)$. Probability of <em>not</em> rolling a 6 is $5/6$.</li>
+<li><strong>Addition</strong> (for events that can't both happen): $P(A \text{ or } B) = P(A) + P(B)$. Rolling a 1 or a 2: $1/6 + 1/6 = 1/3$.</li>
+<li><strong>Multiplication</strong> (for <em>independent</em> events — one doesn't affect the other): $P(A \text{ and } B) = P(A)\,P(B)$. Two coin flips both heads: $0.5 \times 0.5 = 0.25$.</li>
+</ul>
+
+<h2 id="conditional">Conditional probability</h2>
+<p>Often we know something already, and that changes the odds. $P(A \mid B)$ — "probability of $A$ <strong>given</strong> $B$" — is the probability of $A$ when we only consider situations where $B$ happened:</p>
+$$P(A \mid B) = \frac{P(A \text{ and } B)}{P(B)}$$
+<div class="box example"><div class="box-title">Worked example — emails</div>
+<p>Out of 100 emails, 30 are spam. 20 emails contain the word "free", and 15 of those are spam.</p>
+<p>$P(\text{spam}) = 30/100 = 0.30$.<br>
+$P(\text{spam} \mid \text{"free"}) = 15/20 = 0.75$.</p>
+<p>Knowing the email contains "free" raised the spam probability from 30% to 75%. This is the core idea behind Naive Bayes spam filters (Lesson 12): features change our beliefs about the label.</p></div>
+<div class="box warn"><div class="box-title">Careful: $P(A \mid B) \neq P(B \mid A)$</div>
+<p>$P(\text{spam} \mid \text{"free"}) = 15/20 = 0.75$, but $P(\text{"free"} \mid \text{spam}) = 15/30 = 0.5$. Mixing these up is one of the most common reasoning errors — and the next section shows how to convert between them.</p></div>
+
+<h2 id="bayes">Bayes' theorem</h2>
+<p>Bayes' theorem flips a conditional probability around:</p>
+$$P(A \mid B) = \frac{P(B \mid A)\,P(A)}{P(B)}$$
+<p>In ML language, with $A$ = "a hypothesis" (e.g. has the disease) and $B$ = "the evidence" (e.g. tested positive):</p>
+<ul>
+<li>$P(A)$ — the <strong>prior</strong>: what we believed before seeing evidence.</li>
+<li>$P(B \mid A)$ — the <strong>likelihood</strong>: how probable the evidence is if the hypothesis is true.</li>
+<li>$P(A \mid B)$ — the <strong>posterior</strong>: our updated belief after seeing the evidence.</li>
+</ul>
+<div class="box example"><div class="box-title">Worked example — the surprising medical test</div>
+<p>A disease affects <strong>1%</strong> of people. A test catches it <strong>90%</strong> of the time when present (sensitivity), but also gives a positive result to <strong>5%</strong> of healthy people (false positives). You test positive. What's the chance you have the disease?</p>
+<p>Most people guess around 90%. Let's compute.</p>
+<p>$P(D) = 0.01$, $P(+ \mid D) = 0.90$, $P(+ \mid \text{healthy}) = 0.05$.</p>
+<p>First, the overall chance of a positive test (sick-and-positive plus healthy-and-positive):</p>
+$$P(+) = 0.90 \times 0.01 + 0.05 \times 0.99 = 0.009 + 0.0495 = 0.0585$$
+<p>Then Bayes:</p>
+$$P(D \mid +) = \frac{0.90 \times 0.01}{0.0585} \approx 0.154$$
+<p>Only about <strong>15%</strong>! Because the disease is rare, the false positives from the 99% of healthy people outnumber the true positives.</p>
+<p><strong>The same thing with counts</strong> (often easier): in 1,000 people, 10 are sick and 9 of them test positive. Of the 990 healthy people, about 49.5 test positive. So of roughly 58.5 positives, only 9 are sick: $9/58.5 \approx 15\%$.</p></div>
+
+<h2 id="demo-bayes">Try it: Bayes with 1,000 people</h2>
+<p>Each square is a person. Change the disease rate and the test's accuracy, and see how many of the people who test positive are actually sick.</p>
+<div class="demo" data-demo="bayes"></div>
+
+<h2 id="random-variables">Random variables and expected value</h2>
+<p>A <strong>random variable</strong> is a quantity whose value depends on chance — the result of a die roll, tomorrow's temperature, a house's sale price. Its <strong>expected value</strong> (mean) is the average you'd get over many repetitions: each possible value weighted by its probability.</p>
+$$\mathbb{E}[X] = \sum_x x \cdot P(X = x)$$
+<div class="box example"><div class="box-title">Worked example — a die</div>
+<p>$\mathbb{E}[X] = 1\cdot\tfrac16 + 2\cdot\tfrac16 + \dots + 6\cdot\tfrac16 = \tfrac{21}{6} = 3.5$. You can never roll 3.5, but it's the long-run average.</p></div>
+
+<h2 id="describing-data">Describing data: mean, variance, standard deviation</h2>
+<p>Given $n$ numbers $x_1, \dots, x_n$:</p>
+<p>The <strong>mean</strong> (average) is the centre:</p>
+$$\bar{x} = \mu = \frac{1}{n}\sum_{i=1}^n x_i$$
+<p>The <strong>variance</strong> measures spread — the average squared distance from the mean:</p>
+$$\sigma^2 = \frac{1}{n}\sum_{i=1}^n (x_i - \mu)^2$$
+<p>The <strong>standard deviation</strong> $\sigma = \sqrt{\sigma^2}$ is spread in the original units.</p>
+<div class="box example"><div class="box-title">Worked example</div>
+<p>Exam scores: 4, 6, 8, 10, 12.</p>
+<p>Mean: $\mu = (4+6+8+10+12)/5 = 40/5 = 8$.</p>
+<p>Distances from the mean: $-4, -2, 0, 2, 4$. Squared: $16, 4, 0, 4, 16$.</p>
+<p>Variance: $\sigma^2 = 40/5 = 8$. Standard deviation: $\sigma = \sqrt{8} \approx 2.83$.</p>
+<p>So a typical score is about 2.8 points away from the average of 8.</p></div>
+<div class="box tip"><div class="box-title">Population vs sample</div>
+<p>Dividing by $n$ gives the population variance. When estimating from a sample, statisticians often divide by $n-1$ instead (the "sample variance"), which corrects a small bias. NumPy's <code>np.var</code> divides by $n$ by default; pandas' <code>.var()</code> divides by $n-1$. For large datasets the difference is negligible.</p></div>
+<p>Also useful: the <strong>median</strong> (middle value when sorted) is robust to outliers. Incomes of 30k, 35k, 40k, 45k and 1M have a mean of 230k but a median of 40k — the median describes the "typical" person far better.</p>
+
+<h2 id="standardization">Standardisation (z-scores)</h2>
+<p>A <strong>z-score</strong> says how many standard deviations a value is from the mean:</p>
+$$z = \frac{x - \mu}{\sigma}$$
+<p>A score of 12 above: $z = (12 - 8)/2.83 \approx 1.41$. Converting every feature to z-scores — mean 0, standard deviation 1 — is called <strong>standardisation</strong>. It's one of the most common preprocessing steps in ML (scikit-learn's <code>StandardScaler</code>), because many algorithms work badly when features have wildly different scales (Lessons 11 and 20).</p>
+
+<h2 id="distributions">Probability distributions</h2>
+<p>A <strong>distribution</strong> describes all the values a random variable can take and how likely each is.</p>
+<h3>Bernoulli: a single yes/no</h3>
+<p>One trial with success probability $p$: $P(1) = p$, $P(0) = 1-p$. A coin flip is Bernoulli with $p=0.5$. A classifier's "is this spam?" output is a Bernoulli probability.</p>
+<h3>Normal (Gaussian): the bell curve</h3>
+<p>Many natural quantities — heights, measurement errors — follow the bell-shaped <strong>normal distribution</strong>, described by its mean $\mu$ (centre) and standard deviation $\sigma$ (width). Its density is:</p>
+$$f(x) = \frac{1}{\sigma\sqrt{2\pi}}\, e^{-\frac{(x-\mu)^2}{2\sigma^2}}$$
+<p>You don't need to memorise the formula — just its shape and this rule of thumb:</p>
+<ul>
+<li>about <strong>68%</strong> of values lie within 1 $\sigma$ of the mean,</li>
+<li>about <strong>95%</strong> within 2 $\sigma$,</li>
+<li>about <strong>99.7%</strong> within 3 $\sigma$.</li>
+</ul>
+<div class="box example"><div class="box-title">Worked example</div>
+<p>Adult heights in a population: $\mu = 170$ cm, $\sigma = 10$ cm. About 95% of people are between $170 - 20 = 150$ and $170 + 20 = 190$ cm. Someone 200 cm tall is 3 $\sigma$ above the mean — rarer than 1 in 300 (only 0.3% fall outside $\pm 3\sigma$, half of them above).</p></div>
+
+<h2 id="demo-normal">Try it: sampling from a normal distribution</h2>
+<p>Each click draws random samples from a normal distribution and adds them to the histogram. With few samples the shape is ragged; with many, it settles into the bell curve. Adjust $\mu$ and $\sigma$ to see the centre move and the width change.</p>
+<div class="demo" data-demo="normal"></div>
+
+<h2 id="ml-connection">How this connects to machine learning</h2>
+<ul>
+<li><strong>Classifiers output probabilities</strong>: logistic regression (Lesson 8) outputs $P(y = 1 \mid \mathbf{x})$.</li>
+<li><strong>Naive Bayes</strong> (Lesson 12) is Bayes' theorem applied to features.</li>
+<li><strong>Noise</strong>: we model data as "true pattern + random noise", often assumed normal. That's why the squared error loss is so natural.</li>
+<li><strong>Evaluation</strong> (Lesson 9) reports means and standard deviations of scores across experiments.</li>
+<li><strong>Preprocessing</strong> uses means and standard deviations to standardise features.</li>
+</ul>
+
+<h2 id="code">In Python</h2>
+<pre><code>import numpy as np
+
+scores = np.array([4, 6, 8, 10, 12])
+print(scores.mean())           # 8.0
+print(scores.var())            # 8.0   (divides by n)
+print(scores.std())            # 2.828...
+print(np.median([30, 35, 40, 45, 1000]))   # 40.0
+
+z = (scores - scores.mean()) / scores.std()
+print(z.round(2))              # [-1.41 -0.71  0.    0.71  1.41]
+
+# Bayes: the medical test
+p_d, sens, fpr = 0.01, 0.90, 0.05
+p_pos = sens * p_d + fpr * (1 - p_d)
+print(round(sens * p_d / p_pos, 3))        # 0.154
+
+# Sample 100,000 heights and check the 68-95-99.7 rule
+rng = np.random.default_rng(0)
+h = rng.normal(170, 10, size=100_000)
+print(np.mean(np.abs(h - 170) &lt; 20))       # ≈ 0.95</code></pre>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Probabilities run from 0 to 1. Key rules: complement, addition, multiplication for independent events.</li>
+<li><strong>Conditional probability</strong> $P(A\mid B)$ updates odds given information; $P(A\mid B) \ne P(B\mid A)$.</li>
+<li><strong>Bayes' theorem</strong>: posterior ∝ likelihood × prior. Rare events stay fairly unlikely even after positive evidence.</li>
+<li><strong>Mean</strong> = centre, <strong>variance</strong>/<strong>standard deviation</strong> = spread; <strong>z-scores</strong> standardise features.</li>
+<li>The <strong>normal distribution</strong>: 68% / 95% / 99.7% within 1 / 2 / 3 standard deviations.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. You flip a fair coin 3 times. What is the probability of 3 heads?</p>
+<button data-opt="a">1/3</button><button data-opt="b">1/8</button><button data-opt="c">1/2</button>
+<div class="q-explain">Independent flips multiply: $0.5^3 = 1/8$.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. Data: 2, 4, 6. What is the variance (dividing by $n$)?</p>
+<button data-opt="a">8/3 ≈ 2.67</button><button data-opt="b">4</button><button data-opt="c">2</button>
+<div class="q-explain">Mean is 4. Squared distances: 4, 0, 4. Average: $8/3 \approx 2.67$.</div></div>
+<div class="q" data-correct="c"><p class="q-text">3. In Bayes' theorem, $P(A)$ is called the…</p>
+<button data-opt="a">posterior</button><button data-opt="b">likelihood</button><button data-opt="c">prior</button>
+<div class="q-explain">The prior is your belief before seeing the evidence. The posterior $P(A\mid B)$ is after.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. A value has z-score −2. What does that mean?</p>
+<button data-opt="a">It is 2 units below the mean</button><button data-opt="b">It is 2 standard deviations below the mean</button><button data-opt="c">It is an error in the data</button>
+<div class="q-explain">$z = (x - \mu)/\sigma = -2$ means $x$ is two standard deviations below the mean.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. A normal distribution has $\mu = 50$, $\sigma = 5$. Roughly what fraction of values fall between 45 and 55?</p>
+<button data-opt="a">68%</button><button data-opt="b">95%</button><button data-opt="c">99.7%</button>
+<div class="q-explain">45–55 is within 1 standard deviation of the mean: about 68%.</div></div>
+</div>

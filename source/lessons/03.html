@@ -1,0 +1,144 @@
+<h2 id="why">Why calculus?</h2>
+<p>In Lesson 1 you fitted a line by moving sliders and watching the loss go up or down. A computer can't "watch"; it needs a precise answer to one question:</p>
+<p class="big-q">"If I change this parameter a tiny bit, does the loss go up or down — and how fast?"</p>
+<p>That question is exactly what a <strong>derivative</strong> answers. With derivatives, an algorithm always knows which way to adjust every parameter. This lesson teaches the small amount of calculus that ML needs: slopes, derivatives, a few rules, partial derivatives and the gradient.</p>
+
+<h2 id="slope">Slope of a straight line</h2>
+<p>For a straight line, the <strong>slope</strong> is "rise over run": how much $y$ changes when $x$ increases by 1.</p>
+$$\text{slope} = \frac{\Delta y}{\Delta x} = \frac{y_2 - y_1}{x_2 - x_1}$$
+<p>($\Delta$, "delta", means "change in".) For the line $y = 3x + 1$, going from $x=1$ to $x=2$ moves $y$ from 4 to 7, so the slope is $3/1 = 3$. A straight line has the same slope everywhere.</p>
+
+<h2 id="derivative">The derivative: slope of a curve at a point</h2>
+<p>A curve like $f(x) = x^2$ is steeper in some places than others. Its slope <em>at a single point</em> is the slope of the <strong>tangent line</strong> — the straight line that just touches the curve there.</p>
+<p>To find it, take two points very close together, compute the slope between them, and let the gap $h$ shrink towards zero:</p>
+$$f'(x) = \lim_{h \to 0} \frac{f(x+h) - f(x)}{h}$$
+<p>$f'(x)$ (read "f prime of x"), also written $\frac{df}{dx}$, is the <strong>derivative</strong> of $f$.</p>
+<div class="box example"><div class="box-title">Worked example — derivative of $x^2$ from scratch</div>
+<p>$f(x+h) = (x+h)^2 = x^2 + 2xh + h^2$. So</p>
+$$\frac{f(x+h)-f(x)}{h} = \frac{2xh + h^2}{h} = 2x + h$$
+<p>As $h \to 0$ this becomes $2x$. So $f'(x) = 2x$.</p>
+<p>Check with numbers at $x = 3$: with $h = 0.001$, $\frac{(3.001)^2 - 9}{0.001} = \frac{0.006001}{0.001} = 6.001 \approx 6 = 2\cdot3$. ✓</p></div>
+<div class="box intuition"><div class="box-title">What the derivative tells you</div>
+<ul>
+<li>$f'(x) > 0$: the function is <strong>going up</strong> at $x$ — increasing $x$ increases $f$.</li>
+<li>$f'(x) < 0$: the function is <strong>going down</strong>.</li>
+<li>$f'(x) = 0$: <strong>flat</strong> — often a minimum or maximum.</li>
+<li>The bigger $|f'(x)|$, the steeper the curve.</li>
+</ul>
+<p>Imagine standing on a hillside in fog. You can't see the valley, but you can feel the slope under your feet. The derivative is that feeling.</p></div>
+
+<h2 id="demo-tangent">Try it: the tangent and its slope</h2>
+<p>Move the point along the curve $f(x) = (x-1)^2 + 0.5$. The orange line is the tangent; its slope is the derivative $f'(x) = 2(x-1)$. Notice the slope is negative on the left, positive on the right, and zero exactly at the bottom.</p>
+<div class="demo" data-demo="tangent"></div>
+
+<h2 id="rules">The rules you actually need</h2>
+<p>You don't need to use limits every time. A few rules cover almost everything in ML:</p>
+<table class="tbl">
+<thead><tr><th>Rule</th><th>Formula</th><th>Example</th></tr></thead>
+<tbody>
+<tr><td>Constant</td><td>$\frac{d}{dx} c = 0$</td><td>$\frac{d}{dx} 7 = 0$</td></tr>
+<tr><td>Power</td><td>$\frac{d}{dx} x^n = n x^{n-1}$</td><td>$\frac{d}{dx} x^3 = 3x^2$</td></tr>
+<tr><td>Constant multiple</td><td>$\frac{d}{dx} [c\,f(x)] = c\,f'(x)$</td><td>$\frac{d}{dx} 5x^2 = 10x$</td></tr>
+<tr><td>Sum</td><td>$\frac{d}{dx}[f + g] = f' + g'$</td><td>$\frac{d}{dx}(x^2 + 3x) = 2x + 3$</td></tr>
+<tr><td>Exponential</td><td>$\frac{d}{dx} e^x = e^x$</td><td>—</td></tr>
+<tr><td>Logarithm</td><td>$\frac{d}{dx} \ln x = \frac{1}{x}$</td><td>—</td></tr>
+</tbody></table>
+<div class="box example"><div class="box-title">Worked example</div>
+<p>$f(x) = 4x^3 - 2x^2 + 7x - 9$</p>
+<p>Term by term: $4\cdot3x^2 - 2\cdot2x + 7 - 0 = 12x^2 - 4x + 7$.</p></div>
+
+<h2 id="chain-rule">The chain rule — the engine of deep learning</h2>
+<p>Often one function is inside another: $f(g(x))$. The <strong>chain rule</strong> says: derivative of the outside (evaluated at the inside) × derivative of the inside.</p>
+$$\frac{d}{dx} f(g(x)) = f'(g(x)) \cdot g'(x)$$
+<p>Or, with $u = g(x)$: $\frac{df}{dx} = \frac{df}{du}\cdot\frac{du}{dx}$ — the "$du$"s look like they cancel, which is a handy memory aid.</p>
+<div class="box example"><div class="box-title">Worked example</div>
+<p>$f(x) = (3x + 1)^2$. Outside: $u^2$, inside: $u = 3x+1$.</p>
+<p>$\frac{df}{du} = 2u = 2(3x+1)$, $\frac{du}{dx} = 3$. So $f'(x) = 2(3x+1)\cdot 3 = 6(3x+1)$.</p>
+<p>Check at $x = 0$: $f'(0) = 6$. Numerically, $\frac{(3\cdot0.001+1)^2 - 1}{0.001} = \frac{1.006009 - 1}{0.001} \approx 6.009$. ✓</p></div>
+<p>A neural network is a long chain of functions inside functions. <strong>Backpropagation</strong> (Lesson 18) is just the chain rule applied over and over, from the output back to the first layer.</p>
+
+<h2 id="loss-derivative">Applying it: the derivative of a loss</h2>
+<p>Now the payoff. Take the simplest model, $\hat{y} = w x$ (no bias), and one data point $(x, y) = (2, 6)$. The squared error is:</p>
+$$L(w) = (wx - y)^2 = (2w - 6)^2$$
+<p>Using the chain rule (outside: $u^2$; inside: $u = 2w - 6$, whose derivative is 2):</p>
+$$\frac{dL}{dw} = 2(2w - 6)\cdot 2 = 4(2w - 6)$$
+<ul>
+<li>At $w = 1$: $\frac{dL}{dw} = 4(2-6) = -16$. Negative → the loss <strong>decreases</strong> if we increase $w$. So increase $w$.</li>
+<li>At $w = 5$: $\frac{dL}{dw} = 4(10-6) = 16$. Positive → decrease $w$.</li>
+<li>At $w = 3$: $\frac{dL}{dw} = 0$. Flat — the minimum. And indeed $3 \cdot 2 = 6$, a perfect prediction.</li>
+</ul>
+<p>The rule "<strong>move against the derivative</strong>" always takes us towards lower loss. That single idea is gradient descent.</p>
+
+<h2 id="partial">Partial derivatives: more than one parameter</h2>
+<p>Real models have many parameters, e.g. $L(w, b)$. A <strong>partial derivative</strong> asks how $L$ changes when you nudge <em>one</em> parameter while holding all others fixed. It's written with a curly $\partial$:</p>
+$$\frac{\partial L}{\partial w}, \quad \frac{\partial L}{\partial b}$$
+<p>To compute one, treat every other variable as a constant and differentiate normally.</p>
+<div class="box example"><div class="box-title">Worked example</div>
+<p>$f(w, b) = w^2 + 3wb + b^2$</p>
+<p>$\frac{\partial f}{\partial w} = 2w + 3b$ (treating $b$ as a constant)<br>
+$\frac{\partial f}{\partial b} = 3w + 2b$ (treating $w$ as a constant)</p>
+<p>At $(w, b) = (1, 2)$: $\frac{\partial f}{\partial w} = 8$, $\frac{\partial f}{\partial b} = 7$.</p></div>
+
+<h2 id="gradient">The gradient: the direction of steepest ascent</h2>
+<p>Collect all the partial derivatives into a vector and you get the <strong>gradient</strong>, written $\nabla L$ ("nabla L" or "grad L"):</p>
+$$\nabla L = \begin{bmatrix} \frac{\partial L}{\partial w} \\[4pt] \frac{\partial L}{\partial b} \end{bmatrix}$$
+<p>The gradient has a beautiful property: it <strong>points in the direction in which $L$ increases fastest</strong>. So $-\nabla L$ points downhill, towards lower loss. In the example above, $\nabla f(1, 2) = (8, 7)$.</p>
+<div class="box intuition"><div class="box-title">Picture it</div>
+<p>Think of the loss as a landscape: the ground's position is the parameters $(w, b)$, the height is the loss. At any spot, the gradient is an arrow pointing straight uphill. Training a model means walking downhill until you reach a valley — a minimum of the loss.</p></div>
+
+<h2 id="preview-gd">Preview: gradient descent in one line</h2>
+<p>Put it together and you get the learning rule used by almost every modern ML model:</p>
+$$\mathbf{w} \leftarrow \mathbf{w} - \eta \, \nabla L(\mathbf{w})$$
+<p>"Take the current parameters, and step a little bit ($\eta$, the <em>learning rate</em>) in the downhill direction." Repeat until the loss stops falling. Use the <em>Step</em> button in the demo above to watch this happen on a curve. Lesson 7 covers it in depth.</p>
+
+<h2 id="code">Checking derivatives with code</h2>
+<p>You can always check a derivative numerically with a tiny $h$ — a habit professionals use to catch bugs:</p>
+<pre><code>def f(x):
+    return (3 * x + 1) ** 2
+
+def f_prime(x):          # our hand-derived answer
+    return 6 * (3 * x + 1)
+
+def numeric_derivative(f, x, h=1e-6):
+    return (f(x + h) - f(x - h)) / (2 * h)
+
+for x in [0, 1, -2]:
+    print(x, f_prime(x), round(numeric_derivative(f, x), 4))
+# 0 6 6.0
+# 1 24 24.0
+# -2 -30 -30.0</code></pre>
+<p>And gradient descent on the loss $L(w) = (2w-6)^2$ from the example above:</p>
+<pre><code>w = 0.0
+lr = 0.05                       # learning rate (eta)
+for step in range(30):
+    grad = 4 * (2 * w - 6)      # dL/dw
+    w = w - lr * grad           # move downhill
+print(round(w, 4))              # 3.0  -> the perfect weight</code></pre>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>The <strong>derivative</strong> $f'(x)$ is the slope of $f$ at $x$: how fast $f$ changes as $x$ changes.</li>
+<li>Rules to remember: power rule $nx^{n-1}$, sums and constants, and the <strong>chain rule</strong> $f'(g(x))\,g'(x)$.</li>
+<li>A <strong>partial derivative</strong> changes one variable while holding the others fixed.</li>
+<li>The <strong>gradient</strong> $\nabla L$ is the vector of all partial derivatives; it points uphill.</li>
+<li>Learning = moving parameters <strong>against</strong> the gradient: $\mathbf{w} \leftarrow \mathbf{w} - \eta\nabla L$.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="c"><p class="q-text">1. What is the derivative of $f(x) = 5x^4$?</p>
+<button data-opt="a">$5x^3$</button><button data-opt="b">$4x^3$</button><button data-opt="c">$20x^3$</button>
+<div class="q-explain">Power rule: $5 \cdot 4x^{3} = 20x^3$.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. At some $w$, $\frac{dL}{dw} = -3$. To reduce the loss you should…</p>
+<button data-opt="a">increase $w$</button><button data-opt="b">decrease $w$</button><button data-opt="c">leave $w$ alone</button>
+<div class="q-explain">A negative derivative means the loss goes down as $w$ goes up. Gradient descent does $w - \eta(-3) = w + 3\eta$: it increases $w$.</div></div>
+<div class="q" data-correct="b"><p class="q-text">3. Using the chain rule, what is $\frac{d}{dx}(2x - 5)^2$?</p>
+<button data-opt="a">$2(2x-5)$</button><button data-opt="b">$4(2x-5)$</button><button data-opt="c">$(2x-5)$</button>
+<div class="q-explain">Outer derivative $2(2x-5)$ times inner derivative $2$: $4(2x-5)$.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. For $f(w,b) = 3w + wb$, what is $\frac{\partial f}{\partial w}$?</p>
+<button data-opt="a">$3 + w$</button><button data-opt="b">$3 + b$</button><button data-opt="c">$w + b$</button>
+<div class="q-explain">Treat $b$ as a constant: $\frac{\partial}{\partial w}(3w) = 3$ and $\frac{\partial}{\partial w}(wb) = b$.</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. The gradient of the loss points…</p>
+<button data-opt="a">towards the minimum</button><button data-opt="b">sideways along a contour</button><button data-opt="c">in the direction of steepest increase</button>
+<div class="q-explain">It points uphill. That's why gradient descent subtracts it.</div></div>
+</div>

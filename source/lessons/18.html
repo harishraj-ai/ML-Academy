@@ -1,0 +1,180 @@
+<h2 id="why">Why neural networks?</h2>
+<p>Every model so far has a fixed shape: a straight line, a set of boxes, a kernel. <strong>Neural networks</strong> learn their own internal features. Stack enough simple units together and the network can represent extremely complicated relationships — recognising faces, translating languages, generating text. Modern AI is built on them.</p>
+<p>The good news: you already know every ingredient. A neuron is logistic regression (Lesson 8). Training is gradient descent (Lesson 7). And the famous <strong>backpropagation</strong> algorithm is the chain rule (Lesson 3), applied carefully. In this lesson you'll compute a full forward and backward pass by hand, then write a working network in about 20 lines of NumPy.</p>
+
+<h2 id="neuron">The artificial neuron</h2>
+<p>A neuron takes inputs $x_1, \dots, x_d$, multiplies each by a weight, adds a bias, and passes the result through an <strong>activation function</strong> $g$:</p>
+$$z = \mathbf{w}\cdot\mathbf{x} + b, \qquad a = g(z)$$
+<p>With $g = $ sigmoid, a single neuron <em>is</em> logistic regression. It draws one straight boundary. To learn more complex shapes, we connect many neurons in layers.</p>
+<div class="box intuition"><div class="box-title">Loosely inspired by the brain</div>
+<p>A biological neuron receives signals from other neurons, and "fires" if the combined signal is strong enough. The artificial version is a very simplified mathematical cartoon of that: weighted inputs, summed, then squashed. Don't take the analogy too far — what matters is the maths.</p></div>
+
+<h2 id="xor">Why one neuron isn't enough: XOR</h2>
+<p>The XOR ("exclusive or") function outputs 1 when exactly one input is 1:</p>
+<table class="tbl">
+<thead><tr><th><i>x</i><sub>1</sub></th><th><i>x</i><sub>2</sub></th><th>XOR</th></tr></thead>
+<tbody><tr><td>0</td><td>0</td><td>0</td></tr><tr><td>0</td><td>1</td><td>1</td></tr><tr><td>1</td><td>0</td><td>1</td></tr><tr><td>1</td><td>1</td><td>0</td></tr></tbody></table>
+<p>Plot the four points: the 1s sit on one diagonal, the 0s on the other. No single straight line separates them, so no single neuron (and no logistic regression) can learn XOR. But two neurons can each draw one line, and a third neuron can combine their answers — "above line A <em>and</em> below line B". That's the power of <strong>hidden layers</strong>: they create new features that make the problem easy for the next layer.</p>
+
+<h2 id="architecture">Layers: the multilayer perceptron</h2>
+<p>A <strong>multilayer perceptron (MLP)</strong>, or feed-forward network, has:</p>
+<ul>
+<li>an <strong>input layer</strong> — the features (no computation);</li>
+<li>one or more <strong>hidden layers</strong> — neurons whose outputs feed the next layer;</li>
+<li>an <strong>output layer</strong> — the prediction.</li>
+</ul>
+<p>Each layer does a matrix multiplication (Lesson 2) followed by an activation:</p>
+$$\mathbf{h} = g\big(W^{[1]}\mathbf{x} + \mathbf{b}^{[1]}\big), \qquad \hat{y} = \sigma\big(\mathbf{v}\cdot\mathbf{h} + c\big)$$
+<p>Here $W^{[1]}$ is a matrix with one row of weights per hidden neuron. With $d$ inputs and $m$ hidden neurons it has shape $m \times d$, plus $m$ biases.</p>
+<div class="box warn"><div class="box-title">Why activation functions are essential</div>
+<p>Without $g$, two layers collapse into one: $V(W\mathbf{x}) = (VW)\mathbf{x}$, still a linear model. The non-linear activation is what lets depth add power.</p></div>
+
+<h2 id="activations">Activation functions</h2>
+<table class="tbl">
+<thead><tr><th>Name</th><th>Formula</th><th>Range</th><th>Typical use</th></tr></thead>
+<tbody>
+<tr><td><strong>ReLU</strong></td><td>$\max(0, z)$</td><td>$[0, \infty)$</td><td>Default for hidden layers</td></tr>
+<tr><td><strong>Sigmoid</strong></td><td>$\frac{1}{1 + e^{-z}}$</td><td>$(0, 1)$</td><td>Output for binary classification</td></tr>
+<tr><td><strong>tanh</strong></td><td>$\frac{e^z - e^{-z}}{e^z + e^{-z}}$</td><td>$(-1, 1)$</td><td>Hidden layers (zero-centred)</td></tr>
+<tr><td><strong>Softmax</strong></td><td>$\frac{e^{z_k}}{\sum_j e^{z_j}}$</td><td>probabilities summing to 1</td><td>Output for multi-class</td></tr>
+</tbody></table>
+<p>Their derivatives, needed for training: ReLU′ is 1 if $z &gt; 0$ else 0; $\sigma'(z) = \sigma(z)(1 - \sigma(z))$; $\tanh'(z) = 1 - \tanh^2(z)$. ReLU is popular because it's cheap and its gradient doesn't shrink for positive inputs, which helps deep networks train (Lesson 19).</p>
+
+<h2 id="forward">Worked example: a forward pass</h2>
+<div class="box example"><div class="box-title">Worked example — a 2-2-1 network</div>
+<p>Inputs $\mathbf{x} = (1, 0)$, true label $y = 1$. Two sigmoid hidden neurons, one sigmoid output, all biases 0.</p>
+<p>Hidden weights: neuron 1 has $(0.5,\ 0.3)$, neuron 2 has $(-0.5,\ 0.8)$. Output weights $\mathbf{v} = (1,\ -1)$.</p>
+<p><strong>Hidden layer:</strong><br>
+$z_1 = 0.5\cdot1 + 0.3\cdot0 = 0.5 \Rightarrow h_1 = \sigma(0.5) \approx 0.6225$<br>
+$z_2 = -0.5\cdot1 + 0.8\cdot0 = -0.5 \Rightarrow h_2 = \sigma(-0.5) \approx 0.3775$</p>
+<p><strong>Output:</strong> $z = 1\cdot0.6225 - 1\cdot0.3775 = 0.2449 \Rightarrow p = \sigma(0.2449) \approx 0.5609$.</p>
+<p><strong>Loss</strong> (log loss, Lesson 8): $L = -\ln 0.5609 \approx 0.578$. The network gives only a 56% chance to the correct answer. Let's teach it.</p></div>
+
+<h2 id="backprop">Backpropagation: the chain rule, backwards</h2>
+<p>To update every weight we need $\partial L/\partial(\text{weight})$. The loss depends on the weights through a chain: weight → hidden $z$ → hidden $h$ → output $z$ → $p$ → $L$. The chain rule multiplies the local derivatives along this path. <strong>Backpropagation</strong> organises it efficiently: compute an "error signal" $\delta$ at the output, then pass it backwards layer by layer, reusing each result.</p>
+<ol class="steps">
+<li><strong>Output error.</strong> For sigmoid + log loss, Lesson 8 showed the derivative w.r.t. the output's $z$ simplifies to $\delta_{\text{out}} = p - y$.</li>
+<li><strong>Output weights.</strong> $\frac{\partial L}{\partial v_j} = \delta_{\text{out}}\cdot h_j$ and $\frac{\partial L}{\partial c} = \delta_{\text{out}}$.</li>
+<li><strong>Pass the error back.</strong> Each hidden neuron gets the output error times the weight connecting it, times its own activation derivative: $\delta_j = \delta_{\text{out}}\cdot v_j\cdot g'(z_j)$.</li>
+<li><strong>Hidden weights.</strong> $\frac{\partial L}{\partial W_{jk}} = \delta_j\cdot x_k$ and $\frac{\partial L}{\partial b_j} = \delta_j$.</li>
+<li><strong>Update</strong> all weights with gradient descent: $w \leftarrow w - \eta\,\frac{\partial L}{\partial w}$.</li>
+</ol>
+<p>Every gradient has the same pattern: <strong>(error signal arriving at a neuron) × (input that came into it)</strong>.</p>
+<div class="box example"><div class="box-title">Worked example — backward pass and one update</div>
+<p>Continuing from the forward pass ($p = 0.5609$, $y = 1$, $h = (0.6225, 0.3775)$).</p>
+<p><strong>1. Output error:</strong> $\delta_{\text{out}} = 0.5609 - 1 = -0.4391$.</p>
+<p><strong>2. Output weights:</strong> $\frac{\partial L}{\partial v_1} = -0.4391\times0.6225 \approx -0.2733$, $\ \frac{\partial L}{\partial v_2} = -0.4391\times0.3775 \approx -0.1658$, $\ \frac{\partial L}{\partial c} = -0.4391$.</p>
+<p><strong>3. Hidden errors</strong> (sigmoid derivative $h(1-h) = 0.6225\times0.3775 \approx 0.2350$ for both):<br>
+$\delta_1 = -0.4391\times(1)\times0.2350 \approx -0.1032$<br>
+$\delta_2 = -0.4391\times(-1)\times0.2350 \approx +0.1032$</p>
+<p><strong>4. Hidden weights:</strong> multiply by the inputs $(1, 0)$: neuron 1's gradients are $(-0.1032,\ 0)$, neuron 2's are $(0.1032,\ 0)$. (Weights from $x_2 = 0$ get zero gradient — that input contributed nothing.)</p>
+<p><strong>5. Update</strong> with $\eta = 1$:<br>
+$v = (1 + 0.2733,\ -1 + 0.1658) = (1.2733,\ -0.8342)$, $\ c = 0.4391$<br>
+neuron 1: $(0.5 + 0.1032,\ 0.3) = (0.6032,\ 0.3)$; neuron 2: $(-0.5 - 0.1032,\ 0.8) = (-0.6032,\ 0.8)$</p>
+<p><strong>Check:</strong> running the forward pass again gives $p \approx 0.7245$ and loss $\approx 0.322$ (down from 0.578). One step of backpropagation made the network noticeably more confident in the right answer.</p></div>
+<div class="box tip"><div class="box-title">Why it's efficient</div>
+<p>Backpropagation computes the gradients for <em>all</em> weights in roughly the same time as one forward pass, by reusing the $\delta$ values. That's what makes training networks with millions or billions of weights possible. It was popularised for neural networks by Rumelhart, Hinton and Williams in 1986.</p></div>
+
+<h2 id="matrix">The same thing with matrices</h2>
+<p>For a batch of $n$ examples (rows of $X$), with tanh hidden units and a sigmoid output:</p>
+$$H = \tanh(XW_1 + \mathbf{b}_1), \qquad P = \sigma(HW_2 + b_2)$$
+<p>Backward:</p>
+$$\Delta_2 = \tfrac{1}{n}(P - Y), \quad \frac{\partial L}{\partial W_2} = H^\top\Delta_2, \quad \Delta_1 = (\Delta_2W_2^\top)\odot(1 - H^2), \quad \frac{\partial L}{\partial W_1} = X^\top\Delta_1$$
+<p>($\odot$ means element-wise multiplication; $1 - H^2$ is tanh's derivative.) These four lines are exactly what the NumPy code below does.</p>
+
+<h2 id="demo">Try it: train a neural network</h2>
+<p>A small network with one hidden layer of tanh neurons learns to separate two classes. Pick a dataset — XOR, circle or spiral — and a number of hidden neurons, then press <em>Train</em>. The background shows the network's predicted probability. With 1 hidden neuron it can only draw a straight line; add neurons and watch it bend the boundary. The spiral needs the most neurons — and the most training: press <em>Train</em> again if it hasn't finished.</p>
+<div class="demo" data-demo="nn"></div>
+
+<h2 id="practice">Training in practice</h2>
+<ul>
+<li><strong>Initialisation:</strong> start weights as small random numbers, never all equal. If every weight is the same, every hidden neuron computes the same thing and gets the same gradient — they'd never become different.</li>
+<li><strong>Scale inputs</strong> (standardise), as with any gradient-descent model.</li>
+<li><strong>Mini-batches and epochs</strong> (Lesson 7): update on small random batches; one epoch is one pass over the data.</li>
+<li><strong>Watch the validation loss</strong> and stop when it starts rising (early stopping); use L2 regularization (Lesson 10).</li>
+<li><strong>Size:</strong> more neurons and layers give more capacity — and more risk of overfitting.</li>
+</ul>
+<div class="box def"><div class="box-title">Universal approximation</div>
+<p>A famous result says that a network with just one hidden layer and enough neurons can approximate any reasonable continuous function as closely as you like. It doesn't say how many neurons you'd need, or that training will find the right weights — in practice, deeper networks with fewer neurons per layer usually learn much more efficiently.</p></div>
+
+<h2 id="code">In Python: a network from scratch</h2>
+<p>A 2-4-1 network learning XOR with NumPy — every line corresponds to an equation above:</p>
+<pre><code>import numpy as np
+
+X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=float)
+Y = np.array([[0], [1], [1], [0]], dtype=float)
+
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
+
+rng = np.random.default_rng(1)
+W1 = rng.normal(0, 1, (2, 4)); b1 = np.zeros(4)     # input -> 4 hidden neurons
+W2 = rng.normal(0, 1, (4, 1)); b2 = np.zeros(1)     # hidden -> output
+lr = 0.5
+
+for step in range(5001):
+    # forward pass
+    H = np.tanh(X @ W1 + b1)
+    P = sigmoid(H @ W2 + b2)
+    loss = -np.mean(Y * np.log(P) + (1 - Y) * np.log(1 - P))
+    # backward pass (backpropagation)
+    dZ2 = (P - Y) / len(X)
+    dW2 = H.T @ dZ2;  db2 = dZ2.sum(axis=0)
+    dZ1 = (dZ2 @ W2.T) * (1 - H ** 2)          # tanh'(z) = 1 - tanh(z)^2
+    dW1 = X.T @ dZ1;  db1 = dZ1.sum(axis=0)
+    # gradient descent update
+    W1 -= lr * dW1;  b1 -= lr * db1
+    W2 -= lr * dW2;  b2 -= lr * db2
+    if step in (0, 1000, 5000):
+        print(step, round(loss, 4))
+
+print(P.round(3).ravel())</code></pre>
+<p>Output:</p>
+<pre><code>0 0.6712
+1000 0.0051
+5000 0.0009
+[0.    0.999 0.999 0.002]</code></pre>
+<p>The loss falls from 0.67 (guessing) to almost 0, and the predictions for $(0,0), (0,1), (1,0), (1,1)$ are essentially $0, 1, 1, 0$ — XOR, solved by a hidden layer.</p>
+<p>With scikit-learn, on the 8×8 handwritten digits (64 inputs, 10 classes):</p>
+<pre><code>from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+
+X, y = load_digits(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, stratify=y, random_state=0)
+
+mlp = make_pipeline(StandardScaler(),
+                    MLPClassifier(hidden_layer_sizes=(64,), max_iter=500, random_state=0))
+mlp.fit(X_train, y_train)
+print(round(mlp.score(X_train, y_train), 3), round(mlp.score(X_test, y_test), 3))</code></pre>
+<p>Output: <code>1.0 0.973</code>. One hidden layer of 64 ReLU neurons (scikit-learn's default activation) — $64\times64 + 64 + 64\times10 + 10 = 4{,}810$ parameters — reaches 97.3% on unseen digits, a little above logistic regression on the same split (96.9%). The 100% training score hints at mild overfitting; increasing <code>alpha</code> (L2) or using <code>early_stopping=True</code> are the usual remedies.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>A neuron computes $g(\mathbf{w}\cdot\mathbf{x} + b)$; layers of neurons are matrix multiplications plus activations.</li>
+<li><strong>Non-linear activations</strong> (ReLU, tanh, sigmoid) are what make hidden layers useful — they let networks solve problems like XOR.</li>
+<li><strong>Backpropagation</strong> is the chain rule: compute $\delta_{\text{out}} = p - y$, pass errors backwards ($\delta_j = \delta_{\text{out}}v_jg'(z_j)$), and each gradient = error × input.</li>
+<li>Training = forward pass, loss, backward pass, gradient-descent update, repeated over mini-batches.</li>
+<li>Initialise randomly, scale inputs, and watch validation loss to avoid overfitting.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. Why can't a single neuron learn XOR?</p>
+<button data-opt="a">XOR needs more than two inputs</button><button data-opt="b">A single neuron draws one straight boundary, and XOR's classes aren't linearly separable</button><button data-opt="c">Sigmoid can't output 0</button>
+<div class="q-explain">The 1s and 0s lie on opposite diagonals; separating them needs at least two lines combined, i.e. a hidden layer.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. What happens if you remove all activation functions from a deep network?</p>
+<button data-opt="a">It becomes equivalent to a single linear model</button><button data-opt="b">It trains faster and is more accurate</button><button data-opt="c">It can only output 0 or 1</button>
+<div class="q-explain">A chain of linear maps is still linear: $V(W\mathbf{x}) = (VW)\mathbf{x}$.</div></div>
+<div class="q" data-correct="c"><p class="q-text">3. What is ReLU(−3)?</p>
+<button data-opt="a">−3</button><button data-opt="b">3</button><button data-opt="c">0</button>
+<div class="q-explain">$\max(0, -3) = 0$.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. Output $p = 0.8$, label $y = 0$, hidden activation $h_1 = 0.5$. What is $\partial L/\partial v_1$ (sigmoid + log loss)?</p>
+<button data-opt="a">−0.4</button><button data-opt="b">0.4</button><button data-opt="c">0.8</button>
+<div class="q-explain">$\delta_{\text{out}} = p - y = 0.8$; $\partial L/\partial v_1 = 0.8\times0.5 = 0.4$. Positive, so $v_1$ will decrease.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. Why must weights be initialised randomly rather than all zeros?</p>
+<button data-opt="a">Identical weights give identical neurons with identical gradients, so they never learn different features</button><button data-opt="b">Zero weights cause division by zero</button><button data-opt="c">Random weights guarantee the global minimum</button>
+<div class="q-explain">Random initialisation "breaks the symmetry" so each hidden neuron can specialise.</div></div>
+</div>

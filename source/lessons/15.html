@@ -1,0 +1,145 @@
+<h2 id="idea">Which line is best?</h2>
+<p>When two classes can be separated by a straight line, there are usually <em>infinitely many</em> lines that do it. Logistic regression (Lesson 8) picks one by maximising likelihood. A <strong>support vector machine (SVM)</strong> has a different and very intuitive answer: choose the line that stays <strong>as far as possible from both classes</strong> — the one with the widest "safety corridor" between them.</p>
+<div class="box intuition"><div class="box-title">Analogy: the widest road</div>
+<p>Imagine two villages on either side of a field, and you must build a straight road between them. A road that grazes the houses on one side is risky — a slight error and it cuts through someone's garden. The safest road is the widest one you can fit, running right through the middle of the gap. SVMs build the widest possible road; the houses at its edges are the <strong>support vectors</strong>.</p></div>
+<p>A wide margin means that new points can land a bit off from the training points and still be classified correctly — better generalization. Combined with the <strong>kernel trick</strong>, SVMs also draw curved boundaries, and for years they were among the best general-purpose classifiers.</p>
+
+<h2 id="setup">Setting up: labels ±1 and a hyperplane</h2>
+<p>For SVMs it's convenient to label the classes $y = +1$ and $y = -1$ (instead of 1 and 0). As in Lesson 8, the boundary is the set of points where</p>
+$$\mathbf{w}\cdot\mathbf{x} + b = 0$$
+<p>and we predict $\text{sign}(\mathbf{w}\cdot\mathbf{x} + b)$: $+1$ if positive, $-1$ if negative. The <strong>score</strong> $\mathbf{w}\cdot\mathbf{x} + b$ also measures how far a point is from the boundary: the actual distance is</p>
+$$\text{distance}(\mathbf{x}) = \frac{|\mathbf{w}\cdot\mathbf{x} + b|}{\|\mathbf{w}\|}$$
+<p>A handy trick: a point is correctly classified exactly when $y_i(\mathbf{w}\cdot\mathbf{x}_i + b) &gt; 0$ — the label and the score have the same sign.</p>
+
+<h2 id="margin">The margin</h2>
+<p>The scale of $\mathbf{w}$ and $b$ is arbitrary (doubling both gives the same line), so we fix it: require the points closest to the boundary to have score exactly $\pm1$. All points must then satisfy</p>
+$$y_i(\mathbf{w}\cdot\mathbf{x}_i + b) \ge 1 \quad \text{for every } i$$
+<p>The two "gutters" $\mathbf{w}\cdot\mathbf{x} + b = +1$ and $\mathbf{w}\cdot\mathbf{x} + b = -1$ are the edges of the road. Each is at distance $1/\|\mathbf{w}\|$ from the boundary, so the road's total width — the <strong>margin</strong> — is</p>
+$$\text{margin} = \frac{2}{\|\mathbf{w}\|}$$
+<div class="box example"><div class="box-title">Worked example — measuring a margin</div>
+<p>Suppose an SVM has $\mathbf{w} = (1, 1)$, $b = -3$. Then $\|\mathbf{w}\| = \sqrt{1^2 + 1^2} = \sqrt{2}$, so the margin is $2/\sqrt{2} \approx 1.41$.</p>
+<p>Point $(1, 1)$: score $= 1 + 1 - 3 = -1$ → class $-1$, sitting exactly on the gutter — a support vector.</p>
+<p>Point $(3, 2)$: score $= 3 + 2 - 3 = 2$ → class $+1$, distance from boundary $2/\sqrt{2} \approx 1.41$ — safely outside the road.</p></div>
+
+<h2 id="hard-margin">The optimisation problem</h2>
+<p>Maximising the margin $2/\|\mathbf{w}\|$ is the same as minimising $\|\mathbf{w}\|$, and for convenient maths we minimise $\frac12\|\mathbf{w}\|^2$. The <strong>hard-margin SVM</strong> is:</p>
+$$\min_{\mathbf{w}, b}\ \frac{1}{2}\|\mathbf{w}\|^2 \quad\text{subject to}\quad y_i(\mathbf{w}\cdot\mathbf{x}_i + b) \ge 1 \ \text{ for all } i$$
+<p>"Make the road as wide as possible, while keeping every point off the road and on its correct side." This is a convex problem with one best solution, solved by specialised algorithms.</p>
+<div class="box def"><div class="box-title">Support vectors</div>
+<p>In the solution, only the points lying exactly on the gutters (or, with soft margins, inside the road or misclassified) affect where the boundary is. These are the <strong>support vectors</strong>. Delete any other training point and the boundary doesn't move at all. That's where the name comes from — they "support" the boundary.</p></div>
+
+<h2 id="soft-margin">Soft margins and the hinge loss</h2>
+<p>Real data overlaps and has outliers; often no line separates the classes perfectly, and the hard-margin problem has no solution. The <strong>soft-margin SVM</strong> lets points violate the margin, at a price. The cleanest way to see it is through the <strong>hinge loss</strong>:</p>
+$$\ell_{\text{hinge}} = \max\big(0,\ 1 - y_i(\mathbf{w}\cdot\mathbf{x}_i + b)\big)$$
+<div class="box example"><div class="box-title">Worked example — hinge loss for a positive point ($y = +1$)</div>
+<table class="tbl">
+<thead><tr><th>Score $\mathbf{w}\cdot\mathbf{x} + b$</th><th>Hinge loss</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>1.5</td><td>$\max(0, 1 - 1.5) = 0$</td><td>correct and outside the road — no penalty</td></tr>
+<tr><td>0.4</td><td>$\max(0, 1 - 0.4) = 0.6$</td><td>correct side, but inside the road — small penalty</td></tr>
+<tr><td>−0.5</td><td>$\max(0, 1 + 0.5) = 1.5$</td><td>wrong side — bigger penalty</td></tr>
+</tbody></table>
+<p>Unlike log loss (Lesson 8), hinge loss is exactly zero once a point is safely classified. Those points stop mattering — which is why only the support vectors define the boundary.</p></div>
+<p>The soft-margin SVM balances margin width against total hinge loss:</p>
+$$\min_{\mathbf{w}, b}\ \frac{1}{2}\|\mathbf{w}\|^2 + C\sum_{i=1}^{n}\max\big(0,\ 1 - y_i(\mathbf{w}\cdot\mathbf{x}_i + b)\big)$$
+<p>Look closely: it's "regularization + loss", the same shape as ridge regression in Lesson 10. The parameter $C$ sets the balance:</p>
+<ul>
+<li><strong>Small $C$</strong>: margin violations are cheap → wide road, many support vectors, smoother boundary. More regularization (more bias).</li>
+<li><strong>Large $C$</strong>: violations are expensive → narrow road that tries to classify every training point correctly. Less regularization (more variance).</li>
+</ul>
+
+<h2 id="demo">Try it: margin and C</h2>
+<p>A linear soft-margin SVM is trained on the points by gradient descent on the objective above. The solid line is the boundary; the dashed lines are the gutters. Ringed points are support vectors (on or inside the margin, or misclassified). Change $C$ and watch the road narrow and widen. Click to add points (switch class with the button) and see how only points near the road change it.</p>
+<div class="demo" data-demo="svm"></div>
+
+<h2 id="kernel">The kernel trick: curved boundaries</h2>
+<p>What if the classes form a ring — one class in the middle, the other all around? No straight line works. The idea: <strong>map the data into a higher-dimensional space where a straight boundary does work</strong>.</p>
+<div class="box example"><div class="box-title">Worked example — lifting data to separate it</div>
+<p>One feature: class $+1$ at $x = -3, 3$ and class $-1$ at $x = -1, 0, 1$. On a number line, the $-1$ class is in the middle — no single threshold separates them.</p>
+<p>Add a feature $x^2$, so each point becomes $(x, x^2)$: the $+1$ points go to $(\pm3, 9)$, the $-1$ points to $(-1, 1), (0, 0), (1, 1)$. Now the horizontal line $x^2 = 5$ separates them perfectly. A straight line in the new space is a curved boundary ($x = \pm\sqrt5$) in the original one.</p></div>
+<p>The problem: with many features, the number of such combinations explodes. Here's the magic. The SVM's solution (in its "dual" form) only ever uses the training data through <strong>dot products</strong> $\phi(\mathbf{x}_i)\cdot\phi(\mathbf{x}_j)$ of mapped points. A <strong>kernel</strong> is a function that computes that dot product directly from the original vectors, without ever building $\phi(\mathbf{x})$:</p>
+$$K(\mathbf{x}, \mathbf{z}) = \phi(\mathbf{x})\cdot\phi(\mathbf{z})$$
+<div class="box example"><div class="box-title">Worked example — the trick in action</div>
+<p>For 2D vectors, take $\phi(\mathbf{x}) = (x_1^2,\ \sqrt2\,x_1x_2,\ x_2^2)$. Let $\mathbf{x} = (1, 2)$, $\mathbf{z} = (3, 1)$.</p>
+<p><strong>The long way:</strong> $\phi(\mathbf{x}) = (1,\ 2\sqrt2,\ 4)$, $\phi(\mathbf{z}) = (9,\ 3\sqrt2,\ 1)$. Dot product: $9 + 2\sqrt2\cdot3\sqrt2 + 4 = 9 + 12 + 4 = 25$.</p>
+<p><strong>The kernel way:</strong> $K(\mathbf{x}, \mathbf{z}) = (\mathbf{x}\cdot\mathbf{z})^2 = (1\cdot3 + 2\cdot1)^2 = 5^2 = 25$.</p>
+<p>Same answer, without computing the 3D vectors. For higher degrees and dimensions, the savings are enormous.</p></div>
+<h3>Common kernels</h3>
+<table class="tbl">
+<thead><tr><th>Kernel</th><th><i>K</i>(<b>x</b>, <b>z</b>)</th><th>Boundary shape</th></tr></thead>
+<tbody>
+<tr><td>Linear</td><td>$\mathbf{x}\cdot\mathbf{z}$</td><td>Straight line / plane</td></tr>
+<tr><td>Polynomial</td><td>$(\gamma\,\mathbf{x}\cdot\mathbf{z} + r)^d$</td><td>Polynomial curves</td></tr>
+<tr><td><strong>RBF</strong> (Gaussian)</td><td>$\exp(-\gamma\|\mathbf{x} - \mathbf{z}\|^2)$</td><td>Flexible, smooth, any shape</td></tr>
+</tbody></table>
+<p>The <strong>RBF kernel</strong> (radial basis function) is the most popular. It's a similarity score: 1 when $\mathbf{x} = \mathbf{z}$, falling towards 0 as they move apart. Each support vector acts like a "bump" of influence, and the boundary is built from these bumps. For $\mathbf{x} = (1, 2)$ and $\mathbf{z} = (3, 1)$, $\|\mathbf{x} - \mathbf{z}\|^2 = 5$: with $\gamma = 0.1$, $K = e^{-0.5} \approx 0.61$ (fairly similar); with $\gamma = 1$, $K = e^{-5} \approx 0.007$ (barely related).</p>
+<ul>
+<li><strong>Small $\gamma$</strong>: each point influences a wide area → smooth boundary (can underfit).</li>
+<li><strong>Large $\gamma$</strong>: influence is very local → wiggly boundary around individual points (can overfit).</li>
+</ul>
+<p>Tune $C$ and $\gamma$ together with a grid search over values spaced by factors of 10.</p>
+
+<h2 id="practice">SVMs in practice</h2>
+<ul>
+<li><strong>Scale your features.</strong> Distances and dot products depend on scale, just like kNN.</li>
+<li><strong>Size limits.</strong> Kernel SVM training time grows roughly between $n^2$ and $n^3$ in the number of examples, so it suits small and medium datasets (up to tens of thousands). For large data, use <code>LinearSVC</code> or <code>SGDClassifier(loss="hinge")</code>.</li>
+<li><strong>Probabilities.</strong> SVMs output scores, not probabilities. <code>SVC(probability=True)</code> adds a calibration step, at extra cost.</li>
+<li><strong>Regression.</strong> <code>SVR</code> applies the same ideas to regression: errors smaller than $\varepsilon$ are ignored (a "tube" around the prediction).</li>
+</ul>
+
+<h2 id="code">In Python</h2>
+<p>A ring-shaped dataset where one class surrounds the other:</p>
+<pre><code>from sklearn.datasets import make_circles
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.svm import SVC
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+
+X, y = make_circles(n_samples=400, noise=0.2, factor=0.5, random_state=0)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=0)
+
+for kernel in ["linear", "poly", "rbf"]:
+    m = make_pipeline(StandardScaler(), SVC(kernel=kernel, degree=2)).fit(X_train, y_train)
+    print(f"{kernel:6s} test accuracy {m.score(X_test, y_test):.3f}   support vectors {m[-1].n_support_.sum()}")
+
+grid = {"svc__C": [0.1, 1, 10, 100], "svc__gamma": [0.01, 0.1, 1, 10]}
+search = GridSearchCV(make_pipeline(StandardScaler(), SVC(kernel="rbf")), grid, cv=5).fit(X_train, y_train)
+print("best:", search.best_params_, "CV", round(search.best_score_, 3), "test", round(search.score(X_test, y_test), 3))
+
+m = make_pipeline(StandardScaler(), SVC(kernel="rbf", C=100, gamma=10)).fit(X_train, y_train)
+print("C=100, gamma=10: train", round(m.score(X_train, y_train), 3), "test", round(m.score(X_test, y_test), 3))</code></pre>
+<p>Output:</p>
+<pre><code>linear test accuracy 0.470   support vectors 297
+poly   test accuracy 0.950   support vectors 97
+rbf    test accuracy 0.930   support vectors 112
+best: {'svc__C': 0.1, 'svc__gamma': 1} CV 0.893 test 0.9
+C=100, gamma=10: train 0.983 test 0.86</code></pre>
+<p>The linear SVM is no better than guessing (47%) — a straight line can't separate a ring — and nearly every point becomes a support vector. A degree-2 polynomial kernel (which can draw circles) and the RBF kernel both succeed. The last line shows overfitting with large $C$ and $\gamma$: 98% on training data but only 86% on the test set.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>An SVM chooses the boundary with the largest <strong>margin</strong> $2/\|\mathbf{w}\|$ between the classes.</li>
+<li>Only the <strong>support vectors</strong> — points on or inside the margin — determine the boundary.</li>
+<li>Soft-margin SVM: $\frac12\|\mathbf{w}\|^2 + C\sum\text{hinge}$; small $C$ = wider margin, more regularization.</li>
+<li>The <strong>kernel trick</strong> computes dot products in a high-dimensional space cheaply, giving curved boundaries.</li>
+<li>The <strong>RBF kernel</strong> is the usual default; tune $C$ and $\gamma$ together, and scale features first.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. An SVM has $\|\mathbf{w}\| = 4$. How wide is its margin?</p>
+<button data-opt="a">4</button><button data-opt="b">0.5</button><button data-opt="c">8</button>
+<div class="q-explain">Margin $= 2/\|\mathbf{w}\| = 2/4 = 0.5$.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. A point with $y = -1$ has score $\mathbf{w}\cdot\mathbf{x} + b = 0.5$. What is its hinge loss?</p>
+<button data-opt="a">1.5</button><button data-opt="b">0.5</button><button data-opt="c">0</button>
+<div class="q-explain">$\max(0, 1 - y\cdot\text{score}) = \max(0, 1 - (-1)(0.5)) = 1.5$. It's on the wrong side.</div></div>
+<div class="q" data-correct="c"><p class="q-text">3. You delete a training point that is far from the boundary and outside the margin. What happens to the SVM?</p>
+<button data-opt="a">The boundary moves towards it</button><button data-opt="b">The margin doubles</button><button data-opt="c">Nothing — it isn't a support vector</button>
+<div class="q-explain">Only support vectors define the solution; points with zero hinge loss don't affect it.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. Your RBF SVM gets 100% training accuracy and 70% test accuracy. What should you try?</p>
+<button data-opt="a">Increase $\gamma$ and $C$</button><button data-opt="b">Decrease $\gamma$ and/or $C$</button><button data-opt="c">Switch off feature scaling</button>
+<div class="q-explain">That's overfitting. Smaller $\gamma$ smooths the boundary; smaller $C$ allows more margin violations — both regularize.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. What does a kernel function compute?</p>
+<button data-opt="a">A dot product in a transformed feature space, without building that space</button><button data-opt="b">The distance between two classes</button><button data-opt="c">The number of support vectors</button>
+<div class="q-explain">$K(\mathbf{x}, \mathbf{z}) = \phi(\mathbf{x})\cdot\phi(\mathbf{z})$, computed directly from $\mathbf{x}$ and $\mathbf{z}$.</div></div>
+</div>

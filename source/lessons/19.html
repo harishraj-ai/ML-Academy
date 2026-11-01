@@ -1,0 +1,185 @@
+<h2 id="what">What makes learning "deep"?</h2>
+<p><strong>Deep learning</strong> means neural networks with many layers. Each layer builds on the previous one: in an image network, early layers detect edges, middle layers combine edges into textures and shapes, and later layers recognise eyes, wheels or letters. The network learns this hierarchy of features by itself, from data.</p>
+<p>Lesson 18's fully connected network treats every input independently. For images, sound and text that wastes structure we know is there — nearby pixels belong together; word order matters. Deep learning's big successes come from <strong>architectures</strong> built around that structure: <strong>convolutional networks</strong> for images, <strong>recurrent networks</strong> for sequences, and <strong>Transformers</strong>, which now power language models. This lesson explains how each works, plus the techniques that make deep networks trainable.</p>
+
+<h2 id="training">Making deep networks trainable</h2>
+<h3>Vanishing gradients</h3>
+<p>Backpropagation multiplies derivatives layer by layer (Lesson 18). The sigmoid's derivative is at most $0.25$. Through 10 sigmoid layers, a gradient can shrink by a factor of up to $0.25^{10} \approx 0.000001$ — the early layers barely learn. This <strong>vanishing gradient</strong> problem held deep learning back for years. Fixes:</p>
+<ul>
+<li><strong>ReLU activations</strong>: derivative exactly 1 for positive inputs, so gradients pass through undiminished.</li>
+<li><strong>Careful initialisation</strong>: scale random initial weights to the layer size (e.g. "He" or "Glorot" initialisation) so signals neither explode nor vanish.</li>
+<li><strong>Normalisation layers</strong> (batch norm, layer norm): rescale each layer's activations to a stable range during training.</li>
+<li><strong>Residual (skip) connections</strong>: compute $\mathbf{h} + f(\mathbf{h})$ instead of $f(\mathbf{h})$, giving gradients a shortcut path. These made networks with 100+ layers possible.</li>
+</ul>
+<h3>Better optimisers</h3>
+<p><strong>Momentum</strong> keeps a running average of past gradients, so steps build speed in consistent directions and damp oscillations — like a ball rolling downhill. <strong>Adam</strong> (Kingma &amp; Ba, ICLR 2015) combines momentum with a per-parameter step size, adapted from running averages of the gradient $g$ and the squared gradient:</p>
+$$m \leftarrow \beta_1 m + (1-\beta_1)g, \qquad s \leftarrow \beta_2 s + (1-\beta_2)g^2, \qquad w \leftarrow w - \eta\,\frac{\hat{m}}{\sqrt{\hat{s}} + \epsilon}$$
+<p>($\hat{m}, \hat{s}$ are bias-corrected versions of $m, s$; typical values are $\beta_1 = 0.9$, $\beta_2 = 0.999$.) Parameters with consistently large gradients take smaller steps, and rarely-updated ones take larger steps. Adam is the default optimiser in most deep learning work.</p>
+<h3>Fighting overfitting</h3>
+<ul>
+<li><strong>Dropout</strong>: during training, randomly switch off a fraction of neurons (e.g. 20–50%) at each step. No neuron can rely on any specific other neuron, which acts like training an ensemble of many thinner networks (Lesson 14).</li>
+<li><strong>Data augmentation</strong>: create extra training examples by flipping, cropping or slightly rotating images — the label stays the same.</li>
+<li><strong>Early stopping</strong> and <strong>weight decay</strong> (L2), as before.</li>
+</ul>
+
+<h2 id="cnn">Convolutional neural networks (CNNs)</h2>
+<p>A 224×224 colour image has $224\times224\times3 = 150{,}528$ inputs. A fully connected layer of just 1,000 neurons would need 150 million weights — and it would have to learn "cat ear" separately for every position in the image. CNNs fix this with two ideas:</p>
+<ul>
+<li><strong>Local connections</strong>: each neuron looks only at a small patch (e.g. 3×3 pixels).</li>
+<li><strong>Weight sharing</strong>: the same small set of weights — a <strong>filter</strong> or <strong>kernel</strong> — is slid across the whole image. A feature detector learned in one place works everywhere.</li>
+</ul>
+<h3>The convolution operation</h3>
+<p>Slide the kernel over the image. At each position, multiply the overlapping numbers element by element and add them up; that sum is one pixel of the output, called a <strong>feature map</strong>.</p>
+$$\text{out}[i, j] = \sum_{u}\sum_{v}\text{image}[i + u,\ j + v]\cdot\text{kernel}[u, v]$$
+<div class="box example"><div class="box-title">Worked example — detecting a vertical edge</div>
+<p>A 4×6 image: dark (0) on the left, bright (9) on the right. A 3×3 vertical-edge kernel:</p>
+$$\text{image} = \begin{bmatrix}0&0&0&9&9&9\\0&0&0&9&9&9\\0&0&0&9&9&9\\0&0&0&9&9&9\end{bmatrix} \qquad \text{kernel} = \begin{bmatrix}-1&0&1\\-1&0&1\\-1&0&1\end{bmatrix}$$
+<p>The kernel computes (right column − left column) of each 3×3 window.</p>
+<ul>
+<li>Window over columns 1–3 (all 0s): $0$.</li>
+<li>Window over columns 2–4: left column 0s, right column 9s: $3\times9 - 0 = 27$.</li>
+<li>Window over columns 3–5: left 0s, right 9s again: $27$.</li>
+<li>Window over columns 4–6 (all 9s): $3\times9 - 3\times9 = 0$.</li>
+</ul>
+$$\text{feature map} = \begin{bmatrix}0 & 27 & 27 & 0\\ 0 & 27 & 27 & 0\end{bmatrix}$$
+<p>The output "lights up" exactly where the edge is and is 0 in flat regions. A CNN <em>learns</em> its kernel values by backpropagation, discovering whatever detectors are useful.</p></div>
+<h3>Output size, stride and padding</h3>
+<p>For input width $W$, kernel size $F$, padding $P$ (zeros added around the border) and stride $S$ (step size):</p>
+$$W_{\text{out}} = \frac{W - F + 2P}{S} + 1$$
+<p>Example above: $(6 - 3 + 0)/1 + 1 = 4$ ✓. With a 28×28 image, $F = 3$, $P = 1$, $S = 1$: $(28 - 3 + 2)/1 + 1 = 28$ — "same" padding keeps the size.</p>
+<h3>Channels and parameter counts</h3>
+<p>A colour image has 3 channels (red, green, blue), so a 3×3 kernel actually has $3\times3\times3 = 27$ weights plus a bias. A layer usually has many kernels, each producing its own feature map. 16 kernels: $(27 + 1)\times16 = 448$ parameters. Compare a fully connected layer from a 32×32×3 image to just 16 neurons: $3072\times16 + 16 = 49{,}168$. Weight sharing makes CNNs over 100 times leaner here.</p>
+<h3>Pooling</h3>
+<p><strong>Max pooling</strong> shrinks a feature map by keeping only the largest value in each small window, usually 2×2 with stride 2. It keeps "was the feature present around here?" while discarding the exact position, and cuts the size by 4×, which discards 75% of the activations.</p>
+<div class="box example"><div class="box-title">Worked example — 2×2 max pooling</div>
+$$\begin{bmatrix}1&3&2&0\\4&6&1&1\\0&2&5&7\\1&1&3&2\end{bmatrix} \xrightarrow{\ \text{max pool}\ } \begin{bmatrix}6 & 2\\ 2 & 7\end{bmatrix}$$
+<p>Top-left window $\{1, 3, 4, 6\}$ → 6; top-right $\{2, 0, 1, 1\}$ → 2; bottom-left $\{0, 2, 1, 1\}$ → 2; bottom-right $\{5, 7, 3, 2\}$ → 7.</p></div>
+<h3>A typical CNN</h3>
+<p>[conv → ReLU → pool] repeated several times (feature maps get smaller but more numerous), then flatten, then one or two fully connected layers, then softmax over the classes.</p>
+
+<h2 id="demo">Try it: convolution explorer</h2>
+<p>Left: a real 8×8 handwritten digit from scikit-learn's digits dataset. Choose a kernel and see the feature map it produces (right). Green = strong positive response, red = strong negative. The vertical-edge kernel lights up the left and right edges of the strokes; the horizontal one finds tops and bottoms. Hover over the output to see the exact sum for that position.</p>
+<div class="demo" data-demo="conv"></div>
+
+<h2 id="rnn">Recurrent neural networks (RNNs)</h2>
+<p>Text, speech, sensor readings and prices are <strong>sequences</strong>: order matters, and lengths vary. An RNN reads a sequence one step at a time, carrying a <strong>hidden state</strong> $\mathbf{h}_t$ — a memory of what it has seen so far:</p>
+$$\mathbf{h}_t = \tanh\big(W_h\mathbf{h}_{t-1} + W_x\mathbf{x}_t + \mathbf{b}\big)$$
+<p>The same weights are used at every step (weight sharing again, this time across time). The final state, or the state at each step, feeds an output layer — e.g. to classify a review as positive or negative, or to predict the next word.</p>
+<p>The problem: training backpropagates through every time step, multiplying by $W_h$ again and again, so gradients vanish (or explode) over long sequences. Plain RNNs struggle to remember things from more than about 10–20 steps back.</p>
+<h3>LSTMs</h3>
+<p>The <strong>long short-term memory</strong> network (Hochreiter &amp; Schmidhuber, 1997) adds a separate <strong>cell state</strong> — a kind of conveyor belt that information can travel along unchanged — controlled by three <strong>gates</strong>. Each gate is a sigmoid layer outputting numbers between 0 and 1, multiplied element-wise with the information it controls:</p>
+<ul>
+<li>the <strong>forget gate</strong> decides what to erase from the cell state;</li>
+<li>the <strong>input gate</strong> decides what new information to write;</li>
+<li>the <strong>output gate</strong> decides what part of the cell state to output as $\mathbf{h}_t$.</li>
+</ul>
+<p>Because the cell state is updated by addition rather than repeated multiplication, gradients survive over much longer sequences. LSTMs (and the simpler GRUs) dominated sequence tasks until Transformers arrived.</p>
+
+<h2 id="transformers">Transformers and attention</h2>
+<p>RNNs process words one at a time, which is slow and makes long-range connections hard. The <strong>Transformer</strong> (Vaswani et al., 2017, "Attention Is All You Need") is "based solely on attention mechanisms, dispensing with recurrence and convolutions entirely". Every position looks at every other position directly, in one step.</p>
+<h3>Self-attention</h3>
+<p>Each word (token) is represented by a vector. From it, the model computes three vectors with learned weight matrices:</p>
+<ul>
+<li>a <strong>query</strong> $\mathbf{q}$ — "what am I looking for?",</li>
+<li>a <strong>key</strong> $\mathbf{k}$ — "what do I contain?",</li>
+<li>a <strong>value</strong> $\mathbf{v}$ — "what do I pass on if selected?".</li>
+</ul>
+<p>Each token compares its query with every token's key (dot products — Lesson 2 — measure similarity), turns the scores into weights with softmax (Lesson 8), and takes the weighted average of the values:</p>
+$$\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V$$
+<p>Dividing by $\sqrt{d_k}$ (the key length) keeps the scores from growing too large as vectors get longer.</p>
+<div class="box example"><div class="box-title">Worked example — attention over three tokens</div>
+<p>Three tokens with 2-dimensional vectors. For simplicity, queries = keys: $\mathbf{q}_1 = \mathbf{k}_1 = (1, 0)$, $\mathbf{q}_2 = \mathbf{k}_2 = (0, 1)$, $\mathbf{q}_3 = \mathbf{k}_3 = (1, 1)$. Values: $\mathbf{v}_1 = (1, 0)$, $\mathbf{v}_2 = (0, 1)$, $\mathbf{v}_3 = (0.5, 0.5)$. Here $d_k = 2$, so we divide by $\sqrt2 \approx 1.414$.</p>
+<p><strong>Token 1's scores</strong> against keys 1, 2, 3: $\frac{(1,0)\cdot(1,0)}{\sqrt2} = 0.707$, $\ \frac{(1,0)\cdot(0,1)}{\sqrt2} = 0$, $\ \frac{(1,0)\cdot(1,1)}{\sqrt2} = 0.707$.</p>
+<p><strong>Softmax:</strong> $e^{0.707} \approx 2.03$, $e^0 = 1$, $e^{0.707} \approx 2.03$; total $5.06$. Weights $\approx (0.401,\ 0.198,\ 0.401)$.</p>
+<p><strong>Output:</strong> $0.401\,(1, 0) + 0.198\,(0, 1) + 0.401\,(0.5, 0.5) \approx (0.602,\ 0.398)$.</p>
+<p>Token 1 "attended" most to itself and to token 3, whose keys resemble its query, and its new representation mixes in their values. In a sentence like "The animal didn't cross the street because <em>it</em> was tired", attention lets "it" pull information from "animal".</p></div>
+<p>A Transformer stacks many such layers, each with several attention "heads" running in parallel, plus small feed-forward networks, residual connections and layer normalisation. Since attention itself ignores order, a <strong>positional encoding</strong> is added to each token's vector. Because all positions are processed at once, Transformers train efficiently on GPUs — which is what made today's large language models possible.</p>
+
+<h2 id="transfer">Transfer learning: standing on giants' shoulders</h2>
+<p>Training a large network from scratch needs huge datasets and computing power. Instead, you can take a <strong>pretrained</strong> model — trained on millions of images or billions of words — and <strong>fine-tune</strong> it on your smaller dataset. Its early layers already detect general features (edges, word meanings), so you only need to adapt the later layers. This is how most practical deep learning is done today.</p>
+
+<h2 id="tools">Tools</h2>
+<p>scikit-learn's <code>MLPClassifier</code> is fine for small fully connected networks (Lesson 18), but it has no convolutions, recurrence, attention or GPU support. For deep learning, practitioners use <strong>PyTorch</strong> or <strong>TensorFlow/Keras</strong>, which compute gradients automatically ("autograd") and run on GPUs.</p>
+
+<h2 id="code">In Python</h2>
+<p>Convolution, pooling and attention from scratch with NumPy — the same calculations as the worked examples:</p>
+<pre><code>import numpy as np
+
+def conv2d(image, kernel):
+    kh, kw = kernel.shape
+    out = np.zeros((image.shape[0] - kh + 1, image.shape[1] - kw + 1))
+    for i in range(out.shape[0]):
+        for j in range(out.shape[1]):
+            out[i, j] = np.sum(image[i:i+kh, j:j+kw] * kernel)
+    return out
+
+image = np.array([[0, 0, 0, 9, 9, 9]] * 4, dtype=float)
+edge = np.array([[-1, 0, 1]] * 3, dtype=float)
+print(conv2d(image, edge))
+
+fmap = np.array([[1, 3, 2, 0], [4, 6, 1, 1], [0, 2, 5, 7], [1, 1, 3, 2]], dtype=float)
+print(fmap.reshape(2, 2, 2, 2).max(axis=(1, 3)))      # 2x2 max pooling
+
+def attention(Q, K, V):
+    scores = Q @ K.T / np.sqrt(K.shape[1])
+    weights = np.exp(scores) / np.exp(scores).sum(axis=1, keepdims=True)   # softmax per row
+    return weights, weights @ V
+
+Q = K = np.array([[1, 0], [0, 1], [1, 1]], dtype=float)
+V = np.array([[1, 0], [0, 1], [0.5, 0.5]])
+weights, out = attention(Q, K, V)
+print(weights.round(3))
+print(out.round(3))</code></pre>
+<p>Output:</p>
+<pre><code>[[ 0. 27. 27.  0.]
+ [ 0. 27. 27.  0.]]
+[[6. 2.]
+ [2. 7.]]
+[[0.401 0.198 0.401]
+ [0.198 0.401 0.401]
+ [0.248 0.248 0.503]]
+[[0.602 0.398]
+ [0.398 0.602]
+ [0.5   0.5  ]]</code></pre>
+<p>Every number matches the worked examples. For reference, this is what a small CNN for 28×28 grayscale digits looks like in PyTorch. <em>This snippet was not run as part of this course's checks — PyTorch must be installed separately (see pytorch.org).</em></p>
+<pre><code>import torch.nn as nn
+
+model = nn.Sequential(
+    nn.Conv2d(1, 16, kernel_size=3, padding=1),   # 28x28x1  -> 28x28x16
+    nn.ReLU(),
+    nn.MaxPool2d(2),                              # -> 14x14x16
+    nn.Conv2d(16, 32, kernel_size=3, padding=1),  # -> 14x14x32
+    nn.ReLU(),
+    nn.MaxPool2d(2),                              # -> 7x7x32
+    nn.Flatten(),                                 # -> 1568 numbers
+    nn.Dropout(0.25),
+    nn.Linear(32 * 7 * 7, 10),                    # one score per digit
+)</code></pre>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Deep networks learn a hierarchy of features. ReLU, good initialisation, normalisation and residual connections fight <strong>vanishing gradients</strong>; <strong>Adam</strong> and <strong>dropout</strong> help training and generalization.</li>
+<li><strong>CNNs</strong> slide small shared kernels over images: output size $(W - F + 2P)/S + 1$; <strong>pooling</strong> downsamples.</li>
+<li><strong>RNNs</strong> carry a hidden state through a sequence; <strong>LSTMs</strong> use gates and a cell state to remember longer.</li>
+<li><strong>Transformers</strong> use self-attention, $\text{softmax}(QK^\top/\sqrt{d_k})V$, so every token can look at every other token at once.</li>
+<li>In practice, start from a <strong>pretrained</strong> model and fine-tune it.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. A 32×32 input, 5×5 kernel, padding 0, stride 1. What is the output width?</p>
+<button data-opt="a">32</button><button data-opt="b">28</button><button data-opt="c">27</button>
+<div class="q-explain">$(32 - 5 + 0)/1 + 1 = 28$.</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. Why do CNNs need far fewer parameters than fully connected networks on images?</p>
+<button data-opt="a">They ignore colour</button><button data-opt="b">They use smaller images</button><button data-opt="c">Each small kernel is shared across all positions in the image</button>
+<div class="q-explain">Weight sharing: one 3×3 kernel's few weights are reused at every location.</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. What problem do LSTMs solve compared with plain RNNs?</p>
+<button data-opt="a">Gradients vanishing over long sequences, so the network can't remember far back</button><button data-opt="b">RNNs can't process text</button><button data-opt="c">RNNs need labelled data</button>
+<div class="q-explain">The gated cell state lets information and gradients flow across many time steps.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. In self-attention, how is the similarity between a query and a key measured?</p>
+<button data-opt="a">Euclidean distance</button><button data-opt="b">A (scaled) dot product</button><button data-opt="c">A decision tree</button>
+<div class="q-explain">Scores are $\mathbf{q}\cdot\mathbf{k}/\sqrt{d_k}$, then softmax turns them into weights.</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. 2×2 max pooling on $\begin{bmatrix}1&5\\3&2\end{bmatrix}$ gives…</p>
+<button data-opt="a">2.75</button><button data-opt="b">1</button><button data-opt="c">5</button>
+<div class="q-explain">Max pooling keeps the largest value in the window: 5.</div></div>
+</div>

@@ -1,0 +1,70 @@
+{
+ "diabetes": [
+  [
+   "Baseline MAE (predict the average)",
+   "64.0"
+  ],
+  [
+   "BMI only",
+   "MAE 52.3 \u00b7 R\u00b2 0.23"
+  ],
+  [
+   "All ten features",
+   "MAE 42.8 \u00b7 R\u00b2 0.45"
+  ],
+  [
+   "Ridge (\u03b1 by CV)",
+   "\u03b1 = 1 \u00b7 MAE 42.8"
+  ]
+ ],
+ "tumours": [
+  [
+   "Best by 5-fold CV",
+   "logistic regression (0.981)"
+  ],
+  [
+   "Test set, threshold 0.5",
+   "precision 1.00 \u00b7 recall 0.96"
+  ],
+  [
+   "Threshold 0.1",
+   "recall 1.00 \u2014 no malignant tumour missed"
+  ],
+  [
+   "Most important feature",
+   "mean concave points"
+  ]
+ ],
+ "wine": [
+  [
+   "PC1 + PC2 explain",
+   "55% of the variance"
+  ],
+  [
+   "Best k by silhouette",
+   "3"
+  ],
+  [
+   "Agreement with the real cultivars",
+   "ARI 0.90"
+  ]
+ ],
+ "digits": [
+  [
+   "Logistic regression",
+   "96.9%"
+  ],
+  [
+   "Neural network (64 hidden)",
+   "97.3%"
+  ],
+  [
+   "SVM (RBF)",
+   "98.2%"
+  ],
+  [
+   "Most common mistake",
+   "8 read as 1"
+  ]
+ ]
+}

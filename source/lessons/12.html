@@ -1,0 +1,164 @@
+<h2 id="idea">A classifier built from Bayes' theorem</h2>
+<p>In Lesson 4 you used Bayes' theorem to update a belief given evidence: a positive test changed the probability of disease. <strong>Naive Bayes</strong> turns that idea into a classifier. The "evidence" is the example's features; the "hypothesis" is the class.</p>
+<p>It's one of the oldest and simplest ML methods — the classic spam filters of the early 2000s were Naive Bayes — and it's still useful today: it trains almost instantly, needs little data, and works surprisingly well on text. In this lesson you'll build a spam filter completely by hand.</p>
+
+<h2 id="bayes-recap">Bayes' theorem for classification</h2>
+<p>We want the probability of each class $y$ given the features $\mathbf{x} = (x_1, \dots, x_d)$:</p>
+$$P(y \mid \mathbf{x}) = \frac{P(y)\;P(\mathbf{x} \mid y)}{P(\mathbf{x})}$$
+<ul>
+<li>$P(y)$ — the <strong>prior</strong>: how common the class is overall (e.g. 40% of emails are spam).</li>
+<li>$P(\mathbf{x} \mid y)$ — the <strong>likelihood</strong>: how probable these features are for this class.</li>
+<li>$P(\mathbf{x})$ — the evidence: the same for every class, so for <em>comparing</em> classes we can ignore it.</li>
+</ul>
+<p>So the prediction is the class with the largest $P(y)\,P(\mathbf{x} \mid y)$. We can always divide by the sum over classes at the end to get proper probabilities.</p>
+
+<h2 id="naive">The "naive" assumption</h2>
+<p>The hard part is $P(\mathbf{x} \mid y)$: the probability of a whole <em>combination</em> of features. An email has thousands of possible words, and we'll never see most combinations even once, so we can't count them.</p>
+<p>Naive Bayes makes a bold simplification: <strong>assume the features are independent of each other, given the class.</strong> Then the joint probability is just a product (the multiplication rule from Lesson 4):</p>
+$$P(x_1, x_2, \dots, x_d \mid y) = P(x_1 \mid y)\,P(x_2 \mid y)\cdots P(x_d \mid y) = \prod_{j=1}^{d} P(x_j \mid y)$$
+<p>which gives the Naive Bayes classifier:</p>
+$$\hat{y} = \arg\max_{y}\; P(y)\prod_{j=1}^{d} P(x_j \mid y)$$
+<p>($\arg\max_y$ means "the value of $y$ that makes this largest"; $\prod$ means "multiply together", like $\sum$ means "add up".)</p>
+<div class="box intuition"><div class="box-title">Why "naive"?</div>
+<p>The assumption is usually false. In real emails, "free" and "money" tend to appear <em>together</em> — they're not independent. Naive Bayes ignores that. Yet it often classifies well anyway, because it only needs to get the <em>ranking</em> of classes right, not the exact probabilities. Its probability estimates, however, tend to be over-confident (too close to 0 or 1).</p></div>
+
+<h2 id="spam-example">Worked example: a spam filter by hand</h2>
+<p>Our tiny training set: 10 emails, 4 spam and 6 not spam ("ham").</p>
+<table class="tbl">
+<thead><tr><th>Spam (4)</th><th>Ham (6)</th></tr></thead>
+<tbody>
+<tr><td>win money now</td><td>meeting at noon</td></tr>
+<tr><td>free money offer</td><td>lunch with the team now</td></tr>
+<tr><td>win a free prize now</td><td>project meeting notes</td></tr>
+<tr><td>claim your free prize</td><td>see you at lunch</td></tr>
+<tr><td></td><td>your project report is ready</td></tr>
+<tr><td></td><td>notes from the team meeting</td></tr>
+</tbody></table>
+<p><strong>Task:</strong> is the new email <em>"free money now"</em> spam?</p>
+<h3>Step 1 — priors</h3>
+<p>$P(\text{spam}) = 4/10 = 0.4$, $\quad P(\text{ham}) = 6/10 = 0.6$.</p>
+<h3>Step 2 — word probabilities (likelihoods)</h3>
+<p>We treat each email as a "bag of words" and count how often each word appears in each class. The spam emails contain 15 words in total; the ham emails contain 25. There are 24 different words in the vocabulary overall.</p>
+<p>The probability of a word given a class is its count divided by the total word count of that class. But there's a trap: "free" never appears in ham, so $P(\text{free} \mid \text{ham}) = 0/25 = 0$ — and since we multiply, a single zero would make the whole ham probability zero, no matter what the other words say. One unseen word shouldn't be able to veto everything.</p>
+<div class="box def"><div class="box-title">Laplace (add-one) smoothing</div>
+<p>Pretend every vocabulary word was seen once more than it really was:</p>
+$$P(w \mid y) = \frac{\text{count}(w, y) + 1}{\text{total words in } y + |V|}$$
+<p>where $|V|$ is the vocabulary size (24). This guarantees no probability is ever zero. (In scikit-learn this "+1" is the parameter <code>alpha=1.0</code>.)</p></div>
+<table class="tbl">
+<thead><tr><th>Word</th><th>Count in spam</th><th><i>P</i>(<i>w</i> | spam)</th><th>Count in ham</th><th><i>P</i>(<i>w</i> | ham)</th></tr></thead>
+<tbody>
+<tr><td>free</td><td>3</td><td>$\frac{3+1}{15+24} = \frac{4}{39} = 0.1026$</td><td>0</td><td>$\frac{0+1}{25+24} = \frac{1}{49} = 0.0204$</td></tr>
+<tr><td>money</td><td>2</td><td>$\frac{3}{39} = 0.0769$</td><td>0</td><td>$\frac{1}{49} = 0.0204$</td></tr>
+<tr><td>now</td><td>2</td><td>$\frac{3}{39} = 0.0769$</td><td>1</td><td>$\frac{2}{49} = 0.0408$</td></tr>
+</tbody></table>
+<h3>Step 3 — multiply</h3>
+$$\text{spam score} = 0.4 \times 0.1026 \times 0.0769 \times 0.0769 \approx 0.000243$$
+$$\text{ham score} = 0.6 \times 0.0204 \times 0.0204 \times 0.0408 \approx 0.0000102$$
+<h3>Step 4 — normalise into probabilities</h3>
+$$P(\text{spam} \mid \text{"free money now"}) = \frac{0.000243}{0.000243 + 0.0000102} \approx 0.96$$
+<p><strong>96% spam.</strong> Notice how each word contributed: "free" is about 5× more likely in spam than ham, "money" about 3.8×, and "now" about 1.9× — together they overwhelm the prior, which favoured ham.</p>
+
+<h2 id="logs">Working with logs</h2>
+<p>A real email has hundreds of words. Multiplying hundreds of numbers like 0.001 gives results so small that computers round them to exactly 0 (<em>underflow</em>). The fix: take logarithms. Since $\ln(ab) = \ln a + \ln b$, products become sums:</p>
+$$\ln\!\Big(P(y)\prod_j P(x_j \mid y)\Big) = \ln P(y) + \sum_j \ln P(x_j \mid y)$$
+<p>The logarithm keeps the ordering (bigger stays bigger), so we can compare the log-scores directly. Every Naive Bayes implementation works this way.</p>
+<div class="box example"><div class="box-title">Worked example — the same email in log space</div>
+<p>Spam: $\ln 0.4 + \ln 0.1026 + \ln 0.0769 + \ln 0.0769 \approx -0.916 - 2.277 - 2.565 - 2.565 = -8.32$.</p>
+<p>Ham: $\ln 0.6 + \ln 0.0204 + \ln 0.0204 + \ln 0.0408 \approx -0.511 - 3.892 - 3.892 - 3.199 = -11.49$.</p>
+<p>Spam's log-score is higher (less negative) → predict spam. The difference, $-8.32 - (-11.49) = 3.17$, means spam is $e^{3.17} \approx 24$ times more likely, i.e. $24/25 = 0.96$. Same answer.</p></div>
+
+<h2 id="demo">Try it: your own spam filter</h2>
+<p>This filter is trained on exactly the 10 emails above. Type any message and see the score each word contributes. Green bars push towards spam, purple bars towards ham; the bar length is $\ln\frac{P(w \mid \text{spam})}{P(w \mid \text{ham})}$. Words never seen in training are ignored. Try "win a free lunch", "team meeting now", or "claim your prize".</p>
+<div class="demo" data-demo="naive-bayes"></div>
+
+<h2 id="variants">Variants for different kinds of features</h2>
+<p>The formula $P(y)\prod_j P(x_j \mid y)$ is always the same; what changes is how $P(x_j \mid y)$ is modelled.</p>
+<table class="tbl">
+<thead><tr><th>Variant</th><th>Features</th><th>$P(x_j \mid y)$ comes from</th><th>Typical use</th></tr></thead>
+<tbody>
+<tr><td><strong>Multinomial NB</strong></td><td>Counts</td><td>Smoothed relative frequencies (as above)</td><td>Text classification</td></tr>
+<tr><td><strong>Bernoulli NB</strong></td><td>Binary (present / absent)</td><td>Fraction of examples where the feature is 1</td><td>Short texts, yes/no features</td></tr>
+<tr><td><strong>Gaussian NB</strong></td><td>Continuous numbers</td><td>A normal distribution per class and feature</td><td>Measurements</td></tr>
+<tr><td><strong>Complement NB</strong></td><td>Counts</td><td>Statistics from all <em>other</em> classes</td><td>Imbalanced text data</td></tr>
+<tr><td><strong>Categorical NB</strong></td><td>Categories</td><td>Smoothed frequency of each category</td><td>Categorical data</td></tr>
+</tbody></table>
+
+<h3>Gaussian Naive Bayes</h3>
+<p>For continuous features, assume each feature follows a normal distribution (Lesson 4) within each class, with its own mean $\mu_{y}$ and standard deviation $\sigma_{y}$ estimated from the training data:</p>
+$$P(x_j \mid y) = \frac{1}{\sigma_{y}\sqrt{2\pi}}\exp\!\left(-\frac{(x_j - \mu_{y})^2}{2\sigma_{y}^2}\right)$$
+<div class="box example"><div class="box-title">Worked example — apple or orange?</div>
+<p>From training data: apples weigh on average $\mu = 150$ g ($\sigma = 20$); oranges $\mu = 200$ g ($\sigma = 25$). Equal priors (0.5 each). A fruit weighs <strong>170 g</strong>.</p>
+<p>Apple: $z = (170 - 150)/20 = 1$. Density $= \frac{1}{20\sqrt{2\pi}}e^{-1^2/2} \approx 0.01995 \times 0.607 \approx 0.0121$.</p>
+<p>Orange: $z = (170 - 200)/25 = -1.2$. Density $= \frac{1}{25\sqrt{2\pi}}e^{-1.44/2} \approx 0.01596 \times 0.487 \approx 0.0078$.</p>
+<p>$P(\text{apple} \mid 170\text{ g}) = \frac{0.5 \times 0.0121}{0.5 \times 0.0121 + 0.5 \times 0.0078} \approx 0.61$.</p>
+<p>A 61% chance it's an apple — 170 g is closer to the apple average, measured in standard deviations. With more features (colour, diameter…) we'd multiply in more densities.</p></div>
+
+<h2 id="pros-cons">Strengths and weaknesses</h2>
+<table class="tbl">
+<thead><tr><th>Strengths</th><th>Weaknesses</th></tr></thead>
+<tbody>
+<tr><td>Extremely fast to train: just counting</td><td>The independence assumption is usually false</td></tr>
+<tr><td>Works with little data and many features (like text)</td><td>Probabilities are often over-confident</td></tr>
+<tr><td>Handles many classes naturally</td><td>Can't learn interactions between features</td></tr>
+<tr><td>Easy to explain: each feature adds evidence</td><td>Gaussian NB assumes bell-shaped features</td></tr>
+</tbody></table>
+<p>Naive Bayes is an excellent <strong>baseline</strong>: quick to try, hard to break. If a more complex model can't beat it, the complexity isn't earning its keep.</p>
+
+<h2 id="code">In Python</h2>
+<p>The spam filter from this lesson, with scikit-learn. <code>CountVectorizer</code> turns each text into word counts:</p>
+<pre><code>from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.naive_bayes import MultinomialNB
+
+spam = ["win money now", "free money offer", "win a free prize now", "claim your free prize"]
+ham = ["meeting at noon", "lunch with the team now", "project meeting notes",
+       "see you at lunch", "your project report is ready", "notes from the team meeting"]
+
+vec = CountVectorizer(token_pattern=r"(?u)\b\w+\b")   # keep 1-letter words like "a"
+X = vec.fit_transform(spam + ham)
+y = [1] * 4 + [0] * 6                                   # 1 = spam, 0 = ham
+
+nb = MultinomialNB(alpha=1.0).fit(X, y)                 # alpha=1 is Laplace smoothing
+tests = ["free money now", "meeting notes for the team", "win lunch now"]
+print(nb.predict_proba(vec.transform(tests)).round(3))  # columns: [P(ham), P(spam)]</code></pre>
+<p>Output:</p>
+<pre><code>[[0.04  0.96 ]
+ [0.985 0.015]
+ [0.335 0.665]]</code></pre>
+<p>The first row matches our hand calculation exactly: 96% spam. "win lunch now" is mixed — "win" points to spam, "lunch" to ham — giving 67% spam.</p>
+<p>Gaussian NB on the wine dataset from Lesson 11:</p>
+<pre><code>from sklearn.datasets import load_wine
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+
+X, y = load_wine(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, stratify=y, random_state=0)
+print(round(GaussianNB().fit(X_train, y_train).score(X_test, y_test), 3))   # 0.956</code></pre>
+<p>95.6% accuracy with no scaling and no tuning, trained in milliseconds — better than kNN's 93.3% on the same split.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Naive Bayes picks the class maximising $P(y)\prod_j P(x_j \mid y)$ — Bayes' theorem plus an independence assumption.</li>
+<li>The "naive" independence assumption is usually wrong, but the classifier often works well anyway.</li>
+<li><strong>Laplace smoothing</strong> (+1 counts) prevents a single unseen word from zeroing out a class.</li>
+<li>Implementations add <strong>log-probabilities</strong> instead of multiplying, to avoid underflow.</li>
+<li>Multinomial NB for word counts, Bernoulli for yes/no features, Gaussian for continuous measurements.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="c"><p class="q-text">1. What does the "naive" assumption say?</p>
+<button data-opt="a">All classes are equally likely</button><button data-opt="b">Features follow a normal distribution</button><button data-opt="c">Features are independent of each other given the class</button>
+<div class="q-explain">Conditional independence lets us multiply individual feature probabilities instead of modelling every combination.</div></div>
+<div class="q" data-correct="b"><p class="q-text">2. Why is Laplace smoothing needed?</p>
+<button data-opt="a">To make training faster</button><button data-opt="b">So a word never seen in a class doesn't make that class's probability exactly zero</button><button data-opt="c">To remove common words</button>
+<div class="q-explain">Without smoothing, one zero factor in the product wipes out all the other evidence.</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. A class has 20 words in total, the vocabulary has 30 words, and "deal" appears 4 times in the class. With add-one smoothing, $P(\text{deal} \mid \text{class})$ is…</p>
+<button data-opt="a">5/50 = 0.1</button><button data-opt="b">4/20 = 0.2</button><button data-opt="c">5/20 = 0.25</button>
+<div class="q-explain">$(4 + 1)/(20 + 30) = 5/50 = 0.1$.</div></div>
+<div class="q" data-correct="c"><p class="q-text">4. Why do implementations add log-probabilities instead of multiplying probabilities?</p>
+<button data-opt="a">Logs are more accurate in theory</button><button data-opt="b">It changes which class wins</button><button data-opt="c">Multiplying many small numbers underflows to zero</button>
+<div class="q-explain">Products of hundreds of small probabilities become too small to store. Logs turn them into sums of manageable numbers, without changing the ranking.</div></div>
+<div class="q" data-correct="b"><p class="q-text">5. Which variant suits features like height and weight?</p>
+<button data-opt="a">Multinomial NB</button><button data-opt="b">Gaussian NB</button><button data-opt="c">Bernoulli NB</button>
+<div class="q-explain">Continuous measurements are modelled with a normal (Gaussian) distribution per class.</div></div>
+</div>

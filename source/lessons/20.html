@@ -1,0 +1,284 @@
+<h2 id="why">Data beats algorithms</h2>
+<p>Every model in this course expects a neat table of numbers: no gaps, no text, sensible scales. Real data is never like that. It has missing values, categories like "Chennai" or "two-year contract", amounts that range from 5 to 5 million, and dates. Turning raw data into good model inputs is called <strong>feature engineering</strong>, and in practice it often matters more than which algorithm you choose.</p>
+<p>This final lesson covers the essential techniques, then shows how to package every step into a <strong>pipeline</strong> that is safe from data leakage. It ends with a complete project — from raw data to a saved, tested model — that puts the whole course together.</p>
+
+<h2 id="numeric">Numeric features</h2>
+<h3>Scaling</h3>
+<p>From Lessons 7, 10, 11 and 15: distance-based and gradient-based models (kNN, SVMs, linear and logistic regression, neural networks) need features on similar scales. Tree models (Lessons 13–14) don't.</p>
+<ul>
+<li><strong>Standardisation</strong> (<code>StandardScaler</code>): $z = (x - \mu)/\sigma$ — mean 0, standard deviation 1. The usual default.</li>
+<li><strong>Min–max scaling</strong> (<code>MinMaxScaler</code>): $x' = (x - x_{\min})/(x_{\max} - x_{\min})$ — squeezes into $[0, 1]$.</li>
+<li><strong>Robust scaling</strong> (<code>RobustScaler</code>): uses the median and interquartile range, so outliers don't distort it.</li>
+</ul>
+<div class="box example"><div class="box-title">Worked example — standardising tenure</div>
+<p>Three customers have been with the company 3, 12 and 24 months. Mean $\mu = 13$. Standard deviation $\sigma = \sqrt{\frac{(-10)^2 + 1^2 + 11^2}{3}} = \sqrt{74} \approx 8.60$.</p>
+<p>z-scores: $\frac{3-13}{8.60} \approx -1.16$, $\ \frac{12-13}{8.60} \approx -0.12$, $\ \frac{24-13}{8.60} \approx 1.28$.</p>
+<p>Crucially, $\mu$ and $\sigma$ are computed on the <strong>training set only</strong>, then reused unchanged on the test set and on new data.</p></div>
+<h3>Transforming skewed values</h3>
+<p>Amounts like income, prices or total spending are often <strong>skewed</strong>: most values are small, a few are huge. A <strong>log transform</strong> compresses the range so the huge values don't dominate: 100, 1,000 and 10,000 become 2, 3 and 4 with $\log_{10}$. In code, <code>np.log1p(x)</code> computes $\ln(1 + x)$, which also handles zeros safely.</p>
+<h3>Binning</h3>
+<p>Sometimes it helps to turn a number into ranges (age 18–25, 26–40, …) — useful when the effect isn't smooth, or for readability. It throws away detail, so use it deliberately.</p>
+
+<h2 id="categorical">Categorical features</h2>
+<p>Models need numbers, but you can't just number the categories (Chennai = 1, Mumbai = 2, Delhi = 3): the model would think Delhi is "three times" Chennai, and that Mumbai lies "between" them.</p>
+<h3>One-hot encoding</h3>
+<p>Create one 0/1 column per category; exactly one is 1 for each row.</p>
+<div class="box example"><div class="box-title">Worked example</div>
+<table class="tbl">
+<thead><tr><th>city</th><th>→</th><th>city_Chennai</th><th>city_Delhi</th><th>city_Mumbai</th></tr></thead>
+<tbody>
+<tr><td>Chennai</td><td></td><td>1</td><td>0</td><td>0</td></tr>
+<tr><td>Mumbai</td><td></td><td>0</td><td>0</td><td>1</td></tr>
+<tr><td>Delhi</td><td></td><td>0</td><td>1</td><td>0</td></tr>
+</tbody></table>
+<p>All categories are now equally different from each other. In scikit-learn: <code>OneHotEncoder(handle_unknown="ignore")</code> — the option means a category never seen in training (say "Kolkata") becomes all zeros instead of an error.</p></div>
+<h3>Ordinal encoding</h3>
+<p>When categories have a natural order (small &lt; medium &lt; large; month-to-month &lt; one-year &lt; two-year), mapping them to 0, 1, 2 keeps that order in one column (<code>OrdinalEncoder</code>). Fine for trees; for linear models it assumes equal steps between levels.</p>
+<h3>Many categories</h3>
+<p>A feature like "postcode" may have thousands of values, which would create thousands of columns. Options include grouping rare categories into "other", or target encoding (replacing each category by the average label for that category — computed carefully inside cross-validation, or it leaks).</p>
+
+<h2 id="missing">Missing values</h2>
+<p>Most scikit-learn models refuse missing values (HistGradientBoosting is an exception). Choices:</p>
+<ul>
+<li><strong>Drop rows</strong> — only if very few are missing and missingness is random. Otherwise you lose data and may bias the sample.</li>
+<li><strong>Impute</strong> — fill in a value with <code>SimpleImputer</code>: the <strong>median</strong> (robust for numbers), <strong>mean</strong>, <strong>most frequent</strong> (for categories), or a constant like "unknown". <code>KNNImputer</code> fills values from similar rows.</li>
+<li><strong>Add a "was missing" indicator</strong> (<code>add_indicator=True</code>). Missingness itself can carry information: a customer who didn't give a phone number may behave differently.</li>
+</ul>
+<div class="box warn"><div class="box-title">Imputation can leak too</div>
+<p>The median used for filling gaps must be computed from the training data only — just like scaling statistics. Pipelines handle this automatically.</p></div>
+
+<h2 id="creating">Creating new features</h2>
+<p>Often the most valuable features are ones you build from domain knowledge:</p>
+<ul>
+<li><strong>Ratios and differences</strong>: price per m², debt-to-income, monthly charge per support call.</li>
+<li><strong>Dates</strong>: from a timestamp, extract day of week, month, hour, "is weekend", or "days since last purchase". Raw timestamps are rarely useful directly.</li>
+<li><strong>Interactions</strong>: products of features (e.g. <code>PolynomialFeatures</code>) let linear models capture combined effects.</li>
+<li><strong>Aggregates</strong>: a customer's average order value, number of orders in the last 30 days.</li>
+<li><strong>Text</strong>: word counts (<code>CountVectorizer</code>, Lesson 12) or TF-IDF weights, which down-weight words common to every document.</li>
+</ul>
+<div class="box tip"><div class="box-title">Think like the model</div>
+<p>Ask: "If I were predicting this by hand, what would I want to know?" A model predicting late payments benefits from "days until due date" far more than from two separate raw dates.</p></div>
+
+<h2 id="selection">Feature selection</h2>
+<p>More features isn't always better (Lessons 10, 11, 17). Ways to keep only useful ones: remove near-constant features (<code>VarianceThreshold</code>), keep the best by a statistical test (<code>SelectKBest</code>), keep features a model rates as important (<code>SelectFromModel</code>, e.g. with Lasso), or let L1 regularization zero out the rest. Like all preprocessing, do it inside the pipeline.</p>
+
+<h2 id="demo">Try it: a preprocessing pipeline, step by step</h2>
+<p>Edit the raw customer table (left) — try deleting a monthly charge or changing a city. On the right is the matrix the model actually receives: missing charge filled with the training median, numbers standardised, and the contract one-hot encoded. The statistics shown are "learned" from these rows, exactly what <code>fit</code> does on a training set.</p>
+<div class="demo" data-demo="prep"></div>
+
+<h2 id="pipelines">Pipelines: preprocessing done right</h2>
+<p>A <code>Pipeline</code> chains steps into a single model object. A <code>ColumnTransformer</code> applies different steps to different columns. Together they give you three huge benefits:</p>
+<ol class="steps">
+<li><strong>No leakage.</strong> Calling <code>fit</code> learns imputation values, scaling statistics and encodings from the training data only. During cross-validation, they're re-learned inside every fold.</li>
+<li><strong>One object to tune.</strong> Grid search can tune preprocessing and model settings together (e.g. <code>model__C</code>).</li>
+<li><strong>One object to deploy.</strong> Raw data in, prediction out — exactly the same transformations in training and production. Mismatches between the two ("training/serving skew") are a classic source of silent bugs.</li>
+</ol>
+
+<h2 id="project">Final project: predicting customer churn</h2>
+<p><strong>The problem:</strong> a telecom company wants to know which customers are likely to cancel ("churn") so it can offer them a deal first. The table has numbers, categories and missing values — like real data. So that you can run everything yourself without downloading anything, the code first <em>generates</em> a realistic dataset of 2,000 customers. (It's synthetic: the patterns were built in, so they illustrate the workflow rather than real customer behaviour.)</p>
+
+<h3>Step 1 — Load and explore the data</h3>
+<pre><code>import numpy as np
+import pandas as pd
+
+rng = np.random.default_rng(42)
+n = 2000
+df = pd.DataFrame({
+    "tenure_months": rng.integers(1, 73, n),
+    "monthly_charge": rng.normal(65, 20, n).clip(15, 130).round(2),
+    "support_calls": rng.poisson(1.5, n),
+    "contract": rng.choice(["month-to-month", "one-year", "two-year"], n, p=[0.55, 0.25, 0.20]),
+    "payment": rng.choice(["card", "bank", "check"], n, p=[0.4, 0.35, 0.25]),
+    "city": rng.choice(["Chennai", "Mumbai", "Delhi", "Pune"], n),
+})
+df["total_spent"] = (df["tenure_months"] * df["monthly_charge"] * rng.normal(1, 0.05, n)).round(2)
+score = (-2.0 + 1.6 * (df["contract"] == "month-to-month") - 0.035 * df["tenure_months"]
+         + 0.018 * df["monthly_charge"] + 0.45 * df["support_calls"] + 0.5 * (df["payment"] == "check"))
+df["churned"] = (rng.random(n) &lt; 1 / (1 + np.exp(-score))).astype(int)
+for col, frac in [("monthly_charge", 0.05), ("payment", 0.04)]:     # real data has gaps
+    df.loc[rng.random(n) &lt; frac, col] = np.nan
+
+print(df.shape)
+print(df.head(3).to_string())
+print("churn rate:", round(df["churned"].mean(), 3))
+print(df.isna().sum()[df.isna().sum() > 0].to_dict())</code></pre>
+<pre><code>(2000, 8)
+   tenure_months  monthly_charge  support_calls        contract payment     city  total_spent  churned
+0              7           50.16              2        one-year    bank     Pune       316.79        0
+1             56           83.49              0  month-to-month     NaN    Delhi      4578.37        1
+2             48           65.69              2  month-to-month    card  Chennai      3111.67        1
+churn rate: 0.403
+{'monthly_charge': 105, 'payment': 86}</code></pre>
+<p>2,000 customers, 7 features plus the label. 40% churned, so the classes are only mildly imbalanced. Two columns have gaps (105 and 86 missing values), and three columns are text categories.</p>
+
+<h3>Step 2 — Split before anything else</h3>
+<pre><code>from sklearn.model_selection import train_test_split
+
+X = df.drop(columns="churned")
+y = df["churned"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=0)</code></pre>
+<p>The test set (400 customers) is now locked away until Step 6 (Lesson 5).</p>
+
+<h3>Step 3 — Feature engineering and preprocessing</h3>
+<pre><code>from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, FunctionTransformer
+
+def add_features(X):
+    X = X.copy()
+    X["charge_per_call"] = X["monthly_charge"] / (X["support_calls"] + 1)   # a ratio feature
+    X["log_total_spent"] = np.log1p(X["total_spent"])                       # tame the skew
+    return X
+
+numeric = ["tenure_months", "monthly_charge", "support_calls", "total_spent",
+           "charge_per_call", "log_total_spent"]
+categorical = ["contract", "payment", "city"]
+
+preprocess = ColumnTransformer([
+    ("num", Pipeline([("impute", SimpleImputer(strategy="median")),
+                      ("scale", StandardScaler())]), numeric),
+    ("cat", Pipeline([("impute", SimpleImputer(strategy="most_frequent")),
+                      ("onehot", OneHotEncoder(handle_unknown="ignore"))]), categorical),
+])</code></pre>
+<p>Numbers: fill gaps with the median, then standardise. Categories: fill gaps with the most common value, then one-hot encode. Nothing is fitted yet — that happens inside cross-validation.</p>
+
+<h3>Step 4 — Start with a baseline, then compare models</h3>
+<pre><code>from sklearn.dummy import DummyClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier
+from sklearn.model_selection import cross_val_score
+
+candidates = {
+    "baseline (majority)": DummyClassifier(strategy="most_frequent"),
+    "logistic regression": LogisticRegression(max_iter=1000),
+    "random forest": RandomForestClassifier(n_estimators=300, random_state=0),
+    "gradient boosting": HistGradientBoostingClassifier(random_state=0),
+}
+for name, clf in candidates.items():
+    pipe = Pipeline([("features", FunctionTransformer(add_features)),
+                     ("prep", preprocess), ("model", clf)])
+    s = cross_val_score(pipe, X_train, y_train, cv=5, scoring="roc_auc")
+    print(f"{name:22s} ROC-AUC {s.mean():.3f} ± {s.std():.3f}")</code></pre>
+<pre><code>baseline (majority)    ROC-AUC 0.500 ± 0.000
+logistic regression    ROC-AUC 0.771 ± 0.008
+random forest          ROC-AUC 0.756 ± 0.010
+gradient boosting      ROC-AUC 0.739 ± 0.008</code></pre>
+<p>We use ROC-AUC (Lesson 9) because we'll want to rank customers by risk. The baseline scores 0.5 — pure guessing — so everything above it is real signal. Interesting: <strong>logistic regression beats the ensembles</strong> here. The relationships in this data are close to linear on the log-odds scale (Lesson 8), so the simpler model fits them best and the flexible models only add variance. Always compare — don't assume the fanciest model wins.</p>
+
+<h3>Step 5 — Tune the best model</h3>
+<pre><code>from sklearn.model_selection import GridSearchCV
+
+pipe = Pipeline([("features", FunctionTransformer(add_features)), ("prep", preprocess),
+                 ("model", LogisticRegression(max_iter=1000))])
+search = GridSearchCV(pipe, {"model__C": [0.01, 0.1, 1, 10]}, cv=5, scoring="roc_auc")
+search.fit(X_train, y_train)
+print("best C:", search.best_params_["model__C"], " CV ROC-AUC:", round(search.best_score_, 3))</code></pre>
+<pre><code>best C: 0.1  CV ROC-AUC: 0.772</code></pre>
+<p>Slightly stronger regularization ($C = 0.1$, Lesson 10) helps a little.</p>
+
+<h3>Step 6 — Evaluate once on the test set</h3>
+<pre><code>from sklearn.metrics import roc_auc_score, classification_report
+
+best = search.best_estimator_
+proba = best.predict_proba(X_test)[:, 1]
+print("test ROC-AUC:", round(roc_auc_score(y_test, proba), 3))
+print(classification_report(y_test, (proba >= 0.5).astype(int), target_names=["stayed", "churned"]))</code></pre>
+<pre><code>test ROC-AUC: 0.765
+              precision    recall  f1-score   support
+
+      stayed       0.73      0.82      0.77       239
+     churned       0.67      0.55      0.61       161
+
+    accuracy                           0.71       400
+   macro avg       0.70      0.68      0.69       400
+weighted avg       0.71      0.71      0.70       400</code></pre>
+<p>Test ROC-AUC 0.765 is close to the cross-validated 0.772, so our estimate was honest. At the default threshold the model catches 55% of churners (recall) and is right 67% of the time when it flags someone (precision). If a retention offer is cheap, the company could lower the threshold to catch more churners at the cost of more false alarms (Lesson 9).</p>
+
+<h3>Step 7 — Interpret the model</h3>
+<pre><code>names = best.named_steps["prep"].get_feature_names_out()
+coefs = best.named_steps["model"].coef_[0]
+for name, c in sorted(zip(names, coefs), key=lambda t: -abs(t[1]))[:5]:
+    print(f"{name:32s} {c:+.2f}")</code></pre>
+<pre><code>cat__contract_month-to-month     +0.85
+num__tenure_months               -0.59
+num__support_calls               +0.45
+cat__contract_one-year           -0.43
+cat__contract_two-year           -0.42</code></pre>
+<p>Because features were standardised, the coefficients are comparable (Lesson 6). Month-to-month contracts and more support calls push towards churn; longer tenure and annual contracts push away. These match the patterns built into the data — a good sanity check. Remember: these describe associations, not proven causes.</p>
+
+<h3>Step 8 — Save, reload and predict</h3>
+<pre><code>import joblib
+
+joblib.dump(best, "churn_model.joblib")
+reloaded = joblib.load("churn_model.joblib")       # only ever load files you trust!
+
+new_customer = pd.DataFrame([{"tenure_months": 3, "monthly_charge": 95.0, "support_calls": 4,
+                              "contract": "month-to-month", "payment": "check", "city": "Pune",
+                              "total_spent": 285.0}])
+print("churn probability:", round(reloaded.predict_proba(new_customer)[0, 1], 3))</code></pre>
+<pre><code>churn probability: 0.958</code></pre>
+<p>The whole pipeline — feature creation, imputation, scaling, encoding and model — is saved as one file. Raw customer data goes in, a probability comes out. A new, expensive, month-to-month customer with 4 support calls is flagged as very high risk.</p>
+<div class="box tip"><div class="box-title">One practical detail</div><p>The saved file stores a <em>reference</em> to the <code>add_features</code> function, not its code. To load the model in a different script or server, that function must be importable there too — for example, put it in a small module file (<code>features.py</code>) and import it in both places.</p></div>
+<div class="box warn"><div class="box-title">Security: loading model files</div>
+<p>scikit-learn's documentation warns that pickle-based formats (pickle, joblib) can execute arbitrary code when loaded. Never load a model file from a source you don't trust. Safer formats include <code>skops.io</code> (which lets you inspect untrusted types before loading) and ONNX. Pickle-based files also need the same library versions that were used to save them.</p></div>
+
+<h2 id="production">After deployment: monitoring</h2>
+<p>A model's performance can quietly decay because the world changes (Lesson 5's distribution shift). Google's <em>Rules of Machine Learning</em> warns to "watch for silent failures" — for example, a feature that used to be filled in for 90% of rows dropping to 60% because an upstream system changed. In practice:</p>
+<ul>
+<li>Log inputs and predictions; track the distribution of each feature and of the predicted probabilities over time.</li>
+<li>When true outcomes arrive (did the customer actually leave?), keep measuring real-world metrics.</li>
+<li>Check for training/serving skew: is production data processed exactly like training data?</li>
+<li>Retrain regularly on recent data, and evaluate on data from <em>later</em> than the training period.</li>
+</ul>
+
+<h2 id="checklist">The complete ML workflow — a checklist</h2>
+<ol class="steps">
+<li>Define the problem, the label and the metric that reflects real costs.</li>
+<li>Collect and explore the data: types, gaps, imbalance, oddities.</li>
+<li>Split off a test set immediately (by time, if the data is time-ordered).</li>
+<li>Build a pipeline: feature engineering, imputation, encoding, scaling.</li>
+<li>Score a trivial baseline.</li>
+<li>Compare several model families with cross-validation.</li>
+<li>Tune the best one or two.</li>
+<li>Evaluate once on the test set; choose a decision threshold.</li>
+<li>Interpret and sanity-check the model.</li>
+<li>Save the whole pipeline, deploy, and monitor.</li>
+</ol>
+
+<h2 id="next">Congratulations — and where to go next</h2>
+<p>You've gone from "what is a model?" to building, evaluating and saving complete machine learning systems — and you understand the maths underneath: vectors, gradients, probability, loss functions, regularization, and backpropagation. Ideas to explore next:</p>
+<ul>
+<li><strong>Practice on real datasets</strong>: the scikit-learn documentation's example gallery is full of complete, runnable examples.</li>
+<li><strong>Deep learning in depth</strong>: install PyTorch and build the CNN from Lesson 19; the free <em>Deep Learning</em> book by Goodfellow, Bengio and Courville goes much further.</li>
+<li><strong>Stronger maths</strong>: <em>Mathematics for Machine Learning</em> (Deisenroth, Faisal &amp; Ong) is free online and builds directly on Lessons 2–4.</li>
+<li><strong>Revisit the demos</strong>: re-reading a lesson after the later ones often makes things click.</li>
+</ul>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Good features often matter more than the choice of algorithm.</li>
+<li><strong>Scale</strong> numbers for distance/gradient models, <strong>log-transform</strong> skewed amounts, <strong>one-hot encode</strong> categories, and <strong>impute</strong> missing values (optionally with an indicator).</li>
+<li>Create features from domain knowledge: ratios, date parts, aggregates.</li>
+<li>Put everything in a <strong>Pipeline</strong> + <strong>ColumnTransformer</strong> so it's fitted on training data only and deployed as one object.</li>
+<li>Workflow: split → baseline → compare with CV → tune → test once → interpret → save → monitor.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. Why not encode cities as Chennai = 1, Mumbai = 2, Delhi = 3 for a linear model?</p>
+<button data-opt="a">Numbers are slower than text</button><button data-opt="b">The model would treat the codes as ordered quantities, e.g. Delhi = 3 × Chennai</button><button data-opt="c">Linear models can't use integers</button>
+<div class="q-explain">Arbitrary numbers impose a fake order and spacing. One-hot encoding treats categories as equally different.</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. Where should the median used to fill missing values come from?</p>
+<button data-opt="a">The whole dataset</button><button data-opt="b">The test set</button><button data-opt="c">The training set only</button>
+<div class="q-explain">Like all learned preprocessing statistics, it must come from training data to avoid leakage.</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. A column holds account balances from 0 to 5,000,000, mostly under 10,000. A sensible transformation is…</p>
+<button data-opt="a">A log transform, e.g. <code>np.log1p</code></button><button data-opt="b">One-hot encoding</button><button data-opt="c">Deleting the column</button>
+<div class="q-explain">The log compresses the huge range so a few extreme values don't dominate. <code>log1p</code> also handles zeros.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. What is the main advantage of putting preprocessing inside a Pipeline?</p>
+<button data-opt="a">It makes models more accurate in every case</button><button data-opt="b">Preprocessing is re-fitted on training data inside each CV fold and travels with the model into production</button><button data-opt="c">It removes the need for a test set</button>
+<div class="q-explain">Pipelines prevent leakage and guarantee identical processing in training and deployment.</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. Your new model scores ROC-AUC 0.52 and the baseline scores 0.50. What does that tell you?</p>
+<button data-opt="a">The model is excellent</button><button data-opt="b">The baseline is broken</button><button data-opt="c">The model has learned almost nothing beyond guessing — revisit features and data</button>
+<div class="q-explain">Always compare with a baseline; a tiny improvement over random ranking means little useful signal has been captured.</div></div>
+</div>

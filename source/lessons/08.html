@@ -1,0 +1,186 @@
+<h2 id="problem">From numbers to categories</h2>
+<p>So far we've predicted numbers. Many of the most useful questions are yes/no: <em>Is this email spam? Will this customer cancel? Is this tumour malignant? Will this student pass?</em> These are <strong>binary classification</strong> problems: the label $y$ is either $1$ ("yes", the <em>positive class</em>) or $0$ ("no", the <em>negative class</em>).</p>
+<p><strong>Logistic regression</strong> is the standard first model for this. Despite its name it is a <em>classifier</em>. It doesn't just say yes or no; it outputs a <strong>probability</strong> — "83% likely to pass" — which is far more useful for real decisions.</p>
+<p>Running example: predict whether a student passes an exam ($y=1$) from the hours they studied ($x$).</p>
+<table class="tbl">
+<thead><tr><th>Hours $x$</th><td>0.5</td><td>1</td><td>1.5</td><td>2</td><td>2.5</td><td>3</td><td>3.5</td><td>4</td><td>4.5</td><td>5</td></tr></thead>
+<tbody><tr><th>Passed $y$</th><td>0</td><td>0</td><td>0</td><td>1</td><td>0</td><td>1</td><td>0</td><td>1</td><td>1</td><td>1</td></tr></tbody></table>
+<p>More study generally helps, but it isn't a guarantee — exactly the kind of uncertainty probabilities describe.</p>
+
+<h2 id="why-not-linear">Why not just use linear regression?</h2>
+<p>We could fit a straight line to the 0s and 1s and call anything above 0.5 a "pass". It works poorly:</p>
+<ul>
+<li>A line goes on forever, so it predicts values like $1.4$ or $-0.3$ — meaningless as probabilities.</li>
+<li>One student who studied 40 hours would drag the whole line flatter, shifting the decision point for everyone.</li>
+<li>The squared-error loss isn't the right way to measure the quality of yes/no predictions.</li>
+</ul>
+<p>We need a function that takes any number and squashes it into the range 0 to 1.</p>
+
+<h2 id="sigmoid">The sigmoid function</h2>
+<p>The <strong>sigmoid</strong> (or logistic) function does exactly that:</p>
+$$\sigma(z) = \frac{1}{1 + e^{-z}}$$
+<p>where $e \approx 2.718$. Some values:</p>
+<table class="tbl">
+<thead><tr><th><i>z</i></th><td>−4</td><td>−2</td><td>−1</td><td>0</td><td>1</td><td>2</td><td>4</td></tr></thead>
+<tbody><tr><th>σ(<i>z</i>)</th><td>0.018</td><td>0.119</td><td>0.269</td><td>0.5</td><td>0.731</td><td>0.881</td><td>0.982</td></tr></tbody></table>
+<ul>
+<li>Large positive $z$ → close to 1. Large negative $z$ → close to 0.</li>
+<li>$\sigma(0) = 0.5$ exactly: the point of maximum uncertainty.</li>
+<li>Symmetry: $\sigma(-z) = 1 - \sigma(z)$.</li>
+<li>Its derivative has a neat form: $\sigma'(z) = \sigma(z)\,\big(1 - \sigma(z)\big)$. We'll use this shortly.</li>
+</ul>
+<div class="box intuition"><div class="box-title">Picture it</div>
+<p>The sigmoid is an S-shaped curve: flat near 0 on the far left, a smooth climb through 0.5 in the middle, flat near 1 on the far right. It turns an unlimited "score" into a "confidence".</p></div>
+
+<h2 id="model">The logistic regression model</h2>
+<p>Take the linear model from Lesson 6 and pass its output through the sigmoid:</p>
+$$z = \mathbf{w}\cdot\mathbf{x} + b \qquad\qquad p = \hat{y} = \sigma(z) = \frac{1}{1 + e^{-(\mathbf{w}\cdot\mathbf{x} + b)}}$$
+<p>$z$ is a score (any number); $p$ is the predicted probability that the example belongs to class 1: $p = P(y = 1 \mid \mathbf{x})$.</p>
+<div class="box example"><div class="box-title">Worked example — using a trained model</div>
+<p>Trained on the study data (we'll see how below), the model is $z = 1.354\,x - 3.723$.</p>
+<p>A student who studied <strong>2 hours</strong>: $z = 1.354\times2 - 3.723 = -1.015$, so $p = \sigma(-1.015) = \frac{1}{1+e^{1.015}} \approx 0.27$. A 27% chance of passing.</p>
+<p>A student who studied <strong>4 hours</strong>: $z = 1.354\times4 - 3.723 = 1.693$, so $p \approx 0.84$. An 84% chance.</p></div>
+
+<h2 id="boundary">From probability to a decision: the decision boundary</h2>
+<p>To output a class, pick a <strong>threshold</strong>, usually 0.5: predict 1 if $p \ge 0.5$, else 0. Since $\sigma(z) \ge 0.5$ exactly when $z \ge 0$, the rule is simply:</p>
+$$\text{predict } 1 \iff \mathbf{w}\cdot\mathbf{x} + b \ge 0$$
+<p>The set of points where $\mathbf{w}\cdot\mathbf{x} + b = 0$ is the <strong>decision boundary</strong>. For the study data: $1.354x - 3.723 = 0 \Rightarrow x \approx 2.75$ hours. Below that we predict "fail", above it "pass".</p>
+<p>With two features the boundary is a straight line; with three, a plane. Logistic regression is therefore a <strong>linear classifier</strong> — it separates classes with a straight boundary. (Curved boundaries need extra features, or models like those in Lessons 11–15 and 18.)</p>
+<div class="box tip"><div class="box-title">The threshold is a choice</div>
+<p>For cancer screening you might flag anyone with $p \ge 0.1$, accepting more false alarms to miss fewer real cases. For a spam filter you might require $p \ge 0.9$ so real emails are rarely lost. Lesson 9 shows how to measure this trade-off.</p></div>
+
+<h2 id="odds">Interpreting the weights: odds</h2>
+<p>The <strong>odds</strong> of an event are $\frac{p}{1-p}$: a probability of 0.8 is odds of $0.8/0.2 = 4$ ("4 to 1"). Solving the model for $z$ gives:</p>
+$$\ln\!\left(\frac{p}{1-p}\right) = \mathbf{w}\cdot\mathbf{x} + b$$
+<p>So logistic regression is a linear model for the <strong>log-odds</strong> (also called the <em>logit</em>). That gives the weights a clean meaning: increasing feature $x_j$ by 1 <em>multiplies the odds</em> by $e^{w_j}$.</p>
+<div class="box example"><div class="box-title">Worked example</div>
+<p>With $w = 1.354$: $e^{1.354} \approx 3.87$. Each extra hour of study multiplies a student's odds of passing by about 3.9. A negative weight would shrink the odds instead.</p></div>
+
+<h2 id="loss">The loss: log loss (cross-entropy)</h2>
+<p>How do we measure how wrong a probability is? If the truth is $y = 1$, we want $p$ close to 1; if $y = 0$, we want $p$ close to 0. The standard loss for one example is <strong>log loss</strong>, also called <strong>binary cross-entropy</strong>:</p>
+$$\ell(p, y) = -\big[\,y\ln p + (1 - y)\ln(1 - p)\,\big]$$
+<p>Only one of the two terms is active at a time:</p>
+<ul>
+<li>If $y = 1$: $\ell = -\ln p$.</li>
+<li>If $y = 0$: $\ell = -\ln(1 - p)$.</li>
+</ul>
+<div class="box example"><div class="box-title">Worked example — how log loss punishes confident mistakes</div>
+<p>True label $y = 1$:</p>
+<table class="tbl">
+<thead><tr><th>Predicted $p$</th><th>Loss $-\ln p$</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>0.9</td><td>0.105</td><td>confident and right — tiny loss</td></tr>
+<tr><td>0.5</td><td>0.693</td><td>unsure — moderate loss</td></tr>
+<tr><td>0.1</td><td>2.303</td><td>confident and wrong — big loss</td></tr>
+<tr><td>0.01</td><td>4.605</td><td>very confident and wrong — huge loss</td></tr>
+</tbody></table>
+<p>As $p \to 0$ the loss goes to infinity. Log loss strongly discourages being confidently wrong.</p></div>
+<p>The training loss is the average over all $n$ examples:</p>
+$$L(\mathbf{w}, b) = -\frac{1}{n}\sum_{i=1}^{n}\big[\,y_i\ln p_i + (1 - y_i)\ln(1 - p_i)\,\big]$$
+<div class="box tip"><div class="box-title">Where does this formula come from?</div>
+<p>From probability (Lesson 4). The model says example $i$ has label 1 with probability $p_i$. The probability of observing its actual label is $p_i^{\,y_i}(1-p_i)^{1-y_i}$ (this equals $p_i$ if $y_i = 1$ and $1-p_i$ if $y_i = 0$). Multiply over all examples to get the <strong>likelihood</strong> of the data. Taking the log turns the product into a sum, and minimising the negative log-likelihood is exactly minimising log loss. So we're choosing the weights that make the observed labels <em>most probable</em> — a principle called <strong>maximum likelihood</strong>. Unlike MSE with a sigmoid, this loss is convex: one bowl, one minimum.</p></div>
+
+<h2 id="gradient">The gradient — surprisingly simple</h2>
+<p>There's no closed-form solution here, so we use gradient descent (Lesson 7). Let's derive the gradient for one example with the chain rule. The loss depends on $p$, which depends on $z$, which depends on $w_j$:</p>
+$$\frac{\partial \ell}{\partial w_j} = \frac{\partial \ell}{\partial p}\cdot\frac{\partial p}{\partial z}\cdot\frac{\partial z}{\partial w_j}$$
+<ol class="steps">
+<li>$\frac{\partial \ell}{\partial p} = -\frac{y}{p} + \frac{1-y}{1-p}$ (derivative of $\ln$ is $1/\cdot$).</li>
+<li>$\frac{\partial p}{\partial z} = p(1-p)$ (the sigmoid's derivative).</li>
+<li>$\frac{\partial z}{\partial w_j} = x_j$.</li>
+<li>Multiply the first two: $\left(-\frac{y}{p} + \frac{1-y}{1-p}\right)p(1-p) = -y(1-p) + (1-y)p = p - y$.</li>
+</ol>
+<p>So everything collapses to:</p>
+$$\frac{\partial L}{\partial w_j} = \frac{1}{n}\sum_{i=1}^{n}(p_i - y_i)\,x_{ij} \qquad\qquad \frac{\partial L}{\partial b} = \frac{1}{n}\sum_{i=1}^{n}(p_i - y_i)$$
+<p>"Prediction minus truth, times the input" — the same shape as linear regression's gradient. The update is $w_j \leftarrow w_j - \eta\,\frac{\partial L}{\partial w_j}$, as always.</p>
+<div class="box example"><div class="box-title">Worked example — one gradient step</div>
+<p>One student: $x = 2$ hours, passed ($y = 1$). Start with $w = 0$, $b = 0$, learning rate $\eta = 0.5$.</p>
+<p>$z = 0$, $p = \sigma(0) = 0.5$. Loss $= -\ln 0.5 = 0.693$.</p>
+<p>Gradients: $\frac{\partial \ell}{\partial w} = (0.5 - 1)\times2 = -1$, $\ \frac{\partial \ell}{\partial b} = 0.5 - 1 = -0.5$.</p>
+<p>Update: $w = 0 - 0.5\times(-1) = 0.5$, $\ b = 0 - 0.5\times(-0.5) = 0.25$.</p>
+<p>Now $z = 0.5\times2 + 0.25 = 1.25$, $p = \sigma(1.25) \approx 0.777$, loss $= -\ln 0.777 \approx 0.252$. The model became more confident in the right answer.</p></div>
+
+<h2 id="demo">Try it: train a classifier</h2>
+<p>Click to add points: choose the class with the buttons, then click on the chart. Press <em>Train</em> to run gradient descent. The background colour shows the predicted probability (stronger colour = more confident) and the white line is the decision boundary where $p = 0.5$. Try making the two groups overlap, or arranging one class in a ring around the other — a straight boundary can't separate that.</p>
+<div class="demo" data-demo="logistic"></div>
+
+<h2 id="multiclass">More than two classes</h2>
+<p>For $K$ classes (e.g. digits 0–9) there are two common approaches:</p>
+<ul>
+<li><strong>One-vs-rest:</strong> train $K$ binary classifiers ("is it a 3, or not?") and pick the most confident.</li>
+<li><strong>Softmax (multinomial) regression:</strong> compute a score $z_k = \mathbf{w}_k\cdot\mathbf{x} + b_k$ for each class, then turn the scores into probabilities that sum to 1:</li>
+</ul>
+$$P(y = k \mid \mathbf{x}) = \frac{e^{z_k}}{\sum_{j=1}^{K} e^{z_j}}$$
+<div class="box example"><div class="box-title">Worked example — softmax</div>
+<p>Scores for three classes: $z = (2, 1, 0)$. Exponentials: $e^2 \approx 7.39$, $e^1 \approx 2.72$, $e^0 = 1$; total $\approx 11.11$.</p>
+<p>Probabilities: $7.39/11.11 \approx 0.665$, $2.72/11.11 \approx 0.245$, $1/11.11 \approx 0.090$. They sum to 1, and the highest score gets the highest probability.</p></div>
+<p>Softmax with cross-entropy loss is also the standard output layer of neural network classifiers (Lesson 18).</p>
+
+<h2 id="code">In Python</h2>
+<p>From scratch on the study-hours data:</p>
+<pre><code>import numpy as np
+
+x = np.array([0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5])
+y = np.array([0, 0, 0, 1, 0, 1, 0, 1, 1, 1])
+
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
+
+w, b, lr = 0.0, 0.0, 0.1
+for step in range(5000):
+    p = sigmoid(w * x + b)
+    w -= lr * np.mean((p - y) * x)      # dL/dw = mean((p - y) x)
+    b -= lr * np.mean(p - y)            # dL/db = mean(p - y)
+
+p = sigmoid(w * x + b)
+loss = -np.mean(y * np.log(p) + (1 - y) * np.log(1 - p))
+print(round(w, 3), round(b, 3), round(loss, 3))   # 1.353 -3.721 0.434
+print(round(-b / w, 2))                           # decision boundary: 2.75 hours</code></pre>
+<p>On a real medical dataset with scikit-learn — 569 breast tumours, 30 measurements each, labelled malignant or benign:</p>
+<pre><code>from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+
+X, y = load_breast_cancer(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, stratify=y, random_state=0)
+
+model = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
+model.fit(X_train, y_train)
+
+print(round(model.score(X_test, y_test), 3))      # accuracy on unseen tumours
+print(model.predict_proba(X_test[:3]).round(3))   # [P(class 0), P(class 1)] for 3 tumours</code></pre>
+<p>Output:</p>
+<pre><code>0.958
+[[0.004 0.996]
+ [1.    0.   ]
+ [1.    0.   ]]</code></pre>
+<p>About 96% of unseen tumours are classified correctly, and for each one we get a probability, not just a label. (In this dataset class 1 means benign.) Note that scikit-learn's <code>LogisticRegression</code> applies L2 regularization by default — you'll learn what that means in Lesson 10.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Logistic regression predicts $p = \sigma(\mathbf{w}\cdot\mathbf{x} + b)$, the probability of class 1; $\sigma(z) = 1/(1+e^{-z})$.</li>
+<li>Predict class 1 when $p \ge$ threshold (often 0.5), i.e. when $\mathbf{w}\cdot\mathbf{x} + b \ge 0$: a <strong>linear decision boundary</strong>.</li>
+<li>Each weight multiplies the <strong>odds</strong> by $e^{w_j}$ per unit increase of its feature.</li>
+<li>Trained by minimising <strong>log loss</strong> (maximum likelihood), which heavily punishes confident mistakes.</li>
+<li>Gradient: $\frac{1}{n}\sum(p_i - y_i)\,\mathbf{x}_i$. Multi-class uses <strong>softmax</strong>.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. What is $\sigma(0)$?</p>
+<button data-opt="a">0</button><button data-opt="b">0.5</button><button data-opt="c">1</button>
+<div class="q-explain">$\sigma(0) = 1/(1 + e^0) = 1/2$.</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. A model has $z = 2x - 6$. Where is the decision boundary (threshold 0.5)?</p>
+<button data-opt="a">$x = 6$</button><button data-opt="b">$x = 0.5$</button><button data-opt="c">$x = 3$</button>
+<div class="q-explain">The boundary is where $z = 0$: $2x - 6 = 0 \Rightarrow x = 3$.</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. The true label is 1. Which prediction gives the largest log loss?</p>
+<button data-opt="a">$p = 0.05$</button><button data-opt="b">$p = 0.5$</button><button data-opt="c">$p = 0.95$</button>
+<div class="q-explain">$-\ln 0.05 \approx 3.0$, much larger than $-\ln 0.5 \approx 0.69$ or $-\ln 0.95 \approx 0.05$. Confident and wrong is punished most.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. A feature has weight $w = \ln 2 \approx 0.693$. Increasing that feature by 1…</p>
+<button data-opt="a">adds 0.693 to the probability</button><button data-opt="b">doubles the odds</button><button data-opt="c">doubles the probability</button>
+<div class="q-explain">The odds are multiplied by $e^{w} = e^{\ln 2} = 2$. The probability itself changes by a varying amount.</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. For one example, $p = 0.8$, $y = 0$, $x = 3$. What is $\partial\ell/\partial w$?</p>
+<button data-opt="a">-0.6</button><button data-opt="b">0.8</button><button data-opt="c">2.4</button>
+<div class="q-explain">$(p - y)\,x = (0.8 - 0)\times3 = 2.4$. Positive, so gradient descent decreases $w$, lowering $p$ for this example.</div></div>
+</div>

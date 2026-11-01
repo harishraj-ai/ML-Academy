@@ -1,0 +1,152 @@
+<h2 id="idea">The simplest idea in machine learning</h2>
+<p>"Tell me who your neighbours are, and I'll tell you who you are." That proverb <em>is</em> the <strong>k-nearest neighbours</strong> algorithm (kNN). To classify a new example, find the $k$ training examples most similar to it and let them vote.</p>
+<p>kNN has no equations to fit and no weights to learn — and yet it can draw curved, complex decision boundaries that linear models can't. It's a great way to understand the idea of <em>similarity</em>, which runs through all of ML, and it teaches two crucial lessons: the importance of <strong>feature scaling</strong> and the <strong>curse of dimensionality</strong>.</p>
+<div class="box intuition"><div class="box-title">Analogy: estimating a house price</div>
+<p>An estate agent valuing a house doesn't solve equations. They look at the 3–5 most similar houses that sold recently nearby (similar size, area, condition) and take something like their average price. That's kNN regression.</p></div>
+
+<h2 id="algorithm">The algorithm</h2>
+<p><strong>Training:</strong> just store all the training examples. That's it. (kNN is called a <em>lazy learner</em>, because all the work happens at prediction time.)</p>
+<p><strong>Predicting</strong> for a new point $\mathbf{q}$:</p>
+<ol class="steps">
+<li>Compute the distance from $\mathbf{q}$ to every training example.</li>
+<li>Pick the $k$ examples with the smallest distances — the nearest neighbours.</li>
+<li><strong>Classification:</strong> predict the most common class among those $k$ (majority vote). <strong>Regression:</strong> predict the average of their $y$ values.</li>
+</ol>
+<p>kNN is <strong>non-parametric</strong>: it doesn't summarise the data in a fixed set of weights. The training data itself is the model.</p>
+
+<h2 id="distance">Measuring distance</h2>
+<p>"Nearest" needs a distance. The most common is the <strong>Euclidean distance</strong> (straight-line distance, from Pythagoras — Lesson 2):</p>
+$$d(\mathbf{a}, \mathbf{b}) = \sqrt{\sum_{j=1}^{d}(a_j - b_j)^2}$$
+<p>Alternatives:</p>
+<ul>
+<li><strong>Manhattan distance</strong> $\sum_j |a_j - b_j|$ — like walking along city blocks; less dominated by one big difference.</li>
+<li><strong>Minkowski distance</strong> $\big(\sum_j |a_j - b_j|^p\big)^{1/p}$ — the general family: $p = 1$ is Manhattan, $p = 2$ is Euclidean. scikit-learn's default is Minkowski with $p = 2$.</li>
+<li><strong>Cosine distance</strong> — based on the angle between vectors (Lesson 2), popular for text.</li>
+</ul>
+<div class="box example"><div class="box-title">Worked example — classify a point by hand</div>
+<p>Training points: two red, three blue.</p>
+<table class="tbl">
+<thead><tr><th>Point</th><th>Coordinates</th><th>Class</th><th>Distance to $\mathbf{q} = (2, 2)$</th></tr></thead>
+<tbody>
+<tr><td>A</td><td>(1, 1)</td><td>red</td><td>$\sqrt{1^2 + 1^2} = 1.414$</td></tr>
+<tr><td>B</td><td>(2, 1)</td><td>red</td><td>$\sqrt{0^2 + 1^2} = 1.000$</td></tr>
+<tr><td>C</td><td>(4, 3)</td><td>blue</td><td>$\sqrt{2^2 + 1^2} = 2.236$</td></tr>
+<tr><td>D</td><td>(5, 4)</td><td>blue</td><td>$\sqrt{3^2 + 2^2} = 3.606$</td></tr>
+<tr><td>E</td><td>(3, 3.5)</td><td>blue</td><td>$\sqrt{1^2 + 1.5^2} = 1.803$</td></tr>
+</tbody></table>
+<p>Sorted by distance: B (1.000), A (1.414), E (1.803), C (2.236), D (3.606).</p>
+<ul>
+<li>$k = 1$: nearest is B → <strong>red</strong>.</li>
+<li>$k = 3$: B, A, E → 2 red, 1 blue → <strong>red</strong>.</li>
+<li>$k = 5$: all five → 2 red, 3 blue → <strong>blue</strong>.</li>
+</ul>
+<p>The answer depends on $k$. With $k = 5$ we're just counting every point, so the larger class wins regardless of where $\mathbf{q}$ is.</p></div>
+
+<h2 id="choosing-k">Choosing $k$: bias vs variance again</h2>
+<ul>
+<li><strong>Small $k$</strong> (e.g. 1): the boundary follows every single training point, including noisy or mislabelled ones. Jagged boundary, little islands of the wrong class. <strong>High variance → overfitting.</strong> Note that with $k = 1$, training accuracy is always 100% — each point is its own nearest neighbour — which tells you nothing.</li>
+<li><strong>Large $k$</strong>: votes average over a big neighbourhood, so the boundary is smooth. Too large and it blurs real structure, eventually just predicting the majority class everywhere. <strong>High bias → underfitting.</strong></li>
+</ul>
+<p>Choose $k$ by cross-validation (Lesson 5). For two classes, odd values avoid tied votes.</p>
+<div class="box tip"><div class="box-title">Distance-weighted voting</div>
+<p>Instead of one vote each, neighbours can vote with weight $1/d$, so closer ones count more. In scikit-learn: <code>weights="distance"</code>. This makes the choice of $k$ less sensitive.</p></div>
+
+<h2 id="demo">Try it: kNN decision regions</h2>
+<p>Three classes of points. The background colour shows what kNN would predict at every location. Change $k$ and watch the boundaries go from jagged (small $k$) to smooth (large $k$). Click anywhere to place a query point and see its $k$ nearest neighbours and their vote.</p>
+<div class="demo" data-demo="knn"></div>
+
+<h2 id="scaling">Feature scaling is essential</h2>
+<p>Distances add up differences across all features. If features are on different scales, the large-scale feature completely dominates.</p>
+<div class="box example"><div class="box-title">Worked example — age vs income</div>
+<p>Person P is 30 years old earning 50,000. Q is 60 earning 51,000. R is 31 earning 70,000.</p>
+<p>$d(P, Q) = \sqrt{30^2 + 1000^2} \approx 1000.4$<br>
+$d(P, R) = \sqrt{1^2 + 20000^2} \approx 20000.0$</p>
+<p>So Q is "much closer" to P than R is — even though Q is twice P's age — because the income differences (thousands) swamp the age differences (tens). Age is effectively ignored.</p>
+<p>After standardising each feature to mean 0 and standard deviation 1 (Lesson 4), a 30-year age gap and a 20,000 income gap are each measured relative to how much that feature normally varies, so both count.</p></div>
+<p>The code below shows the real effect on a dataset: accuracy jumps from 67% to 93% just by scaling.</p>
+
+<h2 id="regression">kNN for regression</h2>
+<p>For a numeric target, predict the average of the neighbours' values:</p>
+$$\hat{y}(\mathbf{q}) = \frac{1}{k}\sum_{i \in N_k(\mathbf{q})} y_i$$
+<p>where $N_k(\mathbf{q})$ is the set of the $k$ nearest neighbours. With distance weighting, it's a weighted average. Example: the three nearest houses sold for 300k, 320k and 340k, so predict 320k.</p>
+
+<h2 id="curse">The curse of dimensionality</h2>
+<p>kNN relies on nearby points being similar. In high dimensions, "nearby" stops meaning much — this is the <strong>curse of dimensionality</strong>.</p>
+<div class="box example"><div class="box-title">Worked example — how big is a "neighbourhood"?</div>
+<p>Suppose data is spread evenly inside a unit cube, and we want a small cube-shaped neighbourhood that contains 10% of the data. Its volume must be 0.1, so each side has length $0.1^{1/d}$:</p>
+<table class="tbl">
+<thead><tr><th>Dimensions $d$</th><td>1</td><td>2</td><td>3</td><td>10</td><td>100</td></tr></thead>
+<tbody><tr><th>Side length needed</th><td>0.10</td><td>0.32</td><td>0.46</td><td>0.79</td><td>0.98</td></tr></tbody></table>
+<p>In 10 dimensions, to capture just 10% of the data, the "neighbourhood" must span 79% of each feature's range. In 100 dimensions, 98%. The "nearest" neighbours aren't near at all — they're scattered almost across the whole space.</p></div>
+<p>Consequences: in many dimensions, all points end up roughly the same distance from each other, so nearest neighbours become nearly meaningless, and you'd need exponentially more data to fill the space. Remedies: remove irrelevant features, or reduce dimensions first with PCA (Lesson 17).</p>
+
+<h2 id="pros-cons">Strengths and weaknesses</h2>
+<table class="tbl">
+<thead><tr><th>Strengths</th><th>Weaknesses</th></tr></thead>
+<tbody>
+<tr><td>Simple to understand and explain</td><td>Slow predictions: compares to every training point</td></tr>
+<tr><td>No training time</td><td>Must store the whole training set</td></tr>
+<tr><td>Flexible, curved decision boundaries</td><td>Needs feature scaling</td></tr>
+<tr><td>Works for classification and regression</td><td>Struggles in high dimensions and with irrelevant features</td></tr>
+</tbody></table>
+<p>To speed up the search, libraries use tree-shaped indexes such as <strong>KD-trees</strong> and <strong>ball trees</strong>, which skip whole regions of space that can't contain a nearest neighbour. They work well in low dimensions; scikit-learn chooses automatically (<code>algorithm="auto"</code>).</p>
+
+<h2 id="code">In Python</h2>
+<p>The wine dataset: 178 wines, 13 chemical measurements with very different scales (one ranges up to 1,680, others are below 1), and 3 grape varieties.</p>
+<pre><code>from sklearn.datasets import load_wine
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+
+X, y = load_wine(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, stratify=y, random_state=0)
+
+raw = KNeighborsClassifier(n_neighbors=5).fit(X_train, y_train)
+print("without scaling:", round(raw.score(X_test, y_test), 3))
+
+scaled = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=5)).fit(X_train, y_train)
+print("with scaling:   ", round(scaled.score(X_test, y_test), 3))
+
+for k in [1, 5, 15, 51, 81, 101]:
+    s = cross_val_score(make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=k)),
+                        X_train, y_train, cv=5)
+    print(f"k={k:3d}  CV accuracy {s.mean():.3f} ± {s.std():.3f}")</code></pre>
+<p>Output:</p>
+<pre><code>without scaling: 0.667
+with scaling:    0.933
+k=  1  CV accuracy 0.918 ± 0.054
+k=  5  CV accuracy 0.940 ± 0.038
+k= 15  CV accuracy 0.932 ± 0.037
+k= 51  CV accuracy 0.962 ± 0.023
+k= 81  CV accuracy 0.593 ± 0.065
+k=101  CV accuracy 0.399 ± 0.019</code></pre>
+<p>Two lessons in one output. Scaling lifts accuracy from 67% to 93%. And $k$ matters: small $k$ is noisier (look at the larger ± for $k = 1$), moderate values work well, and once $k$ approaches the size of the training folds (about 106 examples), the vote is dominated by whole classes and accuracy collapses — extreme underfitting.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>kNN predicts from the $k$ most similar training examples: majority vote (classification) or average (regression).</li>
+<li>It needs a distance — usually Euclidean $\sqrt{\sum(a_j - b_j)^2}$.</li>
+<li>Small $k$ → jagged boundary, overfitting; large $k$ → smooth boundary, underfitting. Choose $k$ by cross-validation.</li>
+<li><strong>Always scale features</strong> — otherwise large-scale features dominate the distance.</li>
+<li>The <strong>curse of dimensionality</strong>: in many dimensions, neighbourhoods stop being local.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. What is the Euclidean distance between $(1, 2)$ and $(4, 6)$?</p>
+<button data-opt="a">7</button><button data-opt="b">5</button><button data-opt="c">25</button>
+<div class="q-explain">$\sqrt{3^2 + 4^2} = \sqrt{25} = 5$. (7 is the Manhattan distance.)</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. With $k = 1$, what is kNN's accuracy on its own training data (no duplicate points)?</p>
+<button data-opt="a">100%</button><button data-opt="b">Around 50%</button><button data-opt="c">It depends on the data</button>
+<div class="q-explain">Each training point's nearest neighbour is itself, so it's always "correct" — which says nothing about generalization.</div></div>
+<div class="q" data-correct="c"><p class="q-text">3. Your kNN boundary is jagged with many small islands. What should you change?</p>
+<button data-opt="a">Decrease $k$</button><button data-opt="b">Remove feature scaling</button><button data-opt="c">Increase $k$</button>
+<div class="q-explain">Jagged boundaries mean high variance. Averaging over more neighbours smooths the boundary.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. The 3 nearest neighbours of a house sold for 200k, 260k and 230k. What does kNN regression ($k = 3$, unweighted) predict?</p>
+<button data-opt="a">260k</button><button data-opt="b">230k</button><button data-opt="c">200k</button>
+<div class="q-explain">The average: $(200 + 260 + 230)/3 = 230$k.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. Why does kNN struggle with hundreds of features?</p>
+<button data-opt="a">In high dimensions all points are roughly equally far apart, so "nearest" loses meaning</button><button data-opt="b">It can only use two features</button><button data-opt="c">The vote always ties</button>
+<div class="q-explain">The curse of dimensionality: neighbourhoods must stretch across most of the space, so neighbours aren't really similar.</div></div>
+</div>
