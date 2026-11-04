@@ -1,0 +1,18 @@
+
+<h2 id="deeper">Going deeper: correcting probabilities and how isolation works</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>Two details that matter in real rare-event systems: how to turn a class-weighted (or resampled) model's distorted probabilities back into real risks with one formula, and why random splits isolate anomalies so quickly, measured directly.</p>
+<p>You'll need: this lesson, calibration from Lesson 8's "Going deeper", and decision trees from Lesson 13.</p></div>
+
+<h3 id="deeper-prior">Undoing class weights: the prior correction</h3>
+<p>Balanced class weights (or oversampling to 50/50) make the model behave as if positives were as common as negatives, so its probabilities are far too high. If the real positive rate is $\pi$, the odds can be corrected with Bayes' theorem by multiplying by the real prior odds:</p>
+<p>$$\text{odds}_{\text{real}} = \frac{p}{1-p}\cdot\frac{\pi}{1-\pi}, \qquad p_{\text{real}} = \frac{\text{odds}_{\text{real}}}{1 + \text{odds}_{\text{real}}}$$</p>
+<!--cell 1-->
+<p>The balanced model predicts an average risk of 0.372 when the true rate is 0.020, with a terrible Brier score of 0.1702. After the correction its average risk is 0.017 and its Brier score 0.0178, almost matching a model trained without weights (0.0169). So if you use weights or resampling to help a model learn the rare class, apply this correction (or recalibrate on held-out data with <code>CalibratedClassifierCV</code>) before using the outputs as probabilities: for pricing, ranking by expected loss, or telling a patient their risk.</p>
+
+<h3 id="deeper-isolation">Why random splits isolate anomalies</h3>
+<p>Isolation Forest grows each tree by choosing a random feature and a random split value between that feature's minimum and maximum, until every point sits alone. A point far from the crowd is very likely to be cut off by one of the first few random splits; a point deep inside a cluster needs many. Here we measure the average number of splits for one far-away point and for typical points among 500:</p>
+<!--cell 2-->
+<p>The far point is isolated in 2.3 splits on average, typical points in 14.6. Isolation Forest turns that path length into a score between 0 and 1, normalised by the average path length expected for $n$ points (about $2\ln n$). Because it never computes distances, it scales linearly with the data and copes with many features; its main settings are the number of trees and the subsample size per tree (256 by default, which is enough because anomalies stand out even in small samples).</p>
+<!--interview-->
+<!--quiz-->

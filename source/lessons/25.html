@@ -1,0 +1,193 @@
+<h2 id="why">When the thing you care about is rare</h2>
+<p>Fraud is perhaps 1 transaction in 1,000. A machine failure, one reading in 10,000. A rare disease, one patient in 500. In these problems the class you care about is a tiny minority, and almost everything you learned about "accuracy" breaks: a model that never predicts the rare class is 99.9% accurate and completely useless.</p>
+<p>This lesson covers the two situations you'll meet. When you <strong>have labels</strong> for some rare cases, it's an <em>imbalanced classification</em> problem: choose the right metrics, then fix the imbalance with thresholds, class weights or resampling. When you have <strong>few or no labels</strong>, it's <em>anomaly detection</em>: find points that don't look like the rest, with methods such as z-scores, Isolation Forest and Local Outlier Factor.</p>
+<div class="box intuition"><div class="box-title">The core idea</div><p>With rare classes, judge models with precision, recall and average precision, never accuracy. Most of the "fixes" for imbalance (reweighting, oversampling, SMOTE) mainly move the decision threshold; often the simplest and best fix is a calibrated model plus a threshold chosen from the cost of each mistake.</p></div>
+
+<h2 id="metrics">Why accuracy fails, in numbers</h2>
+<p>A dataset with 1% positives, split in half, with a logistic regression and a "model" that always says normal:</p>
+<pre><code>import numpy as np
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.dummy import DummyClassifier
+from sklearn.metrics import accuracy_score, recall_score, precision_score, average_precision_score
+
+# 1% positives, like fraud
+X, y = make_classification(n_samples=20000, n_features=10, n_informative=5, weights=[0.99],
+                           class_sep=1.0, flip_y=0, random_state=0)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.5, random_state=0, stratify=y)
+print("positives in the test set:", int(y_te.sum()), "of", len(y_te))
+for name, m in [("always 'normal'", DummyClassifier(strategy="most_frequent")), ("logistic regression", LogisticRegression(max_iter=1000))]:
+    m.fit(X_tr, y_tr); pr = m.predict(X_te)
+    print(f"{name:20}: accuracy {accuracy_score(y_te, pr):.3f}   recall {recall_score(y_te, pr):.3f}")</code></pre>
+<p>Output:</p>
+<pre><code>positives in the test set: 100 of 10000
+always 'normal'     : accuracy 0.990   recall 0.000
+logistic regression : accuracy 0.995   recall 0.520</code></pre>
+<p>The do-nothing model is 99.0% accurate and catches none of the 100 positives. Logistic regression is 99.5% accurate, which sounds only slightly better, yet it catches 52% of them. Accuracy hides almost everything that matters here. Use (Lesson 9):</p>
+<ul>
+<li><strong>Recall</strong>: the share of positives you catch.</li>
+<li><strong>Precision</strong>: the share of your alerts that are real.</li>
+<li><strong>Average precision</strong> (PR-AUC): the threshold-free summary of the precision–recall trade-off, compared with its baseline, the positive rate (0.01 here).</li>
+<li>Or a <strong>cost</strong> or <strong>business metric</strong>, such as rupees saved, or alerts per analyst per day.</li>
+</ul>
+
+<h2 id="fixes">Thresholds, class weights and resampling</h2>
+<p>Three families of fix, all aiming to make the model flag more of the rare class:</p>
+<ul>
+<li><strong>Move the threshold</strong>: keep the model, flag anything with probability above, say, 0.1 instead of 0.5 (Lesson 9's "Going deeper" shows how to choose it from costs).</li>
+<li><strong>Class weights</strong>: make each positive count more in the training loss (<code>class_weight="balanced"</code>, Lesson 8's "Going deeper").</li>
+<li><strong>Resampling</strong>: train on a rebalanced copy of the training data, by <em>oversampling</em> positives (repeating them) or <em>undersampling</em> negatives (dropping some).</li>
+</ul>
+<pre><code>def report(name, scores, threshold=0.5):
+    flag = scores &gt;= threshold
+    print(f"{name:32}: recall {recall_score(y_te, flag):.3f}  precision {precision_score(y_te, flag, zero_division=0):.3f}  "
+          f"average precision {average_precision_score(y_te, scores):.3f}")
+
+plain = LogisticRegression(max_iter=1000).fit(X_tr, y_tr).predict_proba(X_te)[:, 1]
+weighted = LogisticRegression(max_iter=1000, class_weight="balanced").fit(X_tr, y_tr).predict_proba(X_te)[:, 1]
+rng = np.random.default_rng(0)
+pos = np.flatnonzero(y_tr == 1)
+extra = rng.choice(pos, size=(y_tr == 0).sum() - len(pos), replace=True)        # random oversampling
+Xo, yo = np.vstack([X_tr, X_tr[extra]]), np.r_[y_tr, y_tr[extra]]
+over = LogisticRegression(max_iter=1000).fit(Xo, yo).predict_proba(X_te)[:, 1]
+
+report("plain, threshold 0.5", plain)
+report("plain, threshold 0.1", plain, 0.1)
+report("class_weight='balanced'", weighted)
+report("random oversampling", over)</code></pre>
+<p>Output:</p>
+<pre><code>plain, threshold 0.5            : recall 0.520  precision 0.912  average precision 0.746
+plain, threshold 0.1            : recall 0.760  precision 0.490  average precision 0.746
+class_weight='balanced'         : recall 0.900  precision 0.146  average precision 0.471
+random oversampling             : recall 0.900  precision 0.146  average precision 0.470</code></pre>
+<p>Read the four rows carefully. Lowering the threshold to 0.1 raises recall from 0.52 to 0.76 at a precision of 0.49, with the same average precision (0.746), because the model's ranking hasn't changed. Class weights and oversampling reach recall 0.90 but with precision 0.146 (most alerts false), and here they even <em>lower</em> average precision to about 0.47: training on a distorted class balance made the ranking worse, not just the threshold different. That isn't always so, but it's common enough that the order to try things in is: <strong>first a good model and the right threshold; then weights or resampling if they improve average precision on validation data.</strong></p>
+<div class="box example"><div class="box-title">Worked example — what "balanced" weights mean</div>
+<p>The training half has 9,900 negatives and 100 positives ($n = 10{,}000$, $k = 2$ classes). Scikit-learn's balanced weight for class $c$ is $n/(k\,n_c)$:</p>
+<p>Negatives: $10{,}000/(2 \times 9{,}900) = 0.505$. Positives: $10{,}000/(2 \times 100) = 50$.</p>
+<p>So each positive counts $50/0.505 = 99$ times as much as a negative: exactly the ratio of the class sizes. In total, positives and negatives now carry equal weight ($100 \times 50 = 5{,}000 \approx 9{,}900 \times 0.505$). Random oversampling to equal counts copies each positive about 99 times, which for logistic regression has almost the same effect, as the identical results above show.</p></div>
+
+<h2 id="smote">SMOTE: synthetic minority examples</h2>
+<p>Copying the same positives many times can make a model memorise them. <strong>SMOTE</strong> (synthetic minority oversampling technique) creates <em>new</em> positives instead: pick a positive, pick one of its $k$ nearest positive neighbours, and place a new point at a random position on the line between them.</p>
+<pre><code># SMOTE from scratch: new minority points on the line between a point and one of its minority neighbours
+from sklearn.neighbors import NearestNeighbors
+
+def smote(Xmin, n_new, k=5, seed=0):
+    rng = np.random.default_rng(seed)
+    nn = NearestNeighbors(n_neighbors=k + 1).fit(Xmin)
+    _, nbrs = nn.kneighbors(Xmin)
+    i = rng.integers(0, len(Xmin), n_new)
+    j = nbrs[i, rng.integers(1, k + 1, n_new)]          # skip column 0 (the point itself)
+    gap = rng.random((n_new, 1))
+    return Xmin[i] + gap * (Xmin[j] - Xmin[i])
+
+Xmin = X_tr[y_tr == 1]
+new = smote(Xmin, (y_tr == 0).sum() - len(Xmin))
+Xs, ys = np.vstack([X_tr, new]), np.r_[y_tr, np.ones(len(new), int)]
+report("SMOTE", LogisticRegression(max_iter=1000).fit(Xs, ys).predict_proba(X_te)[:, 1])
+print("synthetic minority points created:", len(new))</code></pre>
+<p>Output:</p>
+<pre><code>SMOTE                           : recall 0.900  precision 0.169  average precision 0.515
+synthetic minority points created: 9800</code></pre>
+<p>SMOTE created 9,800 synthetic positives and gives the same recall as oversampling (0.900) with slightly better precision (0.169) and average precision (0.515), still well below the plain model with a tuned threshold. SMOTE can help flexible models (trees, boosting, kNN) more than linear ones, and it can also hurt, by inventing positives in regions that really belong to negatives. Two firm rules: <strong>resample only the training folds</strong> (never the validation or test data, and never before splitting), and judge it by average precision or cost on untouched data.</p>
+
+<h2 id="anomaly">Anomaly detection without labels</h2>
+<p>Often you have almost no labelled anomalies, or new kinds keep appearing. Then you model what's <em>normal</em> and flag what isn't. Common methods, from simplest:</p>
+<ul>
+<li><strong>z-scores</strong>: flag values more than about 3 standard deviations from the mean. Simple, but assumes one bell-shaped cluster, and outliers inflate the very standard deviation used to find them (Lesson 4).</li>
+<li><strong>IQR rule</strong>: flag values beyond 1.5 × the interquartile range outside the middle half. Robust to outliers, but one feature at a time.</li>
+<li><strong>Isolation Forest</strong>: build random trees that split on random features at random values. Anomalies are few and different, so they get <em>isolated</em> in very few splits; the score is the average path length.</li>
+<li><strong>Local Outlier Factor (LOF)</strong>: compare each point's local density with its neighbours' density. A point in a sparse spot next to a dense cluster stands out, even if another cluster elsewhere is sparse.</li>
+<li><strong>Reconstruction error</strong>: fit PCA (Lesson 17's "Going deeper") or an autoencoder on normal data, and flag points it can't reconstruct well.</li>
+</ul>
+<p>Below, 980 normal points form two clusters and 20 anomalies are scattered around them. Each method scores every point, and we check how many of its top 20 are real anomalies:</p>
+<pre><code>from sklearn.ensemble import IsolationForest
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.metrics import roc_auc_score as roc_auc
+
+# Unsupervised anomaly detection: 980 normal points in two clusters, 20 anomalies scattered around them
+rng = np.random.default_rng(1)
+normal = np.vstack([rng.normal([0, 0], 0.6, (490, 2)), rng.normal([4, 4], 0.6, (490, 2))])
+anomalies = rng.uniform(-3, 7, (20, 2))
+Xa = np.vstack([normal, anomalies]); truth = np.r_[np.zeros(980), np.ones(20)]
+
+def precision_at_20(score):          # higher score = more anomalous
+    return truth[np.argsort(score)[::-1][:20]].mean()
+
+z = np.abs((Xa - Xa.mean(0)) / Xa.std(0)).max(axis=1)        # largest per-feature z-score
+iso = -IsolationForest(n_estimators=300, random_state=0).fit(Xa).score_samples(Xa)
+lof = -LocalOutlierFactor(n_neighbors=20).fit(Xa).negative_outlier_factor_
+for name, s in [("z-score", z), ("Isolation Forest", iso), ("Local Outlier Factor", lof)]:
+    print(f"{name:21}: share of true anomalies among the top 20 {precision_at_20(s):.2f}   ROC-AUC {roc_auc(truth, s):.3f}")</code></pre>
+<p>Output:</p>
+<pre><code>z-score              : share of true anomalies among the top 20 0.50   ROC-AUC 0.730
+Isolation Forest     : share of true anomalies among the top 20 0.65   ROC-AUC 0.984
+Local Outlier Factor : share of true anomalies among the top 20 0.80   ROC-AUC 0.991</code></pre>
+<p>The z-score catches only half (0.50 of its top 20; ROC-AUC 0.730): with two clusters, "far from the overall mean" isn't the same as "unusual", so points between the clusters look normal and the clusters' own edges look odd. Isolation Forest does much better (0.65, AUC 0.984), and LOF best (0.80, AUC 0.991), because it judges each point against its own neighbourhood. In practice anomaly scores are usually turned into a ranked list for people to review, so "precision in the top $k$" is often the metric that matters.</p>
+
+<h2 id="demo">Try it: flag the most isolated points</h2>
+<p>Each point's score is its distance to its 5th nearest neighbour, a simple version of the idea behind LOF. Red points are the true anomalies. Increase the number of points flagged and watch recall rise while precision falls.</p>
+<div class="demo" data-demo="anomaly"></div>
+
+<h2 id="practice">Evaluating and running a detector</h2>
+<ul>
+<li><strong>Get some labels.</strong> Even a few hundred reviewed cases let you measure precision at the top of the list and compare methods.</li>
+<li><strong>Split by time.</strong> Fraud and failures change; validate on later data (Lesson 5's "Going deeper").</li>
+<li><strong>Combine approaches.</strong> A supervised model catches known patterns; an unsupervised detector watches for new ones. Analysts' decisions become labels for the next model.</li>
+<li><strong>Set the alert budget.</strong> If a team can review 200 cases a day, flag the 200 highest scores; the threshold follows from capacity.</li>
+<li><strong>Watch for feedback.</strong> You only learn the truth about cases you flagged and checked, so unflagged anomalies stay invisible. Randomly review a small sample of unflagged cases to estimate what you're missing.</li>
+</ul>
+
+<h2 id="code">In Python: a workflow for rare events</h2>
+<p>Train a calibrated model, choose the threshold on validation data to hit a target precision, and confirm on the test set.</p>
+<pre><code>import numpy as np
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.metrics import precision_recall_curve, precision_score, recall_score, average_precision_score
+
+X, y = make_classification(n_samples=30000, n_features=10, n_informative=5, weights=[0.99],
+                           class_sep=1.0, flip_y=0, random_state=0)
+X_tr, X_rest, y_tr, y_rest = train_test_split(X, y, test_size=0.4, random_state=0, stratify=y)
+X_val, X_te, y_val, y_te = train_test_split(X_rest, y_rest, test_size=0.5, random_state=0, stratify=y_rest)
+
+model = HistGradientBoostingClassifier(random_state=0).fit(X_tr, y_tr)
+p_val, p_te = model.predict_proba(X_val)[:, 1], model.predict_proba(X_te)[:, 1]
+print("average precision, validation:", round(average_precision_score(y_val, p_val), 3))
+
+prec, rec, thr = precision_recall_curve(y_val, p_val)
+t = thr[np.argmax(prec[:-1] &gt;= 0.8)]                  # lowest threshold with precision of at least 0.8
+flag = p_te &gt;= t
+print(f"threshold {t:.3f}: test precision {precision_score(y_te, flag):.3f}, recall {recall_score(y_te, flag):.3f}")</code></pre>
+<p>Output:</p>
+<pre><code>average precision, validation: 0.691
+threshold 0.458: test precision 0.682, recall 0.500</code></pre>
+<p>Gradient boosting reaches a validation average precision of 0.691. The threshold chosen to give 80% precision on validation data (0.458) gives only 68.2% precision on the test set, with recall 0.500. That gap is the honest lesson: the validation set holds only about 60 positives, so a threshold tuned on it is noisy. With rare events, use as much validation data as you can (or cross-validated predictions), report the test result with a confidence interval (Lesson 9's "Going deeper"), and re-check the threshold once the model is live.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>With rare classes, <strong>accuracy is misleading</strong>: use recall, precision, average precision (against its baseline) or cost.</li>
+<li>Try a good model with a <strong>tuned threshold</strong> first; class weights and resampling mostly move the threshold, and can hurt the ranking.</li>
+<li><strong>SMOTE</strong> creates synthetic positives between neighbours; resample <strong>only the training folds</strong>.</li>
+<li>Without labels, model normal behaviour: <strong>z-scores and IQR</strong> for simple cases, <strong>Isolation Forest</strong> and <strong>LOF</strong> for multi-dimensional, multi-cluster data.</li>
+<li>Evaluate detectors with <strong>precision in the top k</strong> on some reviewed cases, split by time, and sample unflagged cases to see what you miss.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="c"><p class="q-text">1. 0.5% of transactions are fraud. A model that never flags fraud has accuracy…</p>
+<button data-opt="a">50%</button><button data-opt="b">0%</button><button data-opt="c">99.5%</button>
+<div class="q-explain">It's right on every non-fraud case: 99.5%. That's why accuracy is the wrong metric here.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. Lowering the threshold of a fixed model changes…</p>
+<button data-opt="a">Precision and recall, but not average precision</button><button data-opt="b">Average precision only</button><button data-opt="c">Nothing</button>
+<div class="q-explain">Average precision summarises all thresholds, so it depends only on the ranking of the scores.</div></div>
+<div class="q" data-correct="b"><p class="q-text">3. When should SMOTE or oversampling be applied?</p>
+<button data-opt="a">To the whole dataset before splitting</button><button data-opt="b">To the training folds only</button><button data-opt="c">To the test set</button>
+<div class="q-explain">Resampling before splitting puts copies (or near-copies) of the same positives on both sides, which leaks.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. Why does Isolation Forest give anomalies high scores?</p>
+<button data-opt="a">They have large values</button><button data-opt="b">Random splits isolate them in very few steps</button><button data-opt="c">They are labelled</button>
+<div class="q-explain">Points that are few and different are separated from the rest quickly, so their average path length is short.</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. With two separate clusters of normal data, which detector is most likely to miss anomalies between the clusters?</p>
+<button data-opt="a">Local Outlier Factor</button><button data-opt="b">Isolation Forest</button><button data-opt="c">A z-score from the overall mean</button>
+<div class="q-explain">Points between the clusters are close to the overall mean, so their z-scores look normal.</div></div>
+</div>

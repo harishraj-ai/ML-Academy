@@ -1137,11 +1137,71 @@
     draws(); draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
   }
 
+  // ---------------- Demo: Shapley values for a tiny model (Lesson 24) ----------------
+  function shapleyDemo(el) {
+    var S = shell(el, "exact Shapley values for f = 2·x₁ + 3·x₂ + 4·x₁·x₃", 0.42);
+    var x = [1, 0.5, 1], base = [0, 0, 0];
+    function f(v) { return 2 * v[0] + 3 * v[1] + 4 * v[0] * v[2]; }
+    function val(set) { var v = base.slice(); set.forEach(function (j) { v[j] = x[j]; }); return f(v); }
+    function shap() {
+      var out = [0, 0, 0], perms = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+      perms.forEach(function (p) { var set = []; p.forEach(function (j) { var before = val(set); set.push(j); out[j] += (val(set) - before) / 6; }); });
+      return out;
+    }
+    ["x₁", "x₂", "x₃"].forEach(function (nm, j) {
+      slider(S.controls, nm, -2, 2, 0.1, x[j], function (v) { return v.toFixed(1); }, function (v) { x[j] = v; draw(); });
+    });
+    function draw() {
+      var c = colors(), W = S.state.W, H = S.state.H, ctx = S.ctx, phi = shap();
+      ctx.fillStyle = c.bg; ctx.fillRect(0, 0, W, H);
+      var mid = W / 2, scale = (W / 2 - 70) / 12, rowH = (H - 40) / 3;
+      ctx.strokeStyle = c.grid; ctx.beginPath(); ctx.moveTo(mid, 10); ctx.lineTo(mid, H - 24); ctx.stroke();
+      phi.forEach(function (v, j) {
+        var y = 16 + j * rowH, w = v * scale;
+        ctx.fillStyle = v >= 0 ? c.accent : c.bad; ctx.fillRect(Math.min(mid, mid + w), y, Math.abs(w), rowH - 16);
+        ctx.fillStyle = c.ink; ctx.font = "bold 13px Inter, sans-serif"; ctx.fillText("x" + "₁₂₃"[j], 10, y + rowH / 2);
+        ctx.font = "12px JetBrains Mono, monospace"; ctx.fillText((v >= 0 ? "+" : "") + v.toFixed(2), v >= 0 ? mid + w + 6 : mid + w - 48, y + rowH / 2);
+      });
+      ctx.fillStyle = c.text; ctx.font = "11px JetBrains Mono, monospace"; ctx.fillText("← lowers the prediction   contribution   raises it →", mid - 170, H - 6);
+      var sum = phi[0] + phi[1] + phi[2];
+      S.readout.innerHTML = "<span>f(x) <b>" + f(x).toFixed(2) + "</b></span><span>baseline f(0,0,0) <b>0.00</b></span><span>sum of contributions <b>" + sum.toFixed(2) + "</b></span><span>the 4·x₁·x₃ interaction is split equally between x₁ and x₃</span>";
+    }
+    draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
+  }
+
+  // ---------------- Demo: anomaly detection with a k-nearest-neighbour score (Lesson 25) ----------------
+  function anomalyDemo(el) {
+    var S = shell(el, "flag the points that are far from their neighbours", 0.6);
+    var seed = 7; function rng() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+    function gauss() { var u = rng() || 1e-9, v = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+    var pts = [];
+    for (var i = 0; i < 150; i++) pts.push({ x: 3 + 0.6 * gauss(), y: 3 + 0.6 * gauss(), a: false });
+    for (i = 0; i < 100; i++) pts.push({ x: 7 + 0.9 * gauss(), y: 6 + 0.5 * gauss(), a: false });
+    for (i = 0; i < 12; i++) pts.push({ x: 0.5 + 9 * rng(), y: 0.5 + 8 * rng(), a: true });
+    var k = 5;
+    pts.forEach(function (p) { var d = pts.map(function (q) { return Math.hypot(p.x - q.x, p.y - q.y); }).sort(function (a, b) { return a - b; }); p.s = d[k]; });
+    var order = pts.slice().sort(function (a, b) { return b.s - a.s; }), flagN = 12;
+    slider(S.controls, "Points flagged", 0, 40, 1, flagN, function (v) { return v + " most isolated"; }, function (v) { flagN = v; draw(); });
+    function draw() {
+      var c = colors(), W = S.state.W, H = S.state.H, ctx = S.ctx, A = axes(W, H, 0, 10, 0, 9, 30);
+      drawGrid(ctx, A, W, H, c, 2, 2, "", "");
+      var flagged = order.slice(0, flagN);
+      pts.forEach(function (p) {
+        var f = flagged.indexOf(p) > -1;
+        if (f) { ctx.strokeStyle = c.warn; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(A.x(p.x), A.y(p.y), 8, 0, Math.PI * 2); ctx.stroke(); }
+        dot(ctx, A.x(p.x), A.y(p.y), p.a ? 4.5 : 3, p.a ? c.bad : c.accent);
+      });
+      var tp = flagged.filter(function (p) { return p.a; }).length;
+      S.readout.innerHTML = "<span>flagged <b>" + flagN + "</b></span><span>true anomalies caught <b>" + tp + " of 12</b> (recall " + (tp / 12).toFixed(2) + ")</span><span>precision <b>" + (flagN ? (tp / flagN).toFixed(2) : "—") + "</b></span><span>score = distance to the 5th nearest neighbour</span>";
+    }
+    draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
+  }
+
   var REGISTRY = { "fit-line": fitLine, "dot-product": dotProduct, "tangent": tangent, "bayes": bayes, "normal": normal,
     "overfit": overfit, "least-squares": leastSquares, "gd-contour": gdContour, "logistic": logistic,
     "threshold": thresholdDemo, "ridge": ridgeDemo, "knn": knnDemo, "naive-bayes": nbDemo,
     "tree": treeDemo, "boosting": boostingDemo, "svm": svmDemo, "kmeans": kmeansDemo,
-    "pca": pcaDemo, "nn": nnDemo, "conv": convDemo, "prep": prepDemo, "fairness": fairnessDemo, "join": joinDemo, "search": searchDemo };
+    "pca": pcaDemo, "nn": nnDemo, "conv": convDemo, "prep": prepDemo, "fairness": fairnessDemo, "join": joinDemo, "search": searchDemo, "shapley": shapleyDemo, "anomaly": anomalyDemo };
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll(".demo[data-demo]").forEach(function (el) {
       var fn = REGISTRY[el.getAttribute("data-demo")];

@@ -1,0 +1,225 @@
+<h2 id="why">Why explain a model?</h2>
+<p>A bank's model refuses a loan. The applicant asks why. The regulator asks how the model decides. The data scientist wants to know whether it learned something real or a shortcut, such as a hospital's scanner model that "detects" pneumonia by reading the hospital's name printed on the X-ray. Accuracy answers none of these questions.</p>
+<p><strong>Interpretability</strong> methods answer two kinds of question:</p>
+<ul>
+<li><strong>Global:</strong> how does the model behave overall? Which features matter most, and how does the prediction change as a feature changes?</li>
+<li><strong>Local:</strong> why did the model make <em>this</em> prediction for <em>this</em> person?</li>
+</ul>
+<p>This lesson covers the methods practitioners use most: reading linear weights properly, permutation importance, partial-dependence and ICE plots, SHAP values (built from scratch, so there's no mystery), and LIME-style local surrogates, along with the traps that make explanations misleading.</p>
+<div class="box intuition"><div class="box-title">The core idea</div><p>An explanation is itself a simplified model of the model. Global methods summarise behaviour across all the data; local methods describe one prediction. Every method answers a specific, narrow question, and none of them says what <em>causes</em> the outcome in the real world: only what the <em>model</em> relies on.</p></div>
+
+<h2 id="linear">Reading linear models properly</h2>
+<p>For linear and logistic regression the weights are the explanation, but only if the features are on comparable scales. A weight per millimetre and a weight per kilometre can't be compared. Standardise first (Lesson 10), and each weight becomes "the change in log-odds for a one-standard-deviation increase in the feature":</p>
+<pre><code>import numpy as np
+import pandas as pd
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+
+data = load_breast_cancer()
+X, y, names = data.data, data.target, data.feature_names      # target 1 = benign
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.3, random_state=0, stratify=y)
+lin = make_pipeline(StandardScaler(), LogisticRegression(C=0.1, max_iter=5000)).fit(X_tr, y_tr)
+coef = pd.Series(lin[-1].coef_[0], index=names)
+print("largest standardised weights (positive pushes towards benign):")
+print(coef.reindex(coef.abs().sort_values(ascending=False).index).head(5).round(3))</code></pre>
+<p>Output:</p>
+<pre><code>largest standardised weights (positive pushes towards benign):
+worst texture          -0.543
+worst radius           -0.529
+worst perimeter        -0.496
+worst concave points   -0.469
+worst area             -0.463
+dtype: float64</code></pre>
+<p>On the breast-cancer data (target 1 = benign), the five largest standardised weights are all negative: larger "worst" tumour measurements push the prediction away from benign. Three cautions from earlier lessons apply. Correlated features share and swap weight (Lesson 6's "Going deeper": radius, perimeter and area are almost the same measurement here). Regularization shrinks weights. And a weight describes association in this model, not cause.</p>
+
+<h2 id="permutation">Permutation importance</h2>
+<p>For any model, <strong>permutation importance</strong> asks: how much worse does the model get if this feature's information is destroyed? Shuffle one column of the <em>test</em> data, which breaks its link to the target but keeps its distribution, and measure the drop in score. Repeat with several shuffles and average. Lesson 13's "Going deeper" showed why this is more honest than a tree's built-in impurity importance.</p>
+<pre><code>from sklearn.ensemble import RandomForestClassifier
+from sklearn.inspection import permutation_importance
+
+rf = RandomForestClassifier(n_estimators=300, random_state=0).fit(X_tr, y_tr)
+print("test accuracy:", round(rf.score(X_te, y_te), 3))
+perm = permutation_importance(rf, X_te, y_te, n_repeats=30, random_state=0)
+imp = pd.Series(perm.importances_mean, index=names).sort_values(ascending=False)
+print("permutation importance on test data (drop in accuracy):")
+print(imp.head(5).round(4))</code></pre>
+<p>Output:</p>
+<pre><code>test accuracy: 0.953
+permutation importance on test data (drop in accuracy):
+worst radius            0.0211
+worst area              0.0177
+worst concave points    0.0156
+worst texture           0.0131
+worst perimeter         0.0131
+dtype: float64</code></pre>
+<p>The random forest's accuracy falls most when "worst radius" is shuffled (by 0.021, about 2 percentage points). The drops are small because the features are highly correlated: when one is shuffled, the forest can lean on a near-copy. That's the main weakness of permutation importance; the fix is to shuffle groups of correlated features together, or to read the results as "unique information this feature adds".</p>
+
+<h2 id="pdp">Partial dependence and ICE plots</h2>
+<p>Importance says <em>how much</em> a feature matters, not <em>how</em>. A <strong>partial-dependence plot</strong> (PDP) shows the average prediction as one feature is varied: set the feature to a value $v$ for <em>every</em> row, predict, average, and repeat for a grid of values:</p>
+<p>$$\text{PD}(v) = \frac{1}{n}\sum_{i=1}^{n} f\big(v,\ \mathbf{x}_{i,\text{other}}\big)$$</p>
+<p>An <strong>ICE plot</strong> (individual conditional expectation) draws one such curve per row instead of their average, revealing whether different people respond differently.</p>
+<pre><code>from sklearn.datasets import load_diabetes
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.inspection import partial_dependence
+
+d = load_diabetes()
+Xd, yd = d.data, d.target
+gbr = GradientBoostingRegressor(random_state=0).fit(Xd, yd)
+bmi = list(d.feature_names).index("bmi")
+pd_res = partial_dependence(gbr, Xd, [bmi], grid_resolution=6, kind="both")
+print("bmi (scaled):        ", np.round(pd_res["grid_values"][0], 3))
+print("average prediction:  ", np.round(pd_res["average"][0], 1))
+ice = pd_res["individual"][0]
+print("ICE spread at each bmi value (std across patients):", np.round(ice.std(axis=0), 1))</code></pre>
+<p>Output:</p>
+<pre><code>bmi (scaled):         [-0.067 -0.036 -0.005  0.025  0.056  0.087]
+average prediction:   [130.9 129.1 141.7 176.4 177.  209.7]
+ICE spread at each bmi value (std across patients): [45.2 40.6 49.  42.6 45.4 45.8]</code></pre>
+<p>For a gradient-boosting model of diabetes progression, the average prediction rises from about 131 to 210 as BMI goes from low to high: a clear, mostly increasing effect, with a jump in the middle of the range. The ICE curves are spread out by about 40–49 units at every BMI value, so patients' baseline predictions differ a lot even though the BMI effect is similar. One warning: a PDP sets BMI to every value for every patient, including combinations that don't occur in real data (say, very high BMI with very low weight-related blood measures). With strongly correlated features, prefer <strong>ALE plots</strong> (accumulated local effects), which only use realistic nearby values.</p>
+
+<h2 id="shap">SHAP values: fair credit for each feature</h2>
+<p>For one prediction, we'd like to split "prediction minus the average prediction" into a contribution from each feature. The fair way to do it comes from cooperative game theory: the <strong>Shapley value</strong>. Treat features as players and the prediction as the payout. A feature's Shapley value is its average extra contribution when it joins, averaged over every possible order in which the features could join:</p>
+<p>$$\phi_j = \sum_{S \subseteq F \setminus \{j\}} \frac{|S|!\,(p - |S| - 1)!}{p!}\Big[v(S \cup \{j\}) - v(S)\Big]$$</p>
+<p>Here $v(S)$ is the model's expected prediction when only the features in $S$ are known; the unknown ones are filled in from a background sample. Shapley values are the only way of splitting the credit that is fair in a precise sense:</p>
+<ul>
+<li><strong>Efficiency:</strong> the contributions add up exactly to prediction minus baseline.</li>
+<li><strong>Symmetry:</strong> two features that always contribute equally get equal credit.</li>
+<li><strong>Dummy:</strong> a feature that never changes the prediction gets 0.</li>
+</ul>
+<div class="box example"><div class="box-title">Worked example — Shapley values by hand</div>
+<p>A tiny model: $f = 2x_1 + 3x_2 + 4x_1x_3$, explained at $\mathbf{x} = (1, 0.5, 1)$ against the baseline $(0, 0, 0)$, where $f = 0$. So the total to share is $f(\mathbf{x}) = 2 + 1.5 + 4 = 7.5$.</p>
+<p><strong>$x_2$</strong> enters the model on its own, so it adds $3 \times 0.5 = 1.5$ whenever it joins: $\phi_2 = 1.5$.</p>
+<p><strong>$x_1$</strong> always adds its own $2$. It also adds the interaction $4$, but only if $x_3$ has already joined, which happens in half of the orderings. So $\phi_1 = 2 + 4 \times \tfrac12 = 4$.</p>
+<p><strong>$x_3$</strong> has no effect of its own; it adds the interaction $4$ only if $x_1$ is already in (half the orderings): $\phi_3 = 2$.</p>
+<p><strong>Check:</strong> $4 + 1.5 + 2 = 7.5$ ✓. The interaction's credit is split equally between the two features that create it.</p></div>
+<p>The same formula, computed exactly for a gradient-boosting model on four diabetes features and one patient:</p>
+<pre><code>from itertools import combinations
+from math import factorial
+
+# Exact Shapley values for a model on 4 features, for one patient
+feats = ["bmi", "bp", "s5", "age"]
+idx = [list(d.feature_names).index(f) for f in feats]
+X4 = Xd[:, idx]
+model4 = GradientBoostingRegressor(random_state=0).fit(X4, yd)
+background = X4[:100]                    # "absent" features are filled in from these patients
+x = X4[200]
+
+def value(subset):
+    """Average prediction when the features in `subset` take x's values and the others vary as in the background."""
+    Z = background.copy()
+    Z[:, list(subset)] = x[list(subset)]
+    return model4.predict(Z).mean()
+
+p = len(feats); shap = np.zeros(p)
+for j in range(p):
+    others = [k for k in range(p) if k != j]
+    for size in range(p):
+        for S in combinations(others, size):
+            weight = factorial(size) * factorial(p - size - 1) / factorial(p)
+            shap[j] += weight * (value(S + (j,)) - value(S))
+
+base, pred = value(()), model4.predict(x[None, :])[0]
+for f, v in zip(feats, shap):
+    print(f"{f:4}: {v:+7.2f}")
+print(f"baseline {base:.2f}, plus the contributions ({shap.sum():.2f}), gives {base + shap.sum():.2f}")
+print(f"the model's actual prediction: {pred:.2f}")</code></pre>
+<p>Output:</p>
+<pre><code>bmi :  -11.11
+bp  :   +2.11
+s5  :  -13.74
+age :   +5.26
+baseline 136.35, plus the contributions (-17.47), gives 118.87
+the model's actual prediction: 118.87</code></pre>
+<p>The baseline (average prediction over the background patients) is 136.35. For this patient, low s5 (a blood-serum measure) lowers the prediction by 13.74 and low BMI by 11.11, while age adds 5.26 and blood pressure 2.11. The four contributions add to −17.47, giving 118.87, exactly the model's prediction: the efficiency property in action.</p>
+<p>The exact formula needs $2^p$ subsets, so with 4 features it's 16 evaluations, but with 40 features it's about a trillion. The <code>shap</code> library makes it practical with clever approximations: <strong>KernelSHAP</strong> (a weighted regression over sampled subsets, for any model) and <strong>TreeSHAP</strong> (an exact, fast algorithm for tree ensembles). Plotting many patients' SHAP values together gives global views too: a "beeswarm" plot shows each feature's contributions across the whole dataset.</p>
+
+<h2 id="demo">Try it: Shapley values for a tiny model</h2>
+<p>The model is $f = 2x_1 + 3x_2 + 4x_1x_3$, explained against the baseline $(0, 0, 0)$. Move the sliders and watch the contributions. Set $x_3 = 0$ and see $x_1$'s share of the interaction disappear; set $x_1 = 0$ and $x_3$ gets nothing at all.</p>
+<div class="demo" data-demo="shapley"></div>
+
+<h2 id="lime">Local surrogates (LIME)</h2>
+<p><strong>LIME</strong> (local interpretable model-agnostic explanations) explains one prediction by fitting a <em>simple</em> model, usually linear, that imitates the black box <em>near that point</em>: create many perturbed copies of the example, ask the black box to predict them, weight each copy by how close it is, and fit a weighted linear regression. Its slopes are the explanation:</p>
+<pre><code>from sklearn.linear_model import Ridge
+
+# A LIME-style local explanation: fit a weighted linear model to the black box near one patient
+rng = np.random.default_rng(0)
+scale = X4.std(axis=0)
+Z = x + rng.normal(0, 0.5, size=(2000, 4)) * scale          # perturbed copies of the patient
+w = np.exp(-np.sum(((Z - x) / scale) ** 2, axis=1) / 2)        # nearer copies count more
+local = Ridge(alpha=1e-3).fit((Z - x) / scale, model4.predict(Z), sample_weight=w)
+print("local slopes (prediction change per +1 standard deviation):")
+for f, c in zip(feats, local.coef_):
+    print(f"{f:4}: {c:+7.2f}")</code></pre>
+<p>Output:</p>
+<pre><code>local slopes (prediction change per +1 standard deviation):
+bmi :   +9.25
+bp  :   +7.68
+s5  :  +21.64
+age :   +8.76</code></pre>
+<p>Near this patient, the model's prediction rises by about 22 units per standard deviation of s5 and by 7.7–9.3 units for the others. Notice these are <em>slopes</em> ("what if s5 increased a little?"), while the SHAP values above were <em>contributions</em> ("how much did this patient's s5 move the prediction from average?"). Both are valid; they answer different questions. LIME's results depend on choices such as the neighbourhood width and the sampling, and can change from run to run, which is why SHAP, with its guarantees, is more widely used.</p>
+
+<h2 id="pitfalls">How explanations mislead</h2>
+<ul>
+<li><strong>Importance is not causation.</strong> A model may lean on a feature because it's correlated with the true cause. Changing that feature in the real world won't change the outcome (Lesson 4: correlation vs causation).</li>
+<li><strong>Correlated features</strong> share, split or hide credit. Methods that perturb one feature at a time also create unrealistic inputs.</li>
+<li><strong>Explanations describe the model, including its mistakes.</strong> If the model learned a shortcut (a watermark, a hospital ID), a faithful explanation shows the shortcut. That's a feature, not a bug: it's how shortcuts are found.</li>
+<li><strong>Different methods answer different questions</strong> (weights, drops in score, average curves, contributions, local slopes). Say which one you're reporting.</li>
+<li><strong>Simple, interpretable models</strong> (a short tree, a sparse linear model, a scorecard) are sometimes nearly as accurate as a black box. When the stakes are high, consider them first rather than explaining a black box afterwards (Rudin, 2019).</li>
+</ul>
+
+<h2 id="code">In Python: an explanation workflow</h2>
+<p>A typical sequence for a tabular model: check global importance on test data, look at the effect shape of the top features, then explain individual predictions.</p>
+<pre><code>import numpy as np
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.inspection import permutation_importance, partial_dependence
+
+d = load_diabetes()
+X_tr, X_te, y_tr, y_te = train_test_split(d.data, d.target, test_size=0.3, random_state=0)
+model = GradientBoostingRegressor(random_state=0).fit(X_tr, y_tr)
+
+# 1. Global: which features does the model rely on? (on test data)
+perm = permutation_importance(model, X_te, y_te, n_repeats=20, random_state=0, scoring="r2")
+top = np.argsort(perm.importances_mean)[::-1][:3]
+print("top features:", [d.feature_names[i] for i in top], np.round(perm.importances_mean[top], 3))
+
+# 2. Shape: how does the prediction change with the most important feature?
+pdr = partial_dependence(model, X_tr, [top[0]], grid_resolution=5, method="brute")
+print("partial dependence:", np.round(pdr["average"][0], 1))</code></pre>
+<p>Output:</p>
+<pre><code>top features: ['s5', 'bmi', 'bp'] [0.221 0.181 0.043]
+partial dependence: [103.4 129.  155.  186.5 194.5]</code></pre>
+<p>Shuffling s5 lowers the test $R^2$ the most (by 0.221), followed by BMI (0.181) and blood pressure (0.043), and the predicted progression rises steadily with s5, from about 103 to 195. For step 3, local explanations, install the <code>shap</code> library: <code>shap.TreeExplainer(model)(X_te)</code> gives exact SHAP values for tree models in milliseconds, and <code>shap.plots.waterfall</code> draws one prediction's contributions like the bars in the demo.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li><strong>Global</strong> explanations describe overall behaviour; <strong>local</strong> ones explain one prediction.</li>
+<li>Linear weights are explanations only after <strong>standardising</strong>, and correlated features share their weight.</li>
+<li><strong>Permutation importance</strong>: the drop in test score when one feature is shuffled. Model-agnostic, but correlated features hide each other.</li>
+<li><strong>PDP and ICE</strong> show how the prediction changes with a feature, on average and per row; use ALE when features are strongly correlated.</li>
+<li><strong>SHAP values</strong> split prediction minus baseline into fair contributions that add up exactly; TreeSHAP makes them fast for tree models.</li>
+<li>Explanations describe the <strong>model</strong>, not the world: importance is not causation.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. Permutation importance measures…</p>
+<button data-opt="a">How often a feature is used in splits</button><button data-opt="b">How much the test score drops when a feature's values are shuffled</button><button data-opt="c">A feature's correlation with the target</button>
+<div class="q-explain">Shuffling destroys the feature's information; a big drop means the model relied on it.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. A model's baseline prediction is 100 and it predicts 130 for Priya. Her SHAP values must add up to…</p>
+<button data-opt="a">30</button><button data-opt="b">130</button><button data-opt="c">1</button>
+<div class="q-explain">Efficiency: contributions sum to prediction minus baseline.</div></div>
+<div class="q" data-correct="c"><p class="q-text">3. In $f = 4x_1x_3$, explained at $x_1 = x_3 = 1$ against a baseline of 0, the SHAP value of $x_1$ is…</p>
+<button data-opt="a">4</button><button data-opt="b">0</button><button data-opt="c">2</button>
+<div class="q-explain">The interaction's credit is shared equally between the two features that create it.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. A PDP shows predictions rising with "number of support calls". Can we conclude that more support calls cause customers to leave?</p>
+<button data-opt="a">Yes</button><button data-opt="b">No: it shows what the model relies on, not what causes the outcome</button><button data-opt="c">Only if the model is accurate</button>
+<div class="q-explain">Unhappy customers call support and also leave; the calls may be a symptom, not a cause.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. ICE curves for a feature are parallel lines at different heights. What does that suggest?</p>
+<button data-opt="a">The feature has the same effect for everyone, with no interaction with other features</button><button data-opt="b">The feature is useless</button><button data-opt="c">The model is overfitting</button>
+<div class="q-explain">Parallel curves mean the same shape of effect for each row; crossing or diverging curves reveal interactions.</div></div>
+</div>

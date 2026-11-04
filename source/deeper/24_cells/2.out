@@ -1,0 +1,3 @@
+weights (a, b, c):             [2.75 0.24 1.02]
+mean |SHAP| per feature:       [2.31  0.202 0.791]
+check, first row: baseline + contributions 3.9815 vs prediction 3.9815

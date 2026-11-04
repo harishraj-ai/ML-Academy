@@ -1,0 +1,3 @@
+balanced weights    : average predicted risk 0.372 (true rate 0.020)   Brier score 0.1702
+balanced, corrected : average predicted risk 0.017 (true rate 0.020)   Brier score 0.0178
+plain model         : average predicted risk 0.020 (true rate 0.020)   Brier score 0.0169

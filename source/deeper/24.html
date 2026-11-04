@@ -1,0 +1,17 @@
+
+<h2 id="deeper">Going deeper: when features are correlated</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>Almost every real dataset has correlated features, and that's where explanation methods disagree most. This section puts two near-identical features into a model and compares how permutation importance, drop-column importance and SHAP share the credit, then shows the exact SHAP formula for linear models and how SHAP values become a global ranking.</p>
+<p>You'll need: this lesson, and multicollinearity from Lesson 6's "Going deeper".</p></div>
+
+<h3 id="deeper-split">Three methods, three answers</h3>
+<p>Here the target depends on <code>a</code> (weight 3) and <code>c</code> (weight 1). Feature <code>b</code> is a near-copy of <code>a</code> that adds nothing new. <strong>Drop-column importance</strong> retrains the model without each feature and measures the loss; it answers "what would we lose if we didn't have this feature at all?"</p>
+<!--cell 1-->
+<p>Permutation importance says <code>a</code> matters most (1.045) and gives <code>b</code> some credit (0.129), because the forest happens to split on both. Drop-column importance says <em>neither</em> <code>a</code> nor <code>b</code> matters much (0.004 and 0): remove one and the model simply uses the other. Only <code>c</code>, which carries unique information, loses a lot when dropped (0.117). Neither answer is wrong: permutation asks "does this model use the feature?", drop-column asks "is the information replaceable?". When features are correlated, report them as a group, or shuffle or drop the whole group together.</p>
+
+<h3 id="deeper-linear">Exact SHAP for linear models, and global SHAP</h3>
+<p>For a linear model $f(\mathbf{x}) = b + \sum_j w_jx_j$ with independent features, the Shapley value has a closed form: $\phi_j = w_j\,(x_j - \bar{x}_j)$, the weight times how far this row's value is from the average. Averaging $|\phi_j|$ over many rows gives a <strong>global</strong> importance in the units of the prediction:</p>
+<!--cell 2-->
+<p>The linear model split the effect of the near-duplicates as 2.75 for <code>a</code> and 0.24 for <code>b</code>; with different random noise the split could easily come out differently (Lesson 6's "Going deeper" on unstable weights). The mean absolute SHAP values (2.31, 0.20, 0.79) inherit that arbitrary split. And the efficiency check holds: baseline plus contributions equals the prediction exactly (3.9815). Two ways to explain with correlated features: <strong>interventional</strong> SHAP (the default in most tools) treats features as independent and explains the model; <strong>conditional</strong> SHAP respects the correlations and explains the data-generating relationship more, but is harder to compute and can give credit to features the model never uses.</p>
+<!--interview-->
+<!--quiz-->
