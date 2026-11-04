@@ -1,0 +1,5 @@
+slope, least squares with the point:    0.75
+slope, least squares without the point: 1.93
+slope, Huber with the point:            1.85
+leverage: median 0.065 | unusual point 0.576
+Cook's D: largest other 0.099 | unusual point 12.73

@@ -40,7 +40,8 @@ def fill(code, line):
 ok = True
 from lesson0_data import LESSON0
 for (n, p, title, summary, mins) in [LESSON0] + LESSONS:
-    body = open(os.path.join(HERE, "lessons", f"{n:02d}.html")).read()
+    import deeper
+    body = deeper.inject(n, open(os.path.join(HERE, "lessons", f"{n:02d}.html")).read())
     nb = new_notebook()
     nb.metadata["kernelspec"] = {"name": "python3", "display_name": "Python 3", "language": "python"}
     nb.cells.append(new_markdown_cell(

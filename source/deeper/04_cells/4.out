@@ -1,0 +1,4 @@
+n   1: skewness  1.98   spread of the means 0.997   1/sqrt(n) 1.000
+n   5: skewness  0.90   spread of the means 0.445   1/sqrt(n) 0.447
+n  30: skewness  0.37   spread of the means 0.182   1/sqrt(n) 0.183
+n 200: skewness  0.15   spread of the means 0.071   1/sqrt(n) 0.071

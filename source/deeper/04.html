@@ -1,0 +1,67 @@
+
+<h2 id="deeper">Going deeper: statistical inference for ML</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above describes data: probabilities, averages, spread and the normal curve. This section is about <em>learning from</em> data and judging how sure you can be: how to fit a distribution's parameters (maximum likelihood), how to combine data with prior knowledge (Bayesian estimation and MAP), why averages behave so predictably (the central limit theorem), how to put an error bar on almost anything (the bootstrap), and how to run an A/B test without fooling yourself. These ideas sit underneath many ML methods and are a favourite of data-science interviews.</p>
+<p>You'll need: everything in this lesson, especially Bayes' theorem, the normal distribution and standard deviation.</p></div>
+
+<h3 id="deeper-dists">A few more distributions worth knowing</h3>
+<p>Each distribution is a model of a particular kind of randomness. Recognising which one fits your data tells you which loss function and which model to use.</p>
+<table class="tbl">
+<thead><tr><th>Distribution</th><th>Describes</th><th>Example</th><th>Where it appears in ML</th></tr></thead>
+<tbody>
+<tr><td>Bernoulli($p$)</td><td>One yes/no outcome</td><td>Does this visitor click?</td><td>Logistic regression's output; log loss (Lesson 8)</td></tr>
+<tr><td>Binomial($n, p$)</td><td>Number of yeses in $n$ tries</td><td>Clicks out of 10 visitors</td><td>A/B tests, accuracy on a test set</td></tr>
+<tr><td>Poisson($\lambda$)</td><td>Counts of events in a fixed time</td><td>Support calls per hour</td><td>Count regression, demand forecasting</td></tr>
+<tr><td>Exponential($\lambda$)</td><td>Waiting time until the next event</td><td>Minutes until the next call</td><td>Survival and churn models</td></tr>
+<tr><td>Normal($\mu, \sigma^2$)</td><td>Sums of many small effects</td><td>Measurement error</td><td>Squared-error loss (Lesson 6)</td></tr>
+</tbody></table>
+<!--cell 1-->
+<p>For example, if visitors click with probability 0.5, seeing 8 or more clicks out of 10 has probability 0.0547. If calls arrive at 3 per hour on average, a whole hour with no calls has probability $e^{-3} \approx 0.0498$. And if the average wait is 20 minutes, a wait of over 30 minutes has probability $e^{-30/20} \approx 0.2231$.</p>
+
+<h3 id="deeper-mle">Maximum likelihood: the parameters that make the data least surprising</h3>
+<p>Suppose a coin lands heads 7 times in 10 flips. For any guess $p$ of the heads probability, the <strong>likelihood</strong> is the probability of exactly this data under that guess. We work with its log, because a product turns into a sum:</p>
+<p>$$\log L(p) = 7\log p + 3\log(1-p)$$</p>
+<p><strong>Maximum likelihood estimation</strong> (MLE) picks the $p$ that makes this as large as possible. Set the derivative to zero:</p>
+<p>$$\frac{7}{p} - \frac{3}{1-p} = 0 \;\Rightarrow\; 7(1-p) = 3p \;\Rightarrow\; p = 0.7$$</p>
+<p>The answer is the obvious one, the observed fraction. But the same recipe works for every model: least squares is the MLE for normal noise (Lesson 6's "Going deeper"), and log loss is the MLE for yes/no outcomes (Lesson 8).</p>
+<!--cell 2-->
+<p>The MLE isn't always unbiased. For a normal distribution, the MLE of the variance divides by $n$. Across 100,000 samples of size 5 from a distribution with true variance 4, it averages 3.21, close to the theoretical $\frac{n-1}{n}\sigma^2 = \frac45 \times 4 = 3.2$. Dividing by $n - 1$ instead fixes the bias and averages 4.012. That's why sample variance uses $n - 1$, as this lesson mentioned.</p>
+
+<h3 id="deeper-bayes">Bayesian estimation, priors and MAP</h3>
+<p>MLE uses only the data. With just 10 flips, should we really believe $p = 0.7$? <strong>Bayesian estimation</strong> uses Bayes' theorem to combine a <strong>prior</strong> belief with the likelihood, giving a <strong>posterior</strong> distribution over $p$:</p>
+<p>$$\text{posterior}(p) \propto \text{likelihood}(\text{data} \mid p) \times \text{prior}(p)$$</p>
+<p>For a probability, a convenient prior is the <strong>Beta</strong>($a, b$) distribution, which you can read as "$a$ imaginary heads and $b$ imaginary tails seen before". Beta($2, 2$) is a mild belief that the coin is probably near fair. After seeing 7 heads and 3 tails, the posterior is simply Beta($2+7,\ 2+3$) = Beta($9, 5$). When the prior and posterior come from the same family like this, the prior is called <strong>conjugate</strong>.</p>
+<!--cell 3-->
+<p>Three summaries of the posterior: its mean is $9/14 \approx 0.643$, pulled from 0.7 towards 0.5 by the prior. Its peak, the <strong>MAP estimate</strong> (maximum a posteriori), is $\frac{9-1}{9+5-2} \approx 0.667$. And a <strong>95% credible interval</strong> runs from 0.386 to 0.861. That wide interval is honest: 10 flips really don't tell you much. With 1,000 flips the data would overwhelm the prior.</p>
+<div class="box tip"><div class="box-title">MAP is regularization in disguise</div><p>Taking logs, MAP maximises $\log(\text{likelihood}) + \log(\text{prior})$. For linear regression with a normal prior on the weights, $\log(\text{prior}) = -\lambda\lVert\mathbf{w}\rVert^2 + \text{const}$. That's exactly <strong>ridge regression</strong>. A Laplace (double-exponential) prior gives $-\lambda\lVert\mathbf{w}\rVert_1$, which is <strong>lasso</strong>. So the regularization in Lesson 10 is the same thing as believing, before seeing data, that weights are probably small.</p></div>
+
+<h3 id="deeper-clt">The central limit theorem and the standard error</h3>
+<p>Take any variable with mean $\mu$ and standard deviation $\sigma$ (it doesn't need to be normal), and average $n$ independent values of it. The <strong>central limit theorem</strong> (CLT) says that for large $n$ the average is approximately normal, with mean $\mu$ and standard deviation</p>
+<p>$$\text{SE} = \frac{\sigma}{\sqrt{n}}$$</p>
+<p>That's the <strong>standard error</strong> of the mean. Below, we average values from an exponential distribution, which is strongly skewed (a long tail to the right) with $\sigma = 1$:</p>
+<!--cell 4-->
+<p>Single values have skewness 1.98, far from the bell curve's 0. Averages of 30 have skewness 0.37, and averages of 200 have just 0.15. The spread of the averages matches $1/\sqrt{n}$ almost exactly. Notice the square root: to halve the error bar you need <em>four times</em> as much data. This is why test-set accuracy, cross-validation scores and A/B test results have predictable error bars.</p>
+
+<h3 id="deeper-bootstrap">Confidence intervals and the bootstrap</h3>
+<p>A 95% <strong>confidence interval</strong> comes from a method that, used on many datasets, captures the true value 95% of the time. For a mean, the CLT gives one directly: $\bar{x} \pm 1.96\,\text{SE}$. But what about a median, a correlation, or a model's F1 score, where there's no simple formula?</p>
+<p>The <strong>bootstrap</strong> answers with brute force. Treat your sample as a stand-in for the population: draw a new sample of the same size from it <em>with replacement</em>, compute the statistic, and repeat thousands of times. The spread of those results shows how much the statistic would vary between samples. The middle 95% of them is a confidence interval.</p>
+<!--cell 5-->
+<p>For 60 simulated house prices, the median is 72.6 lakh, with a 95% bootstrap interval of 58.0 to 78.7. The interval isn't symmetric around the median, because prices are skewed; the bootstrap captures that automatically. Bagging and random forests (Lesson 14) use exactly this resampling idea to build many different trees.</p>
+
+<h3 id="deeper-testing">Hypothesis tests and A/B testing</h3>
+<p>A company tests a new checkout page: 2,400 visitors see the old page (A) and 2,400 see the new one (B). B converts at 6.5% against A's 5.0%. Is B really better, or was it luck? A hypothesis test makes this precise:</p>
+<ol>
+<li>State the <strong>null hypothesis</strong> $H_0$: the pages convert equally well.</li>
+<li>Compute a <strong>test statistic</strong> that measures the difference in standard-error units. For two proportions, using the pooled rate $\hat{p}$:
+$$z = \frac{\hat{p}_B - \hat{p}_A}{\sqrt{\hat{p}(1-\hat{p})\left(\frac{1}{n_A} + \frac{1}{n_B}\right)}}$$</li>
+<li>The <strong>p-value</strong> is the probability of a difference at least this large <em>if $H_0$ were true</em>. If it's below a threshold $\alpha$ chosen in advance (usually 0.05), reject $H_0$.</li>
+</ol>
+<!--cell 6-->
+<p>$z = 2.23$ and $p = 0.0256$: a difference this big would happen by luck less than 3% of the time if the pages were equal, so at $\alpha = 0.05$ we conclude B is better. Two kinds of mistake are possible. A <strong>type I error</strong> (false positive) means declaring a difference that isn't real; its rate is $\alpha$. A <strong>type II error</strong> (false negative) means missing a real difference. The <strong>power</strong> of a test, $1 - P(\text{type II})$, is the chance of detecting a real effect. It grows with sample size, which is why A/B tests are planned with a minimum number of visitors <em>before</em> they start, and must not be stopped early as soon as $p$ dips below 0.05.</p>
+
+<h3 id="deeper-multiple">Multiple testing: why "significant" findings often vanish</h3>
+<p>Test 20 features that have no real effect, each at $\alpha = 0.05$, and the chance that <em>at least one</em> looks significant is $1 - 0.95^{20} \approx 0.64$:</p>
+<!--cell 7-->
+<p>Each single test is fine: 5% false positives, as promised. But 64% of experiments "find" something. Trying many features, metrics, user segments or model variants and reporting only the winner is called <strong>p-hacking</strong> or the "garden of forking paths". It's a big reason why published results fail to replicate. The simplest fix, the <strong>Bonferroni correction</strong>, uses $\alpha/m$ for each of $m$ tests, bringing the overall false-alarm rate back under 5% (0.04 here). A less strict alternative that is popular when testing many features, the Benjamini–Hochberg procedure, controls the <em>false discovery rate</em> instead. In ML the same trap appears as <strong>overfitting to the validation set</strong> when you try many models on it, which is why a final untouched test set matters (Lesson 9).</p>
+<!--interview-->
+<!--quiz-->

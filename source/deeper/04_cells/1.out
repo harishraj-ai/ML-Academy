@@ -1,0 +1,3 @@
+Binomial: P(8 or more of 10 visitors click | p 0.5): 0.0547
+Poisson:  P(no support calls in an hour | 3 per hour): 0.0498
+Exponential: P(wait over 30 min | mean wait 20 min): 0.2231

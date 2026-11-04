@@ -17,6 +17,7 @@ Everything in the published course (the HTML pages, notebooks, code zip and work
 | Context boxes, FAQs, myths, responsible-AI notes, advanced boxes | `context.py`, `understanding.py`, `rai.py`, `advanced.py` |
 | Running example (Chennai Homes) | `running_code.py`, `running_text.py`, `data/houses.csv` |
 | Lesson 21 data, What next page, Recent developments, changelog | `lesson21_data.py`, `nextpage.py`, `recent.py`, `changelog.py` |
+| "Going deeper" (intermediate) sections | `deeper/NN.html` (text), `deeper/NN_cells/K.py` (code), `deeper/NN_data.py` (quiz, interview questions, exercises). After editing a code cell run `python source/deeper.py NN` to refresh its saved output. |
 | Styles | `assets/base.css` |
 | Top-level README / requirements / .gitignore | `site_README.md`, `site_requirements.txt`, `site_gitignore` |
 | README and requirements inside the code zip | `code_README.md`, `code_requirements.txt` |
@@ -34,6 +35,7 @@ npx playwright install chromium
 Run these from the course's top-level folder (the one containing `index.html` and `source/`). The `.` means "write the output here".
 
 ```bash
+python source/deeper.py                  # only if you changed a Going deeper code cell: refreshes its outputs
 python source/build.py .                 # all HTML pages, search index, assets (about 10 s)
 python source/make_notebooks.py .        # lesson notebooks, executed with real outputs (a few minutes)
 python source/make_projects.py .         # project notebooks (only if you changed projects)

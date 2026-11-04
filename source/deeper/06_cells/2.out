@@ -1,0 +1,14 @@
+age  VIF   1.2
+sex  VIF   1.3
+bmi  VIF   1.5
+bp   VIF   1.5
+s1   VIF  59.2
+s2   VIF  39.2
+s3   VIF  15.4
+s4   VIF   8.9
+s5   VIF  10.1
+s6   VIF   1.5
+s1 with s2:    weight -792.2  SE 416.7
+s1 without s2: weight -228.5  SE 114.0
+R² with s2:    0.5177
+R² without s2: 0.5155

@@ -1,0 +1,6 @@
+largest singular values: [54.9 40.6 38.5  3.9  3.6  3.4]
+rank  1: stores   91 of 2000 numbers, relative error 0.722
+rank  2: stores  182 of 2000 numbers, relative error 0.510
+rank  3: stores  273 of 2000 numbers, relative error 0.157
+rank  5: stores  455 of 2000 numbers, relative error 0.142
+rank 10: stores  910 of 2000 numbers, relative error 0.110

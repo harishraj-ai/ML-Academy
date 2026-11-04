@@ -4,6 +4,8 @@ QS = []
 for mod in ["interview_a", "interview_b", "interview_c"]:
     try: QS += importlib.import_module(mod).Q
     except ModuleNotFoundError: pass
+import deeper as _deeper
+QS += _deeper.interview_questions()      # intermediate questions from the Going deeper sections
 from confused import PAIRS
 _seen = {}
 QI = []   # (id, lesson, level, q, trap, a)

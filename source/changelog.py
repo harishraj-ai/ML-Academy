@@ -1,5 +1,8 @@
 # Version history shown on changelog.html (newest first). Dates are when each release was published to the course folder.
 RELEASES = [
+ ("3.0", "4 November 2026", [
+   "New <em>Going deeper</em> (intermediate) sections, starting with <a href=\"lesson-06.html#deeper\">Lesson 6</a>: the LINE assumptions, why least squares (maximum likelihood and Gauss–Markov), standard errors, p-values and confidence intervals from scratch, multicollinearity and VIF, adjusted R² versus cross-validation, unequal error spread and log targets, leverage, Cook's distance and Huber regression, and the dummy-variable trap.",
+   "Each Going deeper section has real code and outputs (also in the lesson notebook and the code zip), its own quiz, intermediate interview questions and intermediate practice exercises with answer checking. In Simple reading mode it is folded behind a plain-words summary."]),
  ("2.9", "2 November 2026", [
    "The printable workbook is regenerated: Lessons 0–21 (about 410 pages) with the <em>Make sense of it</em> boxes and the Interview corner answers, and its links now work from any copy of the course.",
    "<a href=\"downloads/ml-academy-code.zip\">All the code as a zip</a>: every lesson as a <code>.py</code> script, the coding challenges, the four projects (starter and solution), the dataset and a <code>pytest</code> suite (92 tests) that checks every script still gives the published results.",

@@ -1,0 +1,60 @@
+
+<h2 id="deeper">Going deeper: calculus for optimisation</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above gives you derivatives, the chain rule and the gradient: enough to understand gradient descent. This section adds the tools that explain <em>how well</em> optimisation works: derivatives of whole vector functions (the Jacobian, used in backpropagation), curvature (the Hessian), why some losses have one clean minimum (convexity), a much faster method that uses curvature (Newton's method), how to test your own gradients, and how to optimise with constraints (Lagrange multipliers, used by SVMs and PCA).</p>
+<p>You'll need: partial derivatives and the gradient from this lesson, and eigenvalues from Lesson 2's "Going deeper".</p></div>
+
+<h3 id="deeper-jacobian">The Jacobian: derivatives of vector functions</h3>
+<p>The gradient handles a function that takes many numbers and returns <strong>one</strong>. A layer of a neural network takes many numbers and returns <strong>many</strong>. Its derivative is the <strong>Jacobian</strong>: a matrix with one row per output and one column per input, where entry $(i, j)$ is $\partial f_i / \partial x_j$.</p>
+<p>For $\mathbf{f}(x, y) = \big(x^2 y,\ 5x + \sin y\big)$:</p>
+<p>$$J = \begin{pmatrix}\dfrac{\partial f_1}{\partial x} &amp; \dfrac{\partial f_1}{\partial y}\\[2mm] \dfrac{\partial f_2}{\partial x} &amp; \dfrac{\partial f_2}{\partial y}\end{pmatrix} = \begin{pmatrix}2xy &amp; x^2\\ 5 &amp; \cos y\end{pmatrix}, \qquad J(1, 2) = \begin{pmatrix}4 &amp; 1\\ 5 &amp; -0.4161\end{pmatrix}$$</p>
+<!--cell 1-->
+<p>The formula and the numerical estimate agree. <strong>Why it matters:</strong> the chain rule for vector functions is simply <em>multiplying Jacobians</em>. If $\mathbf{z} = \mathbf{g}(\mathbf{h}(\mathbf{x}))$, then $J_{\mathbf{z}} = J_{\mathbf{g}}\,J_{\mathbf{h}}$, with shapes that line up like any matrix product. Backpropagation (Lesson 18) multiplies these Jacobians one layer at a time, starting from the loss, and it never builds the full matrices, only their products with vectors.</p>
+
+<h3 id="deeper-hessian">The Hessian: curvature in many directions</h3>
+<p>The first derivative is the slope; the second derivative is the <strong>curvature</strong>: how fast the slope changes. With many parameters, the second derivatives form the <strong>Hessian</strong> matrix $H_{ij} = \dfrac{\partial^2 L}{\partial w_i\,\partial w_j}$. It's symmetric, so (from Lesson 2's "Going deeper") it has real eigenvalues and perpendicular eigenvectors. Each eigenvector is a direction, and its eigenvalue is the curvature in that direction.</p>
+<p>At a point where the gradient is zero, the eigenvalues tell you what kind of point it is:</p>
+<ul>
+<li>all positive: a <strong>minimum</strong> (curves up in every direction);</li>
+<li>all negative: a <strong>maximum</strong>;</li>
+<li>some positive, some negative: a <strong>saddle point</strong>, like a mountain pass.</li>
+</ul>
+<!--cell 2-->
+<p>$L = w_1^2 + 10w_2^2$ has Hessian eigenvalues 2 and 20: a minimum, but in a valley that is 10 times steeper one way than the other. $w_1^2 - w_2^2$ has eigenvalues $-2$ and $2$: a saddle. In the huge loss surfaces of neural networks, most points with zero gradient are saddles rather than bad local minima, which is one reason gradient descent works better there than you might expect.</p>
+
+<h3 id="deeper-convex">Convexity: when there's exactly one valley</h3>
+<p>A function is <strong>convex</strong> if the straight line between any two points on its graph never goes below the graph, like a bowl. Formally, for any $\mathbf{a}, \mathbf{b}$ and any $t$ between 0 and 1:</p>
+<p>$$L\big(t\mathbf{a} + (1-t)\mathbf{b}\big) \le t\,L(\mathbf{a}) + (1-t)\,L(\mathbf{b})$$</p>
+<p>The practical test: a function is convex when its Hessian is positive semi-definite everywhere. The big payoff is that <strong>every local minimum of a convex function is a global minimum</strong>, so gradient descent can't get stuck in the wrong valley.</p>
+<ul>
+<li><strong>Mean squared error for linear regression is convex.</strong> Its Hessian is $\frac{2}{n}X^\top X$, which Lesson 2's "Going deeper" showed is always PSD.</li>
+<li><strong>Log loss for logistic regression is convex</strong> (Lesson 8), and so is the SVM's hinge loss (Lesson 15).</li>
+<li><strong>Neural network losses are not convex</strong>: there are many minima and saddles, and the starting point matters (Lesson 19).</li>
+</ul>
+
+<h3 id="deeper-newton">Taylor series and Newton's method</h3>
+<p>Near a point $\mathbf{w}$, any smooth function looks like a simple bowl. The second-order <strong>Taylor approximation</strong> says:</p>
+<p>$$L(\mathbf{w} + \Delta) \approx L(\mathbf{w}) + \nabla L^\top \Delta + \tfrac{1}{2}\,\Delta^\top H\,\Delta$$</p>
+<p>Gradient descent uses only the first two terms (the slope) and takes a cautious step $\Delta = -\eta\nabla L$. <strong>Newton's method</strong> uses the curvature too: it jumps straight to the bottom of the approximating bowl. Setting the gradient of the right-hand side to zero gives</p>
+<p>$$\Delta = -H^{-1}\nabla L$$</p>
+<p>Here are both on the long, narrow valley $L = w_1^2 + 10w_2^2$, starting from $(10, 1)$:</p>
+<!--cell 3-->
+<p>Gradient descent can't use a learning rate of 0.1 or more, because the steep direction (curvature 20) would overshoot and blow up. That is the stability limit $\eta &lt; 2/20$ from Lesson 7. But with $\eta$ that small, progress along the gentle direction (curvature 2) is slow: 82 steps at best. Newton's method rescales each direction by its own curvature and, on a quadratic, lands exactly on the minimum in one step.</p>
+<p>So why isn't Newton's method used everywhere? With $d$ parameters the Hessian has $d^2$ entries and solving with it costs about $d^3$ operations. For a model with a million weights that's impossible. Practical methods approximate the curvature cheaply instead: <strong>L-BFGS</strong> (scikit-learn's default solver for logistic regression) builds up an estimate from recent gradients, and <strong>Adam</strong> (Lesson 7) keeps a per-weight scaling.</p>
+
+<h3 id="deeper-gradcheck">Checking gradients like a professional</h3>
+<p>When you derive a gradient by hand, test it against a <strong>central difference</strong>, which is far more accurate than the one-sided version:</p>
+<p>$$\frac{\partial L}{\partial w_i} \approx \frac{L(\mathbf{w} + h\mathbf{e}_i) - L(\mathbf{w} - h\mathbf{e}_i)}{2h}$$</p>
+<p>Its error shrinks like $h^2$ instead of $h$. Compare the two gradients with the <strong>relative error</strong> $\dfrac{\lVert \mathbf{g}_1 - \mathbf{g}_2\rVert}{\lVert\mathbf{g}_1\rVert + \lVert\mathbf{g}_2\rVert}$, which doesn't depend on the gradient's scale. A common guide: below $10^{-7}$ is right, around $10^{-4}$ is suspicious, and above $10^{-2}$ is a bug.</p>
+<!--cell 4-->
+<p>The correct gradient matches to about $3\times 10^{-11}$. The buggy version, which forgot the $\tanh'$ factor from the chain rule, is off by $6.7\times 10^{-2}$, which flags it clearly. Two tips: use double precision (64-bit floats), and don't pick $h$ too small ($10^{-5}$ to $10^{-6}$ is typical), or rounding errors take over.</p>
+
+<h3 id="deeper-lagrange">Optimising with a constraint: Lagrange multipliers</h3>
+<p>Sometimes the parameters must obey a rule. PCA looks for the direction of greatest variance among vectors of length 1, and an SVM finds the widest margin while classifying every point correctly. The method of <strong>Lagrange multipliers</strong> handles an equality constraint $g(\mathbf{x}) = 0$: at the best point, the gradient of the objective must be parallel to the gradient of the constraint,</p>
+<p>$$\nabla f = \lambda\,\nabla g$$</p>
+<p>Otherwise you could slide along the constraint and still improve $f$. The number $\lambda$ is the <strong>Lagrange multiplier</strong>.</p>
+<p><strong>Example.</strong> Find the largest rectangle with perimeter 20: maximise $f = xy$ subject to $g = 2x + 2y - 20 = 0$. Then $\nabla f = (y, x)$ and $\nabla g = (2, 2)$, so $y = 2\lambda$ and $x = 2\lambda$, giving $x = y$. The constraint then says $4x = 20$, so $x = y = 5$ and the area is 25: the square wins.</p>
+<!--cell 5-->
+<p>A numerical optimiser with the constraint built in agrees. Using the same idea on PCA, maximising $\mathbf{v}^\top\Sigma\mathbf{v}$ with $\mathbf{v}^\top\mathbf{v} = 1$, gives $\Sigma\mathbf{v} = \lambda\mathbf{v}$: the best direction is an eigenvector (Lesson 17). For inequality constraints such as the SVM's, the same idea extends to the <strong>KKT conditions</strong> (Lesson 15).</p>
+<!--interview-->
+<!--quiz-->

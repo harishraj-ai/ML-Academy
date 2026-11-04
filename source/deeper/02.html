@@ -1,0 +1,66 @@
+
+<h2 id="deeper">Going deeper: the linear algebra behind ML algorithms</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above gives you what you need to <em>use</em> vectors and matrices in ML code. This section covers the ideas that explain <em>why</em> algorithms behave as they do: why lasso and ridge give different weights, why some regressions can't be solved, how PCA and recommender systems find hidden structure, and why nearly duplicate features make a model unstable. Each idea is used again in a later lesson, which is named as you go.</p>
+<p>You'll need: everything in this lesson, especially the dot product, matrix × matrix and the transpose.</p></div>
+
+<h3 id="deeper-norms">Other ways to measure size: norms</h3>
+<p>Section 4 measured a vector's length with the familiar straight-line distance. That's one <strong>norm</strong>, a rule that gives every vector a size. ML uses several, and the choice changes how models behave:</p>
+<ul>
+<li><strong>L2 norm</strong> $\lVert\mathbf{v}\rVert_2 = \sqrt{v_1^2 + \dots + v_n^2}$: the straight-line length. Big entries count a lot, because they're squared.</li>
+<li><strong>L1 norm</strong> $\lVert\mathbf{v}\rVert_1 = |v_1| + \dots + |v_n|$: the "city-block" distance, as if you could only walk along streets. Every entry counts in proportion to its size.</li>
+<li><strong>L∞ norm</strong> $\lVert\mathbf{v}\rVert_\infty = \max_i |v_i|$: only the biggest entry counts.</li>
+<li><strong>Frobenius norm</strong> of a matrix, $\lVert A\rVert_F = \sqrt{\sum_{i,j} a_{ij}^2}$: the L2 norm of all its entries treated as one long list. It measures how far apart two matrices are, as in the SVD example below.</li>
+</ul>
+<!--cell 1-->
+<p>For $\mathbf{v} = (3, -4, 1)$: L1 is $3 + 4 + 1 = 8$, L2 is $\sqrt{9 + 16 + 1} = \sqrt{26} \approx 5.099$, and L∞ is $4$. <strong>Why it matters:</strong> ridge regression (Lesson 10) penalises the L2 norm of the weights and shrinks them all a little; lasso penalises the L1 norm and pushes some exactly to zero. The difference comes from the shapes of the "unit balls" $\lVert\mathbf{v}\rVert = 1$: a circle for L2, but a diamond with sharp corners on the axes for L1. kNN (Lesson 11) can use L1 or L2 distance too.</p>
+
+<h3 id="deeper-rank">Independence, rank and the determinant</h3>
+<p>Columns of a matrix are <strong>linearly independent</strong> if none of them can be built from the others by adding and scaling. The <strong>rank</strong> is the number of independent columns. It matters because least squares needs $X^\top X$ to be invertible, and that happens only when the columns of $X$ are independent (full rank).</p>
+<p>The <strong>determinant</strong> of a square matrix is the factor by which it scales areas (in 2D) or volumes (in 3D). If $\det A = 0$, the matrix squashes space flat, information is lost, and $A$ has no inverse.</p>
+<!--cell 2-->
+<p>The third feature is exactly feature 1 + feature 2, so only 2 of the 3 columns carry new information: rank 2, and $\det(X^\top X) = 0$. This is the same problem as the dummy-variable trap in Lesson 6. For the 2×2 matrix $A$, $\det A = 2\cdot 3 - 1\cdot 1 = 5$: it stretches every shape to 5 times its area.</p>
+
+<h3 id="deeper-eigen">Eigenvalues and eigenvectors</h3>
+<p>Most vectors change direction when you multiply them by a matrix. An <strong>eigenvector</strong> is a special direction that the matrix only stretches or shrinks:</p>
+<p>$$A\mathbf{v} = \lambda\mathbf{v}$$</p>
+<p>The number $\lambda$ is its <strong>eigenvalue</strong>: how much that direction is stretched. To find the eigenvalues by hand, solve $\det(A - \lambda I) = 0$. For $A = \begin{pmatrix}2 &amp; 1\\ 1 &amp; 3\end{pmatrix}$:</p>
+<p>$$\det\begin{pmatrix}2-\lambda &amp; 1\\ 1 &amp; 3-\lambda\end{pmatrix} = (2-\lambda)(3-\lambda) - 1 = \lambda^2 - 5\lambda + 5 = 0 \;\Rightarrow\; \lambda = \frac{5 \pm \sqrt{5}}{2} \approx 1.382,\ 3.618$$</p>
+<p>For $\lambda = 3.618$, the first row of $(A - \lambda I)\mathbf{v} = 0$ gives $v_2 = 1.618\,v_1$; scaled to length 1, that's $\mathbf{v} \approx (0.526, 0.851)$.</p>
+<!--cell 3-->
+<p>The check $A\mathbf{v} = \lambda\mathbf{v}$ works, and the two eigenvectors have dot product 0: they're at right angles. That's not luck. The <strong>spectral theorem</strong> says every <em>symmetric</em> matrix ($A = A^\top$) has real eigenvalues and a full set of perpendicular eigenvectors, so it can be written as $A = Q\Lambda Q^\top$ (rotate, stretch along the axes, rotate back). Covariance matrices are symmetric, which is exactly why PCA (Lesson 17) works: its components are the covariance matrix's eigenvectors, and each eigenvalue is the variance along that direction. Use <code>np.linalg.eigh</code> for symmetric matrices; it's faster and more accurate than the general <code>eig</code>.</p>
+
+<h3 id="deeper-pd">Positive definite matrices</h3>
+<p>A symmetric matrix is <strong>positive definite</strong> if $\mathbf{x}^\top A\mathbf{x} &gt; 0$ for every non-zero $\mathbf{x}$, which is the same as all its eigenvalues being positive. It's <strong>positive semi-definite</strong> (PSD) if $\ge 0$ is allowed. The matrix $A$ above is positive definite: both eigenvalues are positive.</p>
+<p>The matrix that appears all over ML, $X^\top X$, is always PSD, and the proof is one line:</p>
+<p>$$\mathbf{w}^\top (X^\top X)\,\mathbf{w} = (X\mathbf{w})^\top(X\mathbf{w}) = \lVert X\mathbf{w}\rVert^2 \ge 0$$</p>
+<p>It's positive definite exactly when the columns of $X$ are independent. Lesson 3's "Going deeper" uses this to show that the squared-error loss is <em>convex</em>: shaped like a bowl, with one lowest point.</p>
+
+<h3 id="deeper-svd">The singular value decomposition (SVD)</h3>
+<p>Eigenvectors need a square matrix. The <strong>SVD</strong> works for <em>any</em> matrix, including a data table with $n$ rows and $d$ columns:</p>
+<p>$$A = U\,\Sigma\,V^\top$$</p>
+<p>$U$ and $V$ have perpendicular columns (directions in row space and column space), and $\Sigma$ is diagonal with the <strong>singular values</strong> $\sigma_1 \ge \sigma_2 \ge \dots \ge 0$, which say how important each direction is. The key result (the Eckart–Young theorem) is that keeping only the $k$ largest singular values gives the <em>best possible</em> rank-$k$ approximation of $A$.</p>
+<p>Here's why that's useful. Below is a table of 50 users' ratings of 40 films. It was secretly built from just 3 hidden "tastes" (say, action, comedy and drama) plus noise:</p>
+<!--cell 4-->
+<p>The singular values drop sharply after the third (38.5, then 3.9): the SVD has discovered that 3 hidden factors explain the table. A rank-3 approximation stores 273 numbers instead of 2,000, with a relative error of 0.157, and most of that error is the random noise. Keeping more singular values hardly helps (0.142 at rank 5), because they only describe noise. This is the idea behind recommender systems (predicting missing ratings), PCA (Lesson 17, which is the SVD of the centred data), image compression and the <strong>pseudo-inverse</strong> $A^{+} = V\Sigma^{+}U^\top$ that <code>np.linalg.lstsq</code> uses to solve least squares safely.</p>
+
+<h3 id="deeper-cond">Condition number: when tiny changes cause big swings</h3>
+<p>The <strong>condition number</strong> of a matrix is the ratio of its largest to its smallest singular value (for a symmetric PSD matrix like $X^\top X$, its largest to smallest eigenvalue). It measures how much small errors in the input can be amplified in the answer. A value near 1 is perfect; values in the thousands or millions mean trouble. In this example, two features measure almost the same thing: a home's size, recorded twice with slightly different tape measures.</p>
+<!--cell 5-->
+<p>With a condition number of about 14,000, a tiny change in $y$ swings the weights from $(0.96, -0.36)$ to $(1.2, -0.61)$. Their <em>sum</em> stays near 0.6, so the predictions barely change, but the individual weights mean nothing. This is the linear-algebra view of multicollinearity (Lesson 6's "Going deeper"). Adding $\lambda I$, which is exactly what ridge regression does, raises every eigenvalue by $\lambda$. That cuts the condition number about tenfold, to 1,462, and the weights become stable ($0.37, 0.23$ and then $0.39, 0.21$).</p>
+
+<h3 id="deeper-matcalc">Matrix calculus: the four rules you'll actually use</h3>
+<p>Many ML derivations need the gradient of an expression with vectors and matrices in it. These rules cover almost all of them ($\mathbf{a}$ is a constant vector and $A$ a constant matrix):</p>
+<table class="tbl">
+<thead><tr><th>Function of $\mathbf{w}$</th><th>Gradient $\nabla_{\mathbf{w}}$</th><th>Like the 1-D rule</th></tr></thead>
+<tbody>
+<tr><td>$\mathbf{a}^\top\mathbf{w}$</td><td>$\mathbf{a}$</td><td>$\frac{d}{dw}(aw) = a$</td></tr>
+<tr><td>$\mathbf{w}^\top\mathbf{w} = \lVert\mathbf{w}\rVert^2$</td><td>$2\mathbf{w}$</td><td>$\frac{d}{dw}w^2 = 2w$</td></tr>
+<tr><td>$\mathbf{w}^\top A\,\mathbf{w}$</td><td>$(A + A^\top)\,\mathbf{w}$, which is $2A\mathbf{w}$ if $A$ is symmetric</td><td>$\frac{d}{dw}aw^2 = 2aw$</td></tr>
+<tr><td>$\lVert X\mathbf{w} - \mathbf{y}\rVert^2$</td><td>$2X^\top(X\mathbf{w} - \mathbf{y})$</td><td>chain rule</td></tr>
+</tbody></table>
+<p>The last rule gives the normal equation from Lesson 6 in one line: set $2X^\top(X\mathbf{w} - \mathbf{y}) = \mathbf{0}$, so $X^\top X\,\mathbf{w} = X^\top\mathbf{y}$. Always check a hand-derived gradient numerically, by nudging each weight a tiny amount (Lesson 3 shows how):</p>
+<!--cell 6-->
+<p>The formula and the numerical estimate agree to 4 decimal places, so the rule is right. Deep-learning libraries compute such gradients automatically, but knowing these rules lets you read papers and debug models.</p>
+<!--interview-->
+<!--quiz-->

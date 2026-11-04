@@ -1,0 +1,6 @@
+condition number of XᵀX: 14469
+weights:             [ 0.96 -0.36]
+after a tiny change: [ 1.2  -0.61]
+condition number with ridge: 1462
+ridge weights:       [0.37 0.23]
+after a tiny change: [0.39 0.21]

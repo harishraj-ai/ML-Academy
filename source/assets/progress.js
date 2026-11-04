@@ -22,9 +22,9 @@
         var T = load("mla-time", {}); T[lesson] = (T[lesson] || 0) + 15; save("mla-time", T);
       }, 15000);
       // ---- first answer to each lesson-quiz question
-      var qs = document.querySelectorAll(".quiz .q");
+      var qs = document.querySelectorAll(".quiz:not(.deep-quiz) .q");
       document.addEventListener("click", function (e) {
-        var b = e.target.closest && e.target.closest(".quiz .q button[data-opt]"); if (!b) return;
+        var b = e.target.closest && e.target.closest(".quiz:not(.deep-quiz) .q button[data-opt]"); if (!b) return;
         var q = b.closest(".q"); if (q.classList.contains("answered")) return;
         var Q = load("mla-quiz", {}), k = Array.prototype.indexOf.call(qs, q); Q[lesson] = Q[lesson] || {};
         if (!(k in Q[lesson])) { Q[lesson][k] = b.getAttribute("data-opt") === q.getAttribute("data-correct") ? 1 : 0; save("mla-quiz", Q); }

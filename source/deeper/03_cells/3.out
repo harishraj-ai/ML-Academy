@@ -1,0 +1,5 @@
+gradient descent, learning rate 0.01: 798 steps
+gradient descent, learning rate 0.05: 153 steps
+gradient descent, learning rate 0.09: 82 steps
+gradient descent, learning rate 0.11: diverged
+Newton's method: 1 step, lands at [0. 0.]

@@ -1,0 +1,7 @@
+eigenvalues: [1.382 3.618]
+eigenvectors (columns):
+[[-0.851  0.526]
+ [ 0.526  0.851]]
+A @ v:      [1.902 3.078]
+lambda * v: [1.902 3.078]
+dot product of the two eigenvectors: 0.0

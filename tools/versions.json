@@ -1,6 +1,6 @@
 {
- "release": "2.9",
- "date": "2 November 2026",
+ "release": "3.0",
+ "date": "4 November 2026",
  "versions": {
   "python": "3.13.18",
   "numpy": "2.5.3",

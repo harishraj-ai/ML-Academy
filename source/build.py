@@ -186,6 +186,13 @@ SOURCES = {
 LESSONS.append(L21); OBJECTIVES[21] = OBJ21; SOURCES[21] = SRC21
 OBJECTIVES[0] = OBJ0; SOURCES[0] = SRC0; FIT[0] = FIT0; FAQ[0] = FAQ0; EXERCISES[0] = EX0; MISTAKES[0] = MIST0; CHECKS.update(CHECKS0)
 def ready(n): return os.path.exists(os.path.join(HERE, "lessons", f"{n:02d}.html"))
+import deeper as DEEPER                    # "Going deeper" (intermediate) sections — see deeper.py
+for _n in DEEPER.lessons():
+    _d = DEEPER.data(_n); _base = len(EXERCISES.get(_n, []))
+    EXERCISES[_n] = list(EXERCISES.get(_n, [])) + list(_d.get("EX", []))
+    for _i, _c in _d.get("CHECKS", {}).items(): CHECKS[(_n, _base + _i)] = _c
+    if _d.get("SIMPLE"): SIMPLE.setdefault(_n, {})["deeper"] = _d["SIMPLE"]
+def raw_lesson(n): return DEEPER.inject(n, open(os.path.join(HERE, "lessons", f"{n:02d}.html")).read())
 def fname(n): return f"lesson-{n:02d}.html"
 
 # copy assets
@@ -504,7 +511,7 @@ def enrich(n, body):
 # ---------------- lessons ----------------
 for (n, p, t, s, mins) in [LESSON0] + LESSONS:
     if not ready(n): continue
-    body = enrich(n, open(os.path.join(HERE, "lessons", f"{n:02d}.html")).read())
+    body = enrich(n, raw_lesson(n))
     heads = re.findall(r'<h2 id="([^"]+)">(.*?)</h2>', body)
     k = [0]
     def number(m):
@@ -604,7 +611,7 @@ def plain(h):
 IDX = []
 for (n, p, t, s_, mins) in [LESSON0] + LESSONS:
     if not ready(n): continue
-    body = enrich(n, open(os.path.join(HERE, "lessons", f"{n:02d}.html")).read())
+    body = enrich(n, raw_lesson(n))
     parts_ = re.split(r'(<h2 id="[^"]+">.*?</h2>)', body)
     IDX.append({"t": f"Lesson {n}: {t}", "s": s_, "u": fname(n), "k": "lesson", "x": (t + " " + s_).lower()})
     for i in range(1, len(parts_), 2):
@@ -803,7 +810,7 @@ print("figure labels added in", _c, "pages")
 
 # ---------------- printable workbook (HTML source for the PDF) ----------------
 def _wb_body(n):
-    b = enrich(n, open(os.path.join(HERE, "lessons", f"{n:02d}.html")).read())
+    b = enrich(n, raw_lesson(n))
     k = [0]
     def num(m):
         k[0] += 1; return f'<h2 id="l{n}-{m.group(1)}"><span class="sec-num">{k[0]}.</span>{m.group(2)}</h2>'
