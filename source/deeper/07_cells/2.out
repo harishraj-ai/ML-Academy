@@ -1,0 +1,2 @@
+constant 0.05           : extra loss above the best 0.0074, wobble between epochs 0.0047
+decay 0.05/(1 + t/200)  : extra loss above the best 0.0019, wobble between epochs 0.0001

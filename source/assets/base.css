@@ -874,3 +874,4 @@ body.listening { padding-bottom: 170px; }
 h2#deeper::after { content: "Intermediate"; display: inline-block; vertical-align: middle; margin-left: 10px; padding: 2px 8px; border-radius: 999px; font: 700 .68rem var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: #c4b5fd; border: 1px solid #a78bfa; }
 :root[data-theme="light"] h2#deeper::after { color: #5b21b6; border-color: #6d28d9; }
 .prose h3[id^="deeper-"] { scroll-margin-top: 80px; }
+.prose p code, .prose li code, .prose td code { overflow-wrap: anywhere; }

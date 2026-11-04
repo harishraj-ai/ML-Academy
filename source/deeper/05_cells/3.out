@@ -1,0 +1,5 @@
+  22 training examples: train accuracy 1.000   validation accuracy 0.916
+  45 training examples: train accuracy 0.991   validation accuracy 0.968
+ 113 training examples: train accuracy 0.995   validation accuracy 0.968
+ 227 training examples: train accuracy 0.989   validation accuracy 0.970
+ 455 training examples: train accuracy 0.989   validation accuracy 0.981

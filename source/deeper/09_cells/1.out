@@ -1,0 +1,2 @@
+AUC: logistic 0.996  tree 0.904
+95% bootstrap interval for the difference: [0.046 0.15 ]

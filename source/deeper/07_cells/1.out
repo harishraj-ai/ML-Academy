@@ -1,0 +1,8 @@
+narrow (curvatures 2 and 20)
+  plain gradient descent: 47 steps
+  momentum (beta 0.3):    17 steps
+  Adam (lr 0.1):          310 steps
+very narrow (curvatures 2 and 2000)
+  plain gradient descent: 5113 steps
+  momentum (beta 0.3):    2977 steps
+  Adam (lr 0.1):          310 steps

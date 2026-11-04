@@ -1,0 +1,43 @@
+
+<h2 id="deeper">Going deeper: logistic regression as a probability model</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above trains logistic regression with gradient descent and reads its weights as odds. This section looks at it the way statisticians and library authors do: why its loss is convex, how scikit-learn actually solves it in a handful of steps, how regularization enters, whether its probabilities can be trusted (<strong>calibration</strong>), and what to do when one class is rare.</p>
+<p>You'll need: log loss from this lesson, maximum likelihood from Lesson 4's "Going deeper", and the Hessian and Newton's method from Lesson 3's.</p></div>
+
+<h3 id="deeper-convex">Why the loss is convex</h3>
+<p>Log loss is the negative log-likelihood of a Bernoulli model (Lesson 4's "Going deeper"). Its gradient, from this lesson, is $X^\top(\mathbf{p} - \mathbf{y})$. Differentiating once more gives the Hessian:</p>
+<p>$$H = X^\top S\,X, \qquad S = \operatorname{diag}\big(p_i(1 - p_i)\big)$$</p>
+<p>Each $p_i(1-p_i)$ is positive, so for any $\mathbf{v}$, $\mathbf{v}^\top H\mathbf{v} = \sum_i p_i(1-p_i)\,(\mathbf{x}_i\cdot\mathbf{v})^2 \ge 0$. The Hessian is positive semi-definite everywhere, so the loss is <strong>convex</strong>: one valley, no bad local minima. Notice that $p_i(1 - p_i)$ is largest (0.25) for points near the boundary ($p \approx 0.5$) and tiny for points the model is already sure about. Confident points hardly affect the curvature.</p>
+
+<h3 id="deeper-irls">How libraries solve it: Newton's method (IRLS)</h3>
+<p>Because the Hessian is cheap for a moderate number of features, we can use Newton's method from Lesson 3's "Going deeper": $\mathbf{w} \leftarrow \mathbf{w} - H^{-1}\nabla L$. For logistic regression each step is a <em>weighted least-squares</em> problem with weights $p_i(1-p_i)$, so statisticians call it <strong>iteratively reweighted least squares</strong> (IRLS). Here it is from scratch with an L2 penalty $\frac{\lambda}{2}\lVert\mathbf{w}\rVert^2$, which adds $\lambda\mathbf{w}$ to the gradient and $\lambda I$ to the Hessian, on 5 features of the breast-cancer data:</p>
+<!--cell 1-->
+<p>The steps shrink slowly at first and then collapse: $6\times 10^{-4}$, then $1.5\times 10^{-7}$, then $8\times 10^{-15}$. That's Newton's <strong>quadratic convergence</strong>: near the answer, the number of correct digits roughly doubles each step. Nine iterations give the same weights as scikit-learn to 4 decimal places. (Scikit-learn's default solver, L-BFGS, approximates this Hessian instead of computing it, so it scales to more features.)</p>
+<p>The penalty matters more than it looks. Scikit-learn always regularizes logistic regression unless told not to: <code>C</code> is $1/\lambda$, so <strong>smaller <code>C</code> means stronger regularization</strong>. Without a penalty, perfectly separable data sends the weights to infinity, because the loss keeps falling as the sigmoid gets steeper.</p>
+
+<h3 id="deeper-calibration">Can you trust the probabilities? Calibration</h3>
+<p>A classifier is <strong>well calibrated</strong> if, among all cases where it says 0.8, about 80% really are positive. Accuracy and AUC don't measure this at all: they only care about the order of the scores. Two ways to check:</p>
+<ul>
+<li>A <strong>reliability table</strong> (or plot): group predictions into bins and compare each bin's average prediction with the actual share of positives.</li>
+<li>The <strong>Brier score</strong>, the mean of $(p_i - y_i)^2$: 0 is perfect, and lower is better. It rewards both calibration and sharpness.</li>
+</ul>
+<p>Here are logistic regression and Gaussian naive Bayes (Lesson 12) on the breast-cancer test set:</p>
+<!--cell 2-->
+<p>Logistic regression's bins line up fairly well: it predicts 0.02 where 0% are positive and 0.98 where 99% are (the middle bins hold only 6–7 cases each, so they're noisy). Its Brier score is 0.018. Naive Bayes is badly <strong>over-confident</strong>: it puts 107 cases at an average of 0.00, but 10% of them are actually positive. Its Brier score of 0.071 is four times worse. That's typical: naive Bayes assumes the features are independent, so it counts correlated evidence several times over. Logistic regression is usually well calibrated because it directly maximises the likelihood of the labels. When a model isn't, <code>CalibratedClassifierCV</code> can fix it on held-out data, with <strong>Platt scaling</strong> (a small logistic regression on the scores) or <strong>isotonic regression</strong> (a flexible increasing curve).</p>
+
+<h3 id="deeper-imbalance">When one class is rare</h3>
+<p>With 5% positives, a model can reach 95% accuracy by never predicting the positive class. Logistic regression won't go quite that far, but with the default threshold of 0.5 it may catch very few positives:</p>
+<!--cell 3-->
+<p>The default model catches only 7.5% of positives. Its probabilities are honest, averaging 0.055 against a true rate of 0.054, but few cases ever pass 0.5. With <code>class_weight="balanced"</code>, each positive counts about 19 times more in the loss, and recall jumps to 82.2%, at the cost of precision (0.187) and of calibration: the average prediction is now 0.314, nowhere near the true 5%. Two equivalent ways to think about it:</p>
+<ul>
+<li><strong>Reweighting</strong> changes which errors the training loss cares about.</li>
+<li><strong>Moving the threshold</strong> (Lesson 9) keeps the honest probabilities and simply flags anything above, say, 0.1.</li>
+</ul>
+<p>If you need trustworthy probabilities (for pricing, expected costs or ranking by risk), prefer an unweighted model and choose the threshold from costs. If you only need decisions, either approach works. Oversampling the rare class (or methods like SMOTE) has a similar effect to reweighting, and must be done only inside the training folds, or it leaks.</p>
+
+<h3 id="deeper-softmax">More than two classes: the softmax gradient</h3>
+<p>Multinomial logistic regression (this lesson's softmax) has weights $W$ with one column per class, probabilities $\mathbf{p} = \operatorname{softmax}(W^\top\mathbf{x})$, and log loss $-\log p_{\text{true}}$. Its gradient has the same simple form as the binary case:</p>
+<p>$$\nabla_W L = \mathbf{x}\,(\mathbf{p} - \mathbf{y})^\top$$</p>
+<p>where $\mathbf{y}$ is the one-hot true label. "Prediction minus truth, times the input" appears again and again: linear regression, logistic regression, softmax and the output layer of a neural network (Lesson 18) all share it. That's no coincidence. All of them are <strong>generalised linear models</strong> trained by maximum likelihood with their natural ("canonical") link function.</p>
+<!--interview-->
+<!--quiz-->

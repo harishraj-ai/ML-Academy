@@ -1,0 +1,10 @@
+logistic regression: Brier score 0.018
+   predicted 0.0–0.2:  98 cases, average prediction 0.02, actually positive 0.00
+   predicted 0.2–0.4:   6 cases, average prediction 0.32, actually positive 0.33
+   predicted 0.4–0.6:   6 cases, average prediction 0.49, actually positive 0.67
+   predicted 0.6–0.8:   7 cases, average prediction 0.72, actually positive 1.00
+   predicted 0.8–1.0: 168 cases, average prediction 0.98, actually positive 0.99
+naive Bayes: Brier score 0.071
+   predicted 0.0–0.2: 107 cases, average prediction 0.00, actually positive 0.10
+   predicted 0.6–0.8:   1 cases, average prediction 0.69, actually positive 1.00
+   predicted 0.8–1.0: 177 cases, average prediction 1.00, actually positive 0.94

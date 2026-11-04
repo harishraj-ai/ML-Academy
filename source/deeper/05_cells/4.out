@@ -1,0 +1,2 @@
+no shift          : AUC 0.540   feature importances [0.34 0.34 0.32]
+feature 0 drifted : AUC 0.695   feature importances [0.59 0.21 0.2 ]

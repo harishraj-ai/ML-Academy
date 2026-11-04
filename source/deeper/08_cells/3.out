@@ -1,0 +1,3 @@
+class_weight None     : recall 0.075  precision 0.348  average predicted probability 0.055
+class_weight balanced : recall 0.822  precision 0.187  average predicted probability 0.314
+true share of positives in the test set: 0.054

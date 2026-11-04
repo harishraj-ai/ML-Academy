@@ -1,0 +1,5 @@
+threshold 0.50: missed  3, false alarms  4, total cost 64
+threshold 0.20: missed  2, false alarms  7, total cost 47
+threshold 0.10: missed  1, false alarms 11, total cost 31
+threshold 0.05: missed  0, false alarms 18, total cost 18
+theory: flag when p is above cost_FP / (cost_FP + cost_FN), which is 0.048

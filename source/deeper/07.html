@@ -1,0 +1,53 @@
+
+<h2 id="deeper">Going deeper: modern optimisers and learning-rate schedules</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>Plain gradient descent, as in this lesson, is rarely used as-is on large models. This section explains the improvements that nearly every deep-learning project uses: <strong>momentum</strong>, adaptive methods such as <strong>Adam</strong>, <strong>learning-rate schedules</strong>, and <strong>gradient clipping</strong>. You'll see when each helps, and when it doesn't.</p>
+<p>You'll need: this lesson, and the Hessian and condition number from the "Going deeper" sections of Lessons 2 and 3.</p></div>
+
+<h3 id="deeper-rate">Why plain gradient descent is slow: the condition number again</h3>
+<p>On a loss whose curvature differs a lot between directions, the learning rate must be small enough for the <em>steepest</em> direction (below $2/\lambda_{\max}$, the stability limit from this lesson), but then progress along the <em>gentlest</em> direction is slow. Near a minimum, each step shrinks the error in the slowest direction by roughly a factor of</p>
+<p>$$1 - \frac{\lambda_{\min}}{\lambda_{\max}} = 1 - \frac{1}{\kappa}$$</p>
+<p>where $\kappa$ is the condition number. With $\kappa = 1000$ you need thousands of steps. Feature scaling (this lesson) attacks the cause by making the curvatures similar; the optimisers below work around it.</p>
+
+<h3 id="deeper-momentum">Momentum: a ball rolling downhill</h3>
+<p>Momentum keeps a running <strong>velocity</strong>, a decaying sum of past gradients, and steps along it:</p>
+<p>$$\mathbf{v} \leftarrow \beta\,\mathbf{v} + \nabla L, \qquad \mathbf{w} \leftarrow \mathbf{w} - \eta\,\mathbf{v}$$</p>
+<p>In the steep direction, gradients flip sign every step and largely cancel, which damps the zig-zag. In the gentle direction they point the same way every time and add up, so the ball speeds up along the valley floor. Typical values are $\beta = 0.9$ for deep learning. <strong>Nesterov momentum</strong> is a small refinement that computes the gradient at the point where the velocity is about to take you.</p>
+
+<h3 id="deeper-adam">Adaptive learning rates: RMSProp and Adam</h3>
+<p>Instead of one learning rate for all weights, <strong>RMSProp</strong> divides each weight's step by a running average of that weight's recent gradient sizes. Weights with large, frequent gradients take smaller steps; rarely updated ones take bigger steps. <strong>Adam</strong> ("adaptive moment estimation") combines this with momentum:</p>
+<p>$$\mathbf{m} \leftarrow \beta_1\mathbf{m} + (1-\beta_1)\,\mathbf{g}, \quad \mathbf{s} \leftarrow \beta_2\mathbf{s} + (1-\beta_2)\,\mathbf{g}^2, \quad \mathbf{w} \leftarrow \mathbf{w} - \eta\,\frac{\hat{\mathbf{m}}}{\sqrt{\hat{\mathbf{s}}} + \epsilon}$$</p>
+<p>The squares and the division are done per weight. The hats are a <strong>bias correction</strong>, $\hat{\mathbf{m}} = \mathbf{m}/(1 - \beta_1^k)$ at step $k$, because $\mathbf{m}$ and $\mathbf{s}$ start at zero and would otherwise be too small at first. Defaults that work surprisingly often: $\eta = 0.001$, $\beta_1 = 0.9$, $\beta_2 = 0.999$, $\epsilon = 10^{-8}$. Here are all three methods on two valleys, one narrow and one very narrow, each stopping when within 0.001 of the minimum:</p>
+<!--cell 1-->
+<p>Two lessons in one table. On the mildly narrow valley, <strong>momentum</strong> is fastest (17 steps against 47), and Adam is slowest (310). Adam takes steps of roughly fixed size $\eta$, so it crawls the final stretch unless its learning rate is decayed. But when the valley is 1,000 times steeper one way than the other, plain gradient descent needs 5,113 steps and momentum 2,977, while Adam still needs 310. Because it rescales every direction by its own gradient size, Adam hardly notices bad conditioning. That robustness, across very differently scaled weights, is why Adam is the default for deep networks. For convex problems with well-scaled features, simpler methods (or L-BFGS) are often better.</p>
+<div class="box tip"><div class="box-title">Adam vs AdamW</div><p>Adding an L2 penalty to the loss interacts badly with Adam's per-weight scaling: heavily updated weights end up barely regularised. <strong>AdamW</strong> applies weight decay directly to the weights instead, $\mathbf{w} \leftarrow \mathbf{w} - \eta\lambda\mathbf{w}$, separately from the adaptive step. It is the standard choice for training transformers.</p></div>
+
+<h3 id="deeper-schedules">Learning-rate schedules</h3>
+<p>With <strong>stochastic</strong> gradients, a constant learning rate never settles: each mini-batch's gradient is noisy, so the weights keep wobbling around the minimum. The classic theory (Robbins–Monro) says SGD converges if the learning rates add up to infinity (so you can travel anywhere) but their squares add up to a finite number (so the noise dies down). A rate like $\eta_t = \eta_0/(1 + t/T)$ does both.</p>
+<!--cell 2-->
+<p>With a constant rate, the loss stays 0.0074 above the best possible value and wobbles by 0.0047 from epoch to epoch. With the decaying schedule it ends only 0.0019 above, and the wobble almost vanishes (0.0001). Schedules used in practice:</p>
+<ul>
+<li><strong>Step decay</strong>: divide the rate by 10 every so many epochs.</li>
+<li><strong>Cosine decay</strong>: lower the rate smoothly along a cosine curve to near zero.</li>
+<li><strong>Warm-up</strong>: start tiny and increase over the first few hundred or thousand steps, then decay. Adam's early statistics are unreliable and large models are fragile at the start; warm-up is standard for transformers.</li>
+<li><strong>Reduce on plateau</strong>: cut the rate when the validation loss stops improving.</li>
+</ul>
+
+<h3 id="deeper-clipping">Gradient clipping</h3>
+<p>Occasionally a gradient is enormous: a steep cliff in the loss surface, a bad batch, or a recurrent network (Lesson 19) multiplying many large numbers. One such step can throw the weights far away and produce NaNs. <strong>Gradient clipping by norm</strong> rescales the gradient whenever its length exceeds a threshold, keeping its direction:</p>
+<p>$$\mathbf{g} \leftarrow \mathbf{g}\cdot\min\!\left(1,\ \frac{c}{\lVert\mathbf{g}\rVert}\right)$$</p>
+<!--cell 3-->
+<p>The gradient of length 500 keeps its direction but is shrunk to length 1. In PyTorch this is one line, <code>torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)</code>, and it's standard for recurrent networks and transformers.</p>
+
+<h3 id="deeper-choose">Choosing an optimiser</h3>
+<table class="tbl">
+<thead><tr><th>Situation</th><th>Good default</th></tr></thead>
+<tbody>
+<tr><td>Small or medium convex problem (linear or logistic regression)</td><td>Exact or quasi-Newton solvers (L-BFGS), as scikit-learn uses</td></tr>
+<tr><td>Huge dataset, simple model</td><td>Mini-batch SGD with momentum and a decaying schedule</td></tr>
+<tr><td>Deep network, first attempt</td><td>Adam or AdamW, learning rate about $10^{-3}$, with warm-up and decay</td></tr>
+<tr><td>Image models tuned for the best final accuracy</td><td>SGD with momentum 0.9 and cosine decay often generalises slightly better</td></tr>
+<tr><td>Loss suddenly becomes NaN</td><td>Lower the learning rate, add gradient clipping, check the inputs</td></tr>
+</tbody></table>
+<!--interview-->
+<!--quiz-->

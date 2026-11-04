@@ -1,0 +1,11 @@
+iteration 1: step size 1.78e+00
+iteration 2: step size 8.46e-01
+iteration 3: step size 1.09e+00
+iteration 4: step size 7.33e-01
+iteration 5: step size 3.00e-01
+iteration 6: step size 4.06e-02
+iteration 7: step size 6.29e-04
+iteration 8: step size 1.48e-07
+iteration 9: step size 7.89e-15
+ours:    [ 0.7707 -1.1797 -1.405  -1.8599 -1.5528 -1.7102]
+sklearn: [ 0.7707 -1.1797 -1.405  -1.8599 -1.5528 -1.7102]

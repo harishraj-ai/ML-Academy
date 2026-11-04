@@ -1,0 +1,42 @@
+
+<h2 id="deeper">Going deeper: comparing models honestly</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above teaches what each metric means. This section is about using them for decisions: how sure you can be about a test-set score, how to tell whether one model is <em>really</em> better than another, how to pick a threshold from the actual cost of mistakes, and why ROC-AUC can look reassuring while a rare-class model is struggling.</p>
+<p>You'll need: this lesson, plus the bootstrap and hypothesis tests from Lesson 4's "Going deeper".</p></div>
+
+<h3 id="deeper-ci">Every score needs an error bar</h3>
+<p>A test set is a sample, so a score computed on it is an estimate. With 171 test cases, a single unusual case moves accuracy by about 0.6 percentage points. For accuracy there's a formula (Lesson 4's "Going deeper": $\sqrt{p(1-p)/n}$); for AUC, F1 or precision, use the <strong>bootstrap</strong>: resample the test cases with replacement, recompute, repeat. When comparing two models, bootstrap the <em>difference</em> on the same resampled cases, because the two models' scores go up and down together.</p>
+<p>Here logistic regression and a depth-3 decision tree (Lesson 13) are trained on the breast-cancer data and compared on the same 171 test cases:</p>
+<!--cell 1-->
+<p>Logistic regression's AUC is 0.996 and the tree's is 0.904. The 95% interval for the difference, 0.046 to 0.15, doesn't include 0, so the gap is unlikely to be a fluke of this test set. Had the interval crossed 0, the honest conclusion would be "no clear winner".</p>
+
+<h3 id="deeper-mcnemar">Paired tests: McNemar's test</h3>
+<p>For accuracy on a shared test set, the standard test looks only at the cases where the two models <strong>disagree</strong>. Cases both get right, or both get wrong, say nothing about which is better. If the models were equally good, each disagreement would be a coin flip, so <strong>McNemar's test</strong> checks whether the split of disagreements is suspiciously lopsided:</p>
+<!--cell 2-->
+<p>Logistic regression got 11 cases right that the tree missed; the tree got only 1 right that logistic regression missed. If they were equally good, a split of 11 to 1 or more lopsided would happen with probability 0.0063, so we can be confident logistic regression is more accurate here. Two models with accuracies of 0.959 and 0.901 might or might not differ significantly on a <em>different</em> test set: it depends on how many cases they disagree on. When you compare models with cross-validation instead, the folds overlap, which makes ordinary t-tests over-confident; the corrected resampled t-test or the 5×2 cross-validation test are designed for that.</p>
+
+<h3 id="deeper-cost">Choosing the threshold from costs</h3>
+<p>The threshold is a business decision, not a statistics one. If a false negative costs $c_{FN}$ and a false positive costs $c_{FP}$, flagging a case with probability $p$ costs $c_{FP}(1-p)$ on average and not flagging it costs $c_{FN}\,p$. Flag whenever the second is bigger:</p>
+<p>$$p &gt; \frac{c_{FP}}{c_{FP} + c_{FN}}$$</p>
+<p>This only works if the probabilities are <strong>calibrated</strong> (Lesson 8's "Going deeper"). Suppose missing a malignant tumour costs 20 and a false alarm (an unnecessary follow-up test) costs 1. Then the threshold should be $1/21 \approx 0.048$, nowhere near 0.5:</p>
+<!--cell 3-->
+<p>At the default 0.5, three malignant cases are missed, for a total cost of 64. Lowering the threshold to 0.05, close to the theoretical 0.048, catches all of them at the price of 18 false alarms: total cost 18, less than a third. In a real project you'd choose the threshold on validation data and confirm it on the test set, rather than tuning on the test set as this small example does.</p>
+
+<h3 id="deeper-prevalence">ROC-AUC vs average precision when positives are rare</h3>
+<p>ROC curves plot the true-positive rate against the false-positive rate. Both are rates <em>within</em> a class, so the ROC curve doesn't change when one class becomes rarer. Precision does change: with few positives, even a small false-positive rate produces many false alarms compared with true hits. Below, the model's score distributions are identical in every row; only the share of positives changes:</p>
+<!--cell 4-->
+<p>ROC-AUC stays about 0.86 in every row. Average precision (the area under the precision–recall curve) falls from 0.855 to 0.136 as positives go from 50% to 1%. Neither number is wrong; they answer different questions. ROC-AUC asks "how well does the model rank a random positive above a random negative?" Average precision asks "when the model raises an alert, how often is it right?" For rare-event problems such as fraud, defects or rare diseases, the second is usually what the people using the alerts experience. Always compare average precision with its baseline, the share of positives (a random model's AP).</p>
+
+<h3 id="deeper-report">A reporting checklist</h3>
+<table class="tbl">
+<thead><tr><th>Report</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>The metric chosen <em>before</em> looking at results</td><td>Avoids picking whichever metric looks best</td></tr>
+<tr><td>A simple baseline (majority class, last value, linear model)</td><td>Shows whether the complex model earns its keep</td></tr>
+<tr><td>A confidence interval</td><td>A test set is a sample</td></tr>
+<tr><td>A paired comparison between models</td><td>Overlapping intervals don't prove "no difference"; paired tests are more sensitive</td></tr>
+<tr><td>The threshold and the reason for it</td><td>Precision and recall depend on it</td></tr>
+<tr><td>Results by subgroup</td><td>An average can hide groups the model fails (Lesson 21)</td></tr>
+</tbody></table>
+<!--interview-->
+<!--quiz-->

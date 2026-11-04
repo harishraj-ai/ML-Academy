@@ -1,0 +1,61 @@
+
+<h2 id="deeper">Going deeper: validation that you can trust</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above gives you the core habits: split your data, cross-validate, avoid leakage. This section covers the situations where those habits quietly break: when tuning itself inflates your score, when your rows aren't independent (time series, repeated customers), when you need to know whether more data would help, and when tomorrow's data no longer looks like yesterday's. Each one is a common cause of models that look great in testing and disappoint in production.</p>
+<p>You'll need: k-fold cross-validation and data leakage from this lesson.</p></div>
+
+<h3 id="deeper-nested">Tuning inflates scores: nested cross-validation</h3>
+<p>When you try many settings and keep the one with the best cross-validated score, that best score is <strong>optimistic</strong>. Some settings win partly by luck on these particular folds, the same way the best of 20 coin-flippers looks skilled. Lesson 4's "Going deeper" called this multiple testing. The honest fix is <strong>nested cross-validation</strong>:</p>
+<ul>
+<li>An <strong>inner</strong> loop chooses the settings, using only the training part of each outer fold.</li>
+<li>An <strong>outer</strong> loop scores the whole procedure ("tune, then fit") on data the tuning never saw.</li>
+</ul>
+<p>Below, a support-vector classifier (Lesson 15) is tuned over 25 combinations of settings on a small, noisy dataset:</p>
+<!--cell 1-->
+<p>The search reports 0.633, but the nested estimate is 0.608. The gap grows with the number of settings you try and shrinks with more data. Nested CV is the right way to <em>report</em> a tuned model's performance. To build the final model, you still run the ordinary search on all the data. Nested CV tells you how well that recipe is likely to do.</p>
+
+<h3 id="deeper-dependent">When rows aren't independent: time and groups</h3>
+<p>Ordinary k-fold assumes each row is an independent draw. Two very common cases break that:</p>
+<ul>
+<li><strong>Time series.</strong> Neighbouring days look alike. A shuffled split puts Tuesday in training and Wednesday in validation, so the model just "remembers" the nearby level, which it won't be able to do for next month.</li>
+<li><strong>Groups.</strong> Several rows per customer, patient or house. If one customer's rows land on both sides of the split, the model learns that person rather than the pattern.</li>
+</ul>
+<p>Here's a daily sales series that drifts slowly over time, scored both ways with a random forest (Lesson 14):</p>
+<!--cell 2-->
+<p>Shuffled k-fold says $R^2 = 0.957$: superb. A <strong>time-ordered split</strong> (<code>TimeSeriesSplit</code>, which always trains on the past and validates on the future) says $-0.609$: worse than predicting the average. The random forest can't extrapolate a drifting trend at all, and the shuffled split hid that completely. For grouped data, the same idea is <code>GroupKFold</code>: all of one group's rows go to the same side of the split. For time series with groups, combine them. A useful rule: <strong>split the way the model will be used</strong>.</p>
+
+<h3 id="deeper-learning-curves">Learning curves: would more data help?</h3>
+<p>Collecting data is expensive, so it's worth checking first whether it would help. A <strong>learning curve</strong> trains on growing subsets of the data and plots training and validation scores against training-set size:</p>
+<!--cell 3-->
+<p>How to read it:</p>
+<ul>
+<li><strong>Big gap, validation still rising</strong> (high variance): more data is likely to help. Here, validation accuracy climbs from 0.916 with 22 examples to 0.981 with 455, and the gap to training (0.989) is now small.</li>
+<li><strong>Both curves low and close together</strong> (high bias): more data won't help much. You need a more flexible model or better features.</li>
+<li><strong>Both flat and close, both high</strong>: you're near the limit for this model and these features.</li>
+</ul>
+<p>This is the bias–variance trade-off (Lesson 10) made visible. It answers a question that cross-validation alone can't.</p>
+
+<h3 id="deeper-shift">When the world changes: distribution shift</h3>
+<p>All validation assumes future data comes from the same distribution as your training data. In practice it often drifts:</p>
+<ul>
+<li><strong>Covariate shift</strong>: the inputs change, but the relationship stays (a new city with bigger homes).</li>
+<li><strong>Label shift</strong>: the class balance changes (fraud rises during a holiday season).</li>
+<li><strong>Concept drift</strong>: the relationship itself changes (after a rule change, the same features mean something else).</li>
+</ul>
+<p>A neat trick to detect the first kind is <strong>adversarial validation</strong>. Label training rows 0 and new rows 1, and train a classifier to tell them apart. If it can't (AUC near 0.5), the two look alike. If it can, the shift is real, and its feature importances show <em>where</em> it is.</p>
+<!--cell 4-->
+<p>With no shift, the AUC is 0.540, close to chance, and the importances are evenly spread. When feature 0 drifts by 0.8 standard deviations, the AUC jumps to 0.695 and feature 0's importance rises to 0.59, pointing straight at the culprit. In production, teams monitor this kind of drift continuously and retrain when it appears (Lesson 20).</p>
+
+<h3 id="deeper-checklist">A validation checklist</h3>
+<table class="tbl">
+<thead><tr><th>Situation</th><th>Use</th></tr></thead>
+<tbody>
+<tr><td>Reporting a tuned model's score</td><td>Nested CV, or a test set used once at the very end</td></tr>
+<tr><td>Data ordered in time</td><td>Time-ordered splits (<code>TimeSeriesSplit</code>); never shuffle</td></tr>
+<tr><td>Several rows per person, item or place</td><td><code>GroupKFold</code></td></tr>
+<tr><td>Rare classes</td><td>Stratified splits (<code>StratifiedKFold</code>)</td></tr>
+<tr><td>Deciding whether to collect more data</td><td>A learning curve</td></tr>
+<tr><td>New data might differ from training data</td><td>Adversarial validation and drift monitoring</td></tr>
+</tbody></table>
+<!--interview-->
+<!--quiz-->
