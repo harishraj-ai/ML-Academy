@@ -1,0 +1,4 @@
+least-squares value   3.0 -> lasso value   2.0    ridge value  1.50
+least-squares value   0.8 -> lasso value   0.0    ridge value  0.40
+least-squares value  -0.3 -> lasso value   0.0    ridge value -0.15
+least-squares value  -2.5 -> lasso value  -1.5    ridge value -1.25

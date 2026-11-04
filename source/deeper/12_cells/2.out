@@ -1,0 +1,2 @@
+most spam-like: [('win', 1.07), ('cash', 1.07), ('now', 1.07), ('prize', 1.07)]
+most ham-like:  [('monday', -1.12), ('meeting', -1.12), ('at', -0.72), ('attached', -0.72)]

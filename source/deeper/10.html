@@ -1,0 +1,36 @@
+
+<h2 id="deeper">Going deeper: regularization in practice</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above explains bias, variance, ridge and lasso. This section measures bias and variance directly, shows the one-line rule behind lasso's zeros, chooses the penalty automatically with cross-validation, explains why lasso is unstable with correlated features (and how elastic net fixes it), and covers two "hidden" regularizers: early stopping and the surprising double-descent curve.</p>
+<p>You'll need: this lesson, norms from Lesson 2's "Going deeper", and MAP estimation from Lesson 4's.</p></div>
+
+<h3 id="deeper-measure">Measuring bias and variance</h3>
+<p>The decomposition in this lesson says expected test error $=$ bias² $+$ variance $+$ noise. We can measure each part by simulation: draw many fresh training sets from the same source, fit the model to each, and look at the predictions at fixed test points. Their <em>average</em> compared with the truth gives bias²; their <em>spread</em> gives the variance. Below, a degree-9 polynomial is fitted with ridge to 20 noisy points from a sine curve (noise variance $0.3^2 = 0.09$), 300 times for each $\lambda$:</p>
+<!--cell 1-->
+<p>With almost no penalty, bias² is tiny (0.001) but the variance is huge (1.133): each training set gives a wildly different curve. A strong penalty ($\lambda = 10$) flattens every curve, so variance falls to 0.025 but bias² rises to 0.335. The best total, 0.240, is in between at $\lambda = 0.1$. This is the U-shaped trade-off from this lesson, now with real numbers.</p>
+
+<h3 id="deeper-soft">Why lasso gives exact zeros: soft-thresholding</h3>
+<p>Consider one weight with the others held fixed, and suppose least squares alone would set it to $z$ (with standardised features). Adding the penalties gives closed-form answers:</p>
+<p>$$\text{ridge: } w = \frac{z}{1 + \lambda}, \qquad \text{lasso: } w = \operatorname{sign}(z)\,\max\big(|z| - \lambda,\ 0\big)$$</p>
+<p>Ridge <em>scales</em> every weight down by the same factor; it never reaches zero. Lasso <em>subtracts</em> a fixed amount and stops at zero: any weight whose least-squares value is smaller than $\lambda$ becomes exactly 0. This is called <strong>soft-thresholding</strong>.</p>
+<!--cell 2-->
+<p>With $\lambda = 1$, lasso turns 3.0 into 2.0, but 0.8 and −0.3 become exactly 0, while ridge halves everything. Lasso solvers such as scikit-learn's use <strong>coordinate descent</strong>: cycle through the weights, apply this rule to each in turn (using the current residuals), and repeat until nothing changes. It's fast, and it's why the lasso can be fitted for many values of $\lambda$ in one go (the "regularization path").</p>
+
+<h3 id="deeper-cv">Choosing the penalty automatically</h3>
+<p><code>RidgeCV</code>, <code>LassoCV</code> and <code>ElasticNetCV</code> fit a whole grid of penalties and pick the best by cross-validation, reusing work along the path so it costs little more than a single fit. <strong>Elastic net</strong> mixes the two penalties: $\lambda\big(\rho\lVert\mathbf{w}\rVert_1 + \frac{1-\rho}{2}\lVert\mathbf{w}\rVert_2^2\big)$, where $\rho$ is <code>l1_ratio</code>.</p>
+<!--cell 3-->
+<p>On the standardised diabetes data, cross-validation picks a fairly light lasso ($\alpha \approx 0.079$, keeping 9 of the 10 weights), and an elastic net that is mostly lasso ($\rho = 0.9$, keeping 8). That makes sense: with only 10 features and 442 patients, little regularization is needed. Remember from Lesson 5's "Going deeper" that the CV score at the chosen penalty is slightly optimistic; nested CV gives the honest estimate.</p>
+
+<h3 id="deeper-unstable">Lasso and correlated features: why elastic net exists</h3>
+<p>When two features carry almost the same information, lasso tends to keep one and drop the other, and <em>which</em> one it keeps can flip with small changes in the data. Here, <code>a</code> and <code>b</code> are two noisy measurements of the same quantity, equally useful. We refit lasso on 200 bootstrap samples:</p>
+<!--cell 4-->
+<p>Lasso kept only <code>a</code> 47 times, only <code>b</code> 63 times, and both 90 times. If you reported "lasso selected feature a" from one fit, the next dataset might well say b. The L2 part of <strong>elastic net</strong> makes the penalty strictly convex, which spreads the weight evenly over correlated features (0.89 each here) and keeps groups of related features together. So: use lasso when you believe only a few features matter and they aren't strongly correlated; use elastic net when features come in correlated groups (genes, pixels, words, survey questions). And never treat a single lasso fit's feature selection as stable truth: check it on bootstrap samples, as above.</p>
+
+<h3 id="deeper-early">Early stopping is regularization too</h3>
+<p>When a model is trained by gradient descent starting from zero weights, the weights grow gradually. Stopping early, when the validation loss stops improving, keeps them small, much like an L2 penalty. For linear regression the link is exact in a simple case: $k$ gradient-descent steps with learning rate $\eta$ behave approximately like ridge with $\lambda \approx 1/(k\eta)$. Fewer steps means stronger regularization. This is why early stopping is standard for neural networks (Lesson 19) and gradient boosting (Lesson 14), where the number of trees plays the role of the number of steps.</p>
+
+<h3 id="deeper-double">Double descent: when bigger models get better again</h3>
+<p>The classical U-curve says test error rises once a model is complex enough to fit the noise. Modern experiments found something extra: if you keep increasing the number of parameters past the point where the model can fit the training data <em>exactly</em> (the "interpolation threshold", roughly where parameters equal data points), the test error peaks there and then <strong>falls again</strong>. This is <strong>double descent</strong>.</p>
+<p>The explanation: right at the threshold there's exactly one way to fit all the points, and it's usually a wild one. With many more parameters than needed, there are infinitely many perfect fits, and gradient descent (or the minimum-norm solution, the pseudo-inverse from Lesson 2's "Going deeper") picks the <em>smoothest</em> one: the one with the smallest weights. That's an implicit regularizer. It helps explain why huge neural networks generalise despite having far more parameters than examples. Explicit regularization (a well-tuned ridge penalty) largely removes the peak.</p>
+<!--interview-->
+<!--quiz-->

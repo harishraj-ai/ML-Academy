@@ -1,0 +1,39 @@
+
+<h2 id="deeper">Going deeper: pruning, honest importances and instability</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above grows a tree and limits its depth. This section covers the principled way to shrink a tree (<strong>cost-complexity pruning</strong>, chosen by cross-validation), why the feature importances printed by tree libraries can mislead you (and the honest alternative), and the trees' biggest weakness, <strong>instability</strong>, which is exactly what random forests and boosting (Lesson 14) are designed to fix.</p>
+<p>You'll need: this lesson, cross-validation from Lesson 5 and the bootstrap from Lesson 4's "Going deeper".</p></div>
+
+<h3 id="deeper-pruning">Cost-complexity pruning</h3>
+<p>Limits like <code>max_depth</code> stop growth early, but a split that looks useless can enable a very useful split below it. <strong>Pruning</strong> grows the full tree first, then cuts back. Cost-complexity pruning scores a tree $T$ by its training error plus a price per leaf:</p>
+<p>$$R_\alpha(T) = R(T) + \alpha\,|\text{leaves}(T)|$$</p>
+<p>For each $\alpha$ there's a best subtree. As $\alpha$ grows, branches whose improvement isn't worth their extra leaves are removed one at a time ("weakest-link" pruning), giving a nested sequence of smaller and smaller trees. Scikit-learn computes the whole sequence:</p>
+<!--cell 1-->
+<p>The full tree (16 leaves) fits the training data perfectly but scores 0.906 on the test set. Pruning to 6 leaves gives up a little training accuracy and <em>improves</em> the test score to 0.918; pruning to 3 leaves goes too far (0.889). It's the bias–variance trade-off again (Lesson 10), with $\alpha$ as the knob. Choose $\alpha$ by cross-validation on the training set only:</p>
+<!--cell 2-->
+<p>Cross-validation picks $\alpha \approx 0.0088$, the 6-leaf tree, which scores 0.918 on the untouched test set.</p>
+
+<h3 id="deeper-importance">Feature importance: impurity vs permutation</h3>
+<p>The default <code>feature_importances_</code> adds up how much each feature reduced impurity across all splits (the "mean decrease in impurity"). Two problems:</p>
+<ul>
+<li>It's measured on the <strong>training</strong> data, so splits that only memorise noise still earn credit.</li>
+<li>It's biased towards features with <strong>many distinct values</strong> (continuous numbers, IDs), because they offer many possible split points and some will fit noise well by chance.</li>
+</ul>
+<p><strong>Permutation importance</strong> fixes both. On held-out data, shuffle one feature's column, breaking its link to the target, and measure how much the score drops. A feature the model truly relies on causes a big drop; a useless one causes none. Here we add a column of pure noise with a different value on every row, like a customer ID:</p>
+<!--cell 3-->
+<p>Impurity importance ranks the meaningless noise column <strong>6th of 31</strong>, ahead of 25 real medical measurements. Permutation importance on the test data gives it exactly 0. Use permutation importance (or SHAP values) when you report which features matter. Two further cautions: when features are correlated, shuffling one lets the model lean on its partner, so both can look unimportant; and importance means "the model uses it", not "it causes the outcome".</p>
+
+<h3 id="deeper-instability">Trees are unstable</h3>
+<p>Because each split is chosen greedily and every later split depends on it, a small change in the data can change the top split, and with it the whole tree. Here we grow a tree on 100 bootstrap samples of the same training data and record the feature used at the root:</p>
+<!--cell 4-->
+<p>Five different features end up at the root: "worst perimeter" 52 times, "worst concave points" 30 times, and three others. Each tree tells a different story, so explaining a decision by reading a single tree's structure is fragile. This high variance is the weakness that <strong>bagging</strong> and <strong>random forests</strong> (Lesson 14) exploit: average many unstable trees and the variance cancels, while keeping their low bias.</p>
+
+<h3 id="deeper-details">Practical details worth knowing</h3>
+<ul>
+<li><strong>Regression trees</strong> choose splits that most reduce the squared error, and predict the average of each leaf. They can't extrapolate beyond the training range (Lesson 5's "Going deeper" showed this with a forest).</li>
+<li><strong>Categorical features.</strong> Scikit-learn trees need numbers; one-hot encoding works, though very many categories make splits weak. LightGBM and CatBoost can split categories directly.</li>
+<li><strong>Missing values.</strong> Recent scikit-learn trees can learn which side missing values should go to; gradient-boosting libraries have done this for years.</li>
+<li><strong>Finding the best tree is hard.</strong> Finding the smallest accurate tree is NP-hard, which is why every library grows trees greedily, one split at a time.</li>
+</ul>
+<!--interview-->
+<!--quiz-->

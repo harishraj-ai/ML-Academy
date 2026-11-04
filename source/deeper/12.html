@@ -1,0 +1,43 @@
+
+<h2 id="deeper">Going deeper: smoothing, text pipelines and generative models</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>Naive Bayes is still a strong, fast baseline for text. This section explains where its smoothing rule really comes from, how to read what it has learned, how a real text pipeline is built (TF-IDF and word pairs), and the big idea it represents: <strong>generative</strong> models, which learn how each class produces data, compared with <strong>discriminative</strong> models such as logistic regression, which learn the boundary directly.</p>
+<p>You'll need: this lesson, and Bayesian estimation with priors from Lesson 4's "Going deeper".</p></div>
+
+<h3 id="deeper-smoothing">Where smoothing comes from</h3>
+<p>Without smoothing, a word never seen in one class gets probability 0 for that class, and a single such word wipes out all the other evidence. In this tiny spam example, both new messages contain words that appeared in only one class:</p>
+<!--cell 1-->
+<p>With essentially no smoothing ($\alpha = 10^{-10}$) the answers are absurdly certain, exactly 0 and 1, decided by one unseen word each. With $\alpha = 1$ (Laplace smoothing) they become sensible: 0.184 and 0.735. The smoothing formula,</p>
+<p>$$P(\text{word } j \mid c) = \frac{\text{count}_{j,c} + \alpha}{\text{total}_c + \alpha V}$$</p>
+<p>where $V$ is the vocabulary size, is not an arbitrary fix. It is the <strong>Bayesian posterior mean</strong> when the word probabilities get a symmetric <strong>Dirichlet</strong> prior, which is the many-category version of the Beta prior in Lesson 4's "Going deeper". Adding $\alpha$ to every count is like having seen every word $\alpha$ extra times before training. $\alpha$ is a regularization strength: tune it by cross-validation (values between 0.01 and 1 are common for text).</p>
+
+<h3 id="deeper-read">Reading what the model learned</h3>
+<p>Naive Bayes is easy to interpret. For each word, the log-ratio $\log P(\text{word}\mid\text{spam}) - \log P(\text{word}\mid\text{ham})$ is exactly how much that word adds to the spam score each time it appears:</p>
+<!--cell 2-->
+<p>"win", "cash", "now" and "prize" each add 1.07 to the log-odds of spam; "monday" and "meeting" subtract 1.12. Notice the classifier is <strong>linear in the word counts</strong>: the log-odds is a weighted sum of counts plus a constant (the log prior ratio). Multinomial naive Bayes is a linear classifier, just like logistic regression, but with its weights set by counting rather than by optimisation.</p>
+
+<h3 id="deeper-pipeline">A realistic text pipeline</h3>
+<p>Real text classifiers usually add three things:</p>
+<ul>
+<li><strong>Word pairs (bigrams)</strong>, so "not good" isn't treated as "not" plus "good".</li>
+<li><strong>TF-IDF weighting</strong>: term frequency × inverse document frequency. Words that appear in almost every document ("the", "to") are down-weighted, and distinctive words count more.</li>
+<li><strong>Complement naive Bayes</strong>: estimates each class's word statistics from all the <em>other</em> classes. It's more stable when classes are imbalanced, and often beats standard multinomial NB on text.</li>
+</ul>
+<!--cell 3-->
+<p>Even on 8 training messages the pipeline classifies both new ones correctly, using 47 features (words plus word pairs). On real datasets with thousands of documents, this kind of pipeline trains in seconds and is a hard baseline to beat without much more expensive models. Try a linear SVM or logistic regression on the same TF-IDF features too; on text, they're often slightly more accurate. Modern alternatives replace TF-IDF with learned embeddings or a fine-tuned transformer (Lesson 19).</p>
+
+<h3 id="deeper-generative">Generative vs discriminative models</h3>
+<p>Naive Bayes is a <strong>generative</strong> model: it learns $P(\mathbf{x}\mid y)$ and $P(y)$, a story of how each class <em>produces</em> data, and then uses Bayes' theorem to get $P(y\mid\mathbf{x})$. Logistic regression is <strong>discriminative</strong>: it models $P(y\mid\mathbf{x})$ directly and never describes $\mathbf{x}$ itself. The two can be exact counterparts. Gaussian naive Bayes with a shared variance per feature produces a log-odds that is linear in $\mathbf{x}$, the same form as logistic regression.</p>
+<table class="tbl">
+<thead><tr><td></td><th>Generative (naive Bayes, LDA, mixture models)</th><th>Discriminative (logistic regression, SVM, neural nets)</th></tr></thead>
+<tbody>
+<tr><td>Learns</td><td>How each class generates features</td><td>The boundary between classes</td></tr>
+<tr><td>With little data</td><td>Often reaches its best accuracy sooner</td><td>Needs more data</td></tr>
+<tr><td>With lots of data</td><td>Limited by wrong assumptions</td><td>Usually more accurate</td></tr>
+<tr><td>Missing features</td><td>Handled naturally (leave them out of the product)</td><td>Need imputation</td></tr>
+<tr><td>Can generate new examples</td><td>Yes</td><td>No</td></tr>
+<tr><td>Probabilities</td><td>Often badly calibrated (Lesson 8's "Going deeper")</td><td>Usually better calibrated</td></tr>
+</tbody></table>
+<p>A well-known analysis (Ng and Jordan, 2001) showed that naive Bayes approaches its <em>own</em> best error with far fewer examples (roughly logarithmic in the number of features), while logistic regression needs more (roughly linear) but ends lower when the independence assumption is wrong. In practice: with very few labelled examples, or as a quick baseline, try naive Bayes; with plenty of data, a discriminative model usually wins. Today's generative AI (Lesson 19) is the generative idea at enormous scale: models of $P(\mathbf{x})$ that can produce new text or images.</p>
+<!--interview-->
+<!--quiz-->

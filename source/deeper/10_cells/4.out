@@ -1,0 +1,2 @@
+lasso, 200 bootstrap samples: {'only a': 47, 'only b': 63, 'both': 90}
+elastic net weights on the full data: [0.89 0.89]

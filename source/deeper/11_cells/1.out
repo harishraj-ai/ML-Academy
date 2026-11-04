@@ -1,0 +1,4 @@
+   2 dimensions: nearest   0.01   farthest   1.33   ratio 135.62
+  10 dimensions: nearest   0.47   farthest   2.11   ratio  4.48
+ 100 dimensions: nearest   3.35   farthest   4.65   ratio  1.39
+1000 dimensions: nearest  12.17   farthest  13.55   ratio  1.11

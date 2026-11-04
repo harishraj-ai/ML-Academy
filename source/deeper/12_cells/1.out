@@ -1,0 +1,2 @@
+alpha 1e-10: P(spam) for the two new messages [0. 1.]
+alpha 1: P(spam) for the two new messages [0.184 0.735]

@@ -1,0 +1,36 @@
+
+<h2 id="deeper">Going deeper: distances, dimensions and fast neighbour search</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>kNN is simple to describe but has three practical questions that the lesson above only touches on: why it breaks down with many features (the curse of dimensionality, measured), which distance and weighting to use, and how to find neighbours quickly in millions of points. The last one matters far beyond kNN: modern search engines, recommendation systems and the "retrieval" step of LLM applications all rely on fast neighbour search over embeddings.</p>
+<p>You'll need: this lesson, and norms from Lesson 2's "Going deeper".</p></div>
+
+<h3 id="deeper-concentration">The curse of dimensionality, measured</h3>
+<p>kNN assumes that "nearest" means "similar". In high dimensions that assumption weakens, because distances <strong>concentrate</strong>: all points end up almost the same distance away. Here are 1,000 random points in a unit cube and one query point:</p>
+<!--cell 1-->
+<p>In 2 dimensions the farthest point is 136 times farther than the nearest. In 1,000 dimensions the ratio is only 1.11: the "nearest" neighbour is barely nearer than the farthest, so it carries little information. The intuition: each dimension adds a little independent random difference, and sums of many random differences are all close to their average (the central limit theorem again, Lesson 4's "Going deeper").</p>
+<p>Real data is rescued by the fact that it rarely fills all its dimensions. Images, text embeddings and sensor readings usually lie near a much lower-dimensional surface (the <strong>manifold hypothesis</strong>), so their <em>intrinsic</em> dimension is small. That's why reducing dimensions first (PCA, Lesson 17) or using learned embeddings often makes kNN work well again.</p>
+
+<h3 id="deeper-metric">Choosing the distance and the weighting</h3>
+<p>Three common distances:</p>
+<ul>
+<li><strong>Euclidean</strong> (L2): the default for measurements on comparable, standardised scales.</li>
+<li><strong>Manhattan</strong> (L1): less dominated by a single large difference; sometimes better with many features or outliers.</li>
+<li><strong>Cosine distance</strong>, $1 - \cos\theta$: compares directions and ignores length. The standard for text and embeddings, where a document twice as long shouldn't count as "farther".</li>
+</ul>
+<p><strong>Distance weighting</strong> lets closer neighbours count more (weight $1/d$) instead of every one of the $k$ getting an equal vote. It makes the result less sensitive to the exact choice of $k$. On the standardised breast-cancer data with $k = 15$:</p>
+<!--cell 2-->
+<p>All six combinations land between 0.954 and 0.963. On this dataset the choice hardly matters, which is common once features are standardised; the gaps are within cross-validation noise (Lesson 9's "Going deeper"). The things that matter most for kNN are, in order: scaling the features, choosing $k$ by cross-validation, and using meaningful features. The metric is worth tuning mainly for text, images or mixed data types.</p>
+
+<h3 id="deeper-search">Finding neighbours fast</h3>
+<p>Brute-force kNN compares a query with all $n$ stored points: $O(nd)$ work per query, too slow for millions of points answered in milliseconds. Two families of solutions:</p>
+<ul>
+<li><strong>Space-partitioning trees</strong> (k-d trees and ball trees) split space into nested boxes or balls. A search walks down to the query's box and skips whole regions that can't contain anything closer than the best point found so far. This is <em>exact</em> and very fast in low dimensions (roughly $O(\log n)$ per query), but the benefit fades above about 20 dimensions, again because of distance concentration.</li>
+<li><strong>Approximate nearest-neighbour</strong> (ANN) methods trade a little accuracy for huge speed-ups in high dimensions. Graph-based methods such as HNSW hop through a "small world" graph linking each point to its near neighbours. Others use clustering or quantization (as in the FAISS library). They typically find over 95% of the true neighbours, thousands of times faster. Vector databases are built on them.</li>
+</ul>
+<!--cell 3-->
+<p>On 200,000 points in 3 dimensions, the k-d tree finds exactly the same neighbours as brute force, much faster. (Exact timings depend on your computer, so the code only prints whether it was faster; try printing <code>times</code> to see them.) Scikit-learn's default, <code>algorithm="auto"</code>, picks brute force, a k-d tree or a ball tree based on the data's size and dimension.</p>
+
+<h3 id="deeper-theory">How good can kNN get?</h3>
+<p>A classic result (Cover and Hart, 1967): as the amount of data grows, the error of 1-nearest-neighbour is at most <strong>twice the Bayes error</strong>, the error of the best possible classifier for that problem. With $k$ growing slowly as $n$ grows (so $k \to \infty$ but $k/n \to 0$), kNN's error approaches the Bayes error itself. kNN is therefore <em>consistent</em>: with enough data it can learn any decision boundary. The catch, as above, is how much data "enough" is when there are many dimensions.</p>
+<!--interview-->
+<!--quiz-->

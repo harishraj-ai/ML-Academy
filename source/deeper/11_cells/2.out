@@ -1,0 +1,6 @@
+euclidean uniform : accuracy 0.961
+euclidean distance: accuracy 0.963
+manhattan uniform : accuracy 0.954
+manhattan distance: accuracy 0.956
+cosine    uniform : accuracy 0.963
+cosine    distance: accuracy 0.963

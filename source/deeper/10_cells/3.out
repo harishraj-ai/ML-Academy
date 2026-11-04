@@ -1,0 +1,2 @@
+lasso: best alpha 0.079  non-zero weights 9 of 10
+elastic net: best alpha 0.217  l1_ratio 0.9  non-zero 8

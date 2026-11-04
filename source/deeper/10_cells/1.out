@@ -1,0 +1,4 @@
+lambda   1e-06: bias² 0.001   variance 1.133   expected error 1.224
+lambda   1e-03: bias² 0.028   variance 0.153   expected error 0.270
+lambda   1e-01: bias² 0.100   variance 0.050   expected error 0.240
+lambda   1e+01: bias² 0.335   variance 0.025   expected error 0.450
