@@ -1,0 +1,3 @@
+plan without an index: SCAN viewings
+plan with an index:    SEARCH viewings USING COVERING INDEX idx_house (house_id=?)
+viewings of house 42: 37

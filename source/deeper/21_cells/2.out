@@ -1,0 +1,2 @@
+one threshold 0.5 for both  : TPR A 0.232 / B 0.631   FPR A 0.060 / B 0.362   accuracy A 0.736
+threshold 0.305 for group A : TPR A 0.634 / B 0.631   FPR A 0.320 / B 0.362   accuracy A 0.667

@@ -1,0 +1,22 @@
+
+<h2 id="deeper">Going deeper: indexes, NULL logic and rolling features</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>Three things that separate working SQL from good SQL: making queries fast on big tables (<strong>indexes</strong> and query plans), understanding how <code>NULL</code> really behaves (it trips up even experienced analysts), and building <strong>rolling time-window features</strong> with window frames, which is how many production feature pipelines are written.</p>
+<p>You'll need: this lesson.</p></div>
+
+<h3 id="deeper-index">Indexes and query plans</h3>
+<p>Without help, the database answers "find house 42's viewings" by reading every row: a <strong>full scan</strong>. An <strong>index</strong> is a sorted lookup structure (usually a B-tree) on one or more columns; with it the database can jump straight to the matching rows in about $\log n$ steps instead of $n$. <code>EXPLAIN QUERY PLAN</code> shows which strategy the database chose:</p>
+<!--cell 1-->
+<p>On 200,000 viewings, the plan changes from <code>SCAN</code> (read everything) to <code>SEARCH ... USING COVERING INDEX</code> (jump to house 42's 37 rows). "Covering" means the index alone contains every column the query needs, so the table itself isn't read at all. Index the columns you filter and join on most. Indexes cost disk space and slow down inserts, so don't index everything. On analytical warehouses (BigQuery, Snowflake) the equivalents are partitioning and clustering, and you pay per data scanned, so filtering on the partition column (usually a date) saves real money.</p>
+
+<h3 id="deeper-null">NULL: three-valued logic</h3>
+<p>In SQL, <code>NULL</code> means "unknown", and a comparison with an unknown value is itself unknown, neither true nor false. <code>WHERE</code> keeps only rows where the condition is <em>true</em>:</p>
+<!--cell 2-->
+<p>Row 1 (discount 10) passes <code>discount &gt; 5</code>. But <code>NOT (discount &gt; 5)</code> returns only row 3, not rows 2, 3 and 4: for the NULL rows, "unknown" negated is still unknown. <code>discount = NULL</code> matches nothing at all; only <code>IS NULL</code> finds the missing values. Aggregates skip NULLs: <code>COUNT(discount)</code> is 2, not 4, and <code>AVG</code> averages only the two known values (5.0), which is different from treating missing as 0 (that would give 2.5). Decide explicitly what missing means, and use <code>COALESCE(discount, 0)</code> only when it truly means zero.</p>
+
+<h3 id="deeper-rolling">Rolling features with window frames</h3>
+<p>A window frame such as <code>ROWS BETWEEN 6 PRECEDING AND CURRENT ROW</code> limits the window to the current row and the six before it, giving a rolling 7-day total. <code>LAG</code> fetches the previous row's value. Together they produce standard time-series features (Lesson 26) directly in the database:</p>
+<!--cell 3-->
+<p>On day 9, <code>views_7d</code> is 9: the views from days 3 to 9 ($1 + 0 + 3 + 1 + 0 + 0 + 4$). Day 1 has no previous day, so <code>views_yesterday</code> is NULL (shown as NaN in pandas). Two cautions for ML: if the prediction for day $d$ is made at the <em>start</em> of day $d$, the frame must end at the previous row (<code>1 PRECEDING</code>), not <code>CURRENT ROW</code>, or the day's own views leak in. And <code>ROWS</code> counts rows, not days: with missing days, use <code>RANGE BETWEEN 6 PRECEDING AND CURRENT ROW</code> on a numeric day column, or fill in the missing days first.</p>
+<!--interview-->
+<!--quiz-->

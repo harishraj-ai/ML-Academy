@@ -13,6 +13,7 @@ spec = importlib.util.spec_from_file_location("b", os.path.join(HERE, "build.py"
 src = open(os.path.join(HERE, "build.py")).read()
 LESSONS = eval(re.search(r"LESSONS = (\[.*?\n\])", src, re.S).group(1))
 import lesson21_data; LESSONS.append(lesson21_data.L21)
+import part6; LESSONS += part6.LESSONS
 
 CODE_RE = re.compile(r"^\s*(import |from \S+ import )|\bprint\(|\bdef | = ", re.M)
 
@@ -80,7 +81,7 @@ for (n, p, title, summary, mins) in [LESSON0] + LESSONS:
             ns = {}
             with contextlib.redirect_stdout(io.StringIO()): exec(fill(code, sol), ns)
             want = ns[name]
-            want_src = repr(want.tolist() if hasattr(want, "tolist") else (float(want) if not isinstance(want, (int, float)) else want))
+            want_src = repr(want.tolist() if hasattr(want, "tolist") else (want if isinstance(want, (int, float, list)) else float(want)))
             chk = f"check({name}, {want_src}, hint={hint!r}" + (f", atol={atol}" if atol else "") + ")"
             nb.cells.append(new_markdown_cell(f"### Challenge {k+1}: {title_}\n\n{task}"))
             nb.cells.append(new_code_cell(fill(code, starter_of(ch)) + "\n" + chk))

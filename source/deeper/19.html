@@ -1,0 +1,43 @@
+
+<h2 id="deeper">Going deeper: attention and residual connections, from scratch</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>Two ideas power nearly every modern architecture, from image models to large language models: <strong>attention</strong>, which lets each part of the input decide which other parts matter, and <strong>residual connections</strong>, which make networks with hundreds of layers trainable. This section builds both in a few lines of NumPy, measures why attention divides by $\sqrt{d}$, and explains how pretrained models are adapted to new tasks.</p>
+<p>You'll need: this lesson, the softmax from Lesson 8, and vanishing gradients from Lesson 18's "Going deeper".</p></div>
+
+<h3 id="deeper-attention">Attention, step by step</h3>
+<p>Each token (a word piece, or an image patch) is a vector. Three learned matrices turn it into a <strong>query</strong> ("what am I looking for?"), a <strong>key</strong> ("what do I contain?") and a <strong>value</strong> ("what will I pass on?"). Each token's output is a weighted average of all the values, where the weights come from how well its query matches each key:</p>
+<p>$$\operatorname{Attention}(Q, K, V) = \operatorname{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V$$</p>
+<!--cell 1-->
+<p>Row $i$ of the weight matrix shows how much token $i$ attends to each token, and each row adds up to 1. Token 2 (the second row) puts 78% of its attention on token 1, while token 3 spreads its attention almost evenly. Every token's output is computed in parallel by matrix products, which is why transformers train so efficiently on GPUs compared with RNNs, which must process one step at a time. <strong>Multi-head attention</strong> runs several of these in parallel with different matrices, so different heads can track different relationships (grammar, meaning, position), and concatenates their outputs.</p>
+
+<h3 id="deeper-scaling">Why divide by $\sqrt{d_k}$, measured</h3>
+<p>If query and key entries have variance 1, their dot product over $d$ dimensions has variance $d$, so its spread grows like $\sqrt{d}$. Large scores push the softmax towards a one-hot choice, where its gradients are almost zero, and learning stalls. Dividing by $\sqrt{d}$ brings the spread back to about 1. Here each query is compared with 10 random keys:</p>
+<!--cell 2-->
+<p>Unscaled, the average largest weight climbs from 0.62 at $d = 8$ to 0.95 at $d = 512$: almost every query locks onto a single key. Scaled, it stays about 0.31 at every size, so attention stays soft and trainable. (This lesson's "Advanced" box derives the variance argument.)</p>
+
+<h3 id="deeper-residual">Residual connections</h3>
+<p>A <strong>residual block</strong> computes $\mathbf{h} + f(\mathbf{h})$ instead of $f(\mathbf{h})$: the layer learns a <em>correction</em> to its input rather than a whole new representation. In backpropagation the derivative of $\mathbf{h} + f(\mathbf{h})$ is $I + J_f$, so there is always an identity path for the gradient, however small $J_f$ becomes (Lesson 3's "Going deeper" described the chain rule as multiplying Jacobians). Here is a 50-layer tanh network with small weights, with and without shortcuts:</p>
+<!--cell 3-->
+<p>Without shortcuts, the gradient reaching the first layer is $2\times 10^{-14}$: effectively zero, so the early layers never learn. With shortcuts it's about 400. ResNets (2015) used this to train image networks with over 100 layers, and every transformer block wraps both its attention and its feed-forward part in a residual connection, usually with layer normalisation (Lesson 18's "Going deeper").</p>
+
+<h3 id="deeper-position">Positions, and putting a transformer block together</h3>
+<p>Attention on its own treats the input as an unordered set: shuffle the tokens and each output just moves with its token. Word order is reintroduced with <strong>positional encodings</strong> added to the token vectors: the original transformer used sine and cosine waves of different frequencies, $PE_{(p, 2i)} = \sin(p/10000^{2i/d})$, and many modern LLMs use rotary encodings (RoPE), which rotate queries and keys by an angle that depends on position. One transformer block is then:</p>
+<ol>
+<li>Multi-head self-attention, plus a residual connection, then layer norm.</li>
+<li>A small feed-forward network applied to each token separately (usually two layers with a GELU activation), plus a residual connection, then layer norm.</li>
+</ol>
+<p>A language model stacks dozens of these blocks, uses a <strong>causal mask</strong> so each token can only attend to earlier tokens, and is trained to predict the next token.</p>
+
+<h3 id="deeper-transfer">Transfer learning and fine-tuning</h3>
+<p>Training a large model from scratch needs huge data and compute. Instead, start from a model <strong>pretrained</strong> on a broad task (images from ImageNet, or text from the web) and adapt it:</p>
+<table class="tbl">
+<thead><tr><th>Approach</th><th>What's trained</th><th>When to use it</th></tr></thead>
+<tbody>
+<tr><td>Feature extraction</td><td>Only a new output layer; the pretrained network is frozen</td><td>Very little data; a task close to the pretraining task</td></tr>
+<tr><td>Fine-tuning</td><td>All or the top layers, with a small learning rate</td><td>A moderate amount of data; the best accuracy</td></tr>
+<tr><td>Parameter-efficient fine-tuning (LoRA, adapters)</td><td>Small added matrices; the original weights are frozen</td><td>Large language models: much less memory and storage per task</td></tr>
+<tr><td>Prompting / in-context learning</td><td>Nothing</td><td>LLMs, when instructions and a few examples are enough</td></tr>
+</tbody></table>
+<p><strong>LoRA</strong> uses an idea from Lesson 2's "Going deeper": it learns the change to a big weight matrix as a product of two thin matrices, $\Delta W = BA$ with rank $r$ of perhaps 8 or 16, so a $4096 \times 4096$ layer needs about $2 \times 4096 \times 8 = 65{,}536$ new numbers instead of 16.8 million.</p>
+<!--interview-->
+<!--quiz-->

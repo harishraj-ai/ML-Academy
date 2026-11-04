@@ -1059,11 +1059,89 @@
     draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
   }
 
+  // ---------------- Demo: SQL joins (Lesson 22) ----------------
+  function joinDemo(el) {
+    el.innerHTML = "";
+    var head = document.createElement("div"); head.className = "demo-head"; head.textContent = "Interactive · joining two tables";
+    var controls = document.createElement("div"); controls.className = "demo-controls";
+    var wrap = document.createElement("div"); wrap.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;padding:16px;overflow-x:auto";
+    var readout = document.createElement("div"); readout.className = "demo-readout";
+    el.appendChild(head); el.appendChild(controls); el.appendChild(wrap); el.appendChild(readout);
+    var houses = [[1, "Central", 58], [2, "Central", 82], [3, "Central", 95], [4, "Suburb", 55], [9, "Outskirts", 42]];
+    var views = [[1, 3], [1, 9], [2, 2], [4, 1], [4, 4], [4, 8], [7, 6]];
+    var mode = "inner", agg = false;
+    var cell = "padding:5px 8px;border:1px solid var(--border);font-size:.82rem;font-family:var(--font-mono)";
+    function table(title, cols, rows, hl) {
+      return "<div><div style='font:600 .72rem var(--font-mono);letter-spacing:.1em;color:var(--muted);margin-bottom:6px'>" + title + "</div><table style='border-collapse:collapse'><tr>" +
+        cols.map(function (c) { return "<th style='" + cell + "'>" + c + "</th>"; }).join("") + "</tr>" +
+        rows.map(function (r, i) { return "<tr>" + r.map(function (v) { return "<td style='" + cell + (v === null ? ";color:var(--warn)" : "") + (hl && hl(r, i) ? ";color:var(--accent);font-weight:700" : "") + "'>" + (v === null ? "NULL" : v) + "</td>"; }).join("") + "</tr>"; }).join("") + "</table></div>";
+    }
+    var group = document.createElement("div"); group.setAttribute("role", "group"); group.setAttribute("aria-label", "Join type");
+    [["inner", "INNER JOIN"], ["left", "LEFT JOIN"]].forEach(function (o) {
+      var b = button(group, o[1], function () { mode = o[0]; draw(); }); b.dataset.mode = o[0];
+    });
+    controls.appendChild(group);
+    var ab = button(controls, "Count viewings per house (GROUP BY)", function () { agg = !agg; draw(); });
+    function draw() {
+      group.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.mode === mode ? "true" : "false"); b.style.fontWeight = b.dataset.mode === mode ? "700" : ""; });
+      ab.setAttribute("aria-pressed", agg ? "true" : "false"); ab.style.fontWeight = agg ? "700" : "";
+      var out = [];
+      houses.forEach(function (h) {
+        var m = views.filter(function (v) { return v[0] === h[0]; });
+        if (m.length) m.forEach(function (v) { out.push([h[0], h[1], h[2], v[1]]); });
+        else if (mode === "left") out.push([h[0], h[1], h[2], null]);
+      });
+      var res, cols;
+      if (agg) {
+        var by = {}; out.forEach(function (r) { by[r[0]] = by[r[0]] || [r[0], r[1], 0]; if (r[3] !== null) by[r[0]][2]++; });
+        res = Object.keys(by).map(function (k) { return by[k]; }); cols = ["id", "area", "COUNT(day)"];
+      } else { res = out; cols = ["id", "area", "price", "day"]; }
+      wrap.innerHTML = table("HOUSES", ["id", "area", "price"], houses) + table("VIEWINGS", ["house_id", "day"], views, function (r) { return !houses.some(function (h) { return h[0] === r[0]; }); }) +
+        table("RESULT (" + res.length + " ROWS)", cols, res);
+      var missing = houses.filter(function (h) { return !views.some(function (v) { return v[0] === h[0]; }); }).map(function (h) { return h[0]; });
+      readout.innerHTML = "<span>" + (mode === "inner" ? "INNER keeps only matches: houses <b>" + missing.join(", ") + "</b> disappear" : "LEFT keeps every house: houses <b>" + missing.join(", ") + "</b> get NULL") +
+        "</span><span>viewing of house <b>7</b> has no house row, so it never appears</span><span>" + (agg ? "one row per house" : "house 4 appears <b>3</b> times: one row per matching viewing") + "</span>";
+    }
+    draw();
+  }
+
+  // ---------------- Demo: grid vs random search (Lesson 23) ----------------
+  function searchDemo(el) {
+    var S = shell(el, "grid search vs random search on a validation-score landscape", 0.55);
+    var budget = 9, seed = 1, rnd;
+    function rng() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+    // score depends strongly on x (log learning rate) and only weakly on y (a minor setting)
+    function score(x, y) { return 0.93 * Math.exp(-Math.pow((x - 0.63) / 0.09, 2)) + 0.03 * Math.sin(3 * y) + 0.03; }
+    function draws() { rnd = []; for (var i = 0; i < budget; i++) rnd.push([rng(), rng()]); }
+    function gridPts() { var k = Math.round(Math.sqrt(budget)), g = []; for (var i = 0; i < k; i++) for (var j = 0; j < k; j++) g.push([(i + 0.5) / k, (j + 0.5) / k]); return g; }
+    function best(pts) { var b = pts[0]; pts.forEach(function (p) { if (score(p[0], p[1]) > score(b[0], b[1])) b = p; }); return b; }
+    slider(S.controls, "Budget (tries)", 4, 36, 1, budget, function (v) { var k = Math.round(Math.sqrt(v)); return v + " (grid " + k + "×" + k + ")"; }, function (v) { budget = v; draws(); draw(); });
+    button(S.controls, "New random draws ↻", function () { draws(); draw(); });
+    function draw() {
+      var c = colors(), W = S.state.W, H = S.state.H, ctx = S.ctx, half = (W - 30) / 2;
+      ctx.fillStyle = c.bg; ctx.fillRect(0, 0, W, H);
+      [["Grid search", gridPts()], ["Random search", rnd]].forEach(function (pp, k) {
+        var x0 = 10 + k * (half + 10), y0 = 22, w = half, h = H - 66, pts = pp[1];
+        for (var i = 0; i < 60; i++) { var v = score((i + 0.5) / 60, 0.5); ctx.fillStyle = c.accent; ctx.globalAlpha = 0.08 + 0.5 * v; ctx.fillRect(x0 + i * w / 60, y0, w / 60 + 1, h); }
+        ctx.globalAlpha = 1; ctx.strokeStyle = c.grid; ctx.strokeRect(x0, y0, w, h);
+        var b = best(pts);
+        pts.forEach(function (p) { dot(ctx, x0 + p[0] * w, y0 + (1 - p[1]) * h, p === b ? 6 : 4, p === b ? c.warn : c.ink); });
+        ctx.fillStyle = c.ink; ctx.font = "bold 12px Inter, sans-serif"; ctx.fillText(pp[0] + " — best score " + score(b[0], b[1]).toFixed(3), x0, 15);
+        var xs = {}; pts.forEach(function (p) { xs[p[0].toFixed(3)] = 1; });
+        ctx.fillStyle = c.text; ctx.font = "11px JetBrains Mono, monospace"; ctx.fillText(Object.keys(xs).length + " distinct learning rates", x0 + 4, y0 + h + 16);
+      });
+      ctx.fillStyle = c.text; ctx.fillText("← learning rate (log scale) →   bright band = good validation score", 12, H - 4);
+      var g = best(gridPts()), r = best(rnd);
+      S.readout.innerHTML = "<span>grid best <b>" + score(g[0], g[1]).toFixed(3) + "</b></span><span>random best <b>" + score(r[0], r[1]).toFixed(3) + "</b></span><span>best possible <b>" + score(0.63, Math.PI / 6).toFixed(3) + "</b></span>";
+    }
+    draws(); draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
+  }
+
   var REGISTRY = { "fit-line": fitLine, "dot-product": dotProduct, "tangent": tangent, "bayes": bayes, "normal": normal,
     "overfit": overfit, "least-squares": leastSquares, "gd-contour": gdContour, "logistic": logistic,
     "threshold": thresholdDemo, "ridge": ridgeDemo, "knn": knnDemo, "naive-bayes": nbDemo,
     "tree": treeDemo, "boosting": boostingDemo, "svm": svmDemo, "kmeans": kmeansDemo,
-    "pca": pcaDemo, "nn": nnDemo, "conv": convDemo, "prep": prepDemo, "fairness": fairnessDemo };
+    "pca": pcaDemo, "nn": nnDemo, "conv": convDemo, "prep": prepDemo, "fairness": fairnessDemo, "join": joinDemo, "search": searchDemo };
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll(".demo[data-demo]").forEach(function (el) {
       var fn = REGISTRY[el.getAttribute("data-demo")];

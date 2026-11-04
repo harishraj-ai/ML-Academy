@@ -6,9 +6,10 @@ import nbformat
 OUT = sys.argv[1]; HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import lesson21_data  # noqa: F401  (adds Lesson 21 to the shared dictionaries)
+import part6          # Part 6 lessons
 from challenges import C as CHAL
 src = open(os.path.join(HERE, "build.py")).read()
-LESSONS = eval(re.search(r"LESSONS = (\[.*?\n\])", src, re.S).group(1)) + [lesson21_data.L21]
+LESSONS = eval(re.search(r"LESSONS = (\[.*?\n\])", src, re.S).group(1)) + [lesson21_data.L21] + part6.LESSONS
 from lesson0_data import LESSON0
 TITLE = {n: t for (n, p, t, s, m) in [LESSON0] + LESSONS}
 spec = __import__("importlib.util").util.spec_from_file_location("mk", os.path.join(HERE, "make_notebooks.py"))
@@ -87,7 +88,7 @@ for n in sorted(TITLE):
                 with __import__("contextlib").redirect_stdout(io.StringIO()):
                     exec(scriptify(fill(c[2], c[4])).replace('DATA / "houses.csv"', '"../data/houses.csv"'), ns)
             finally: os.chdir(cwd)
-            v = ns[c[3]]; v = v.tolist() if hasattr(v, "tolist") else (float(v) if not isinstance(v, (int, float)) else v)
+            v = ns[c[3]]; v = v.tolist() if hasattr(v, "tolist") else (v if isinstance(v, (int, float, list)) else float(v))
             exp.append(f"EXPECTED_{k + 1} = {v!r}")
         ch = ch.replace(CHECK_FN, CHECK_FN + "\n" + "\n".join(exp) + "\n", 1)
         open(os.path.join(ROOT, "challenges", f"lesson-{n:02d}-challenges.py"), "w").write(ch)
@@ -169,7 +170,7 @@ for n in sorted(CHAL):
             ns = {"DATA": __import__("pathlib").Path(os.path.join(ROOT, "data"))}
             with __import__("contextlib").redirect_stdout(io.StringIO()): exec(code, ns)
         finally: os.chdir(cwd)
-        v = ns[c[3]]; v = v.tolist() if hasattr(v, "tolist") else (float(v) if not isinstance(v, (int, float)) else v)
+        v = ns[c[3]]; v = v.tolist() if hasattr(v, "tolist") else (v if isinstance(v, (int, float, list)) else float(v))
         sols.append((n, k + 1, code, c[3], v))
 open(os.path.join(ROOT, "tests", "test_code.py"), "w").write(TESTS.replace("__SOLUTIONS__", "[\n" + ",\n".join("    " + repr(s) for s in sols) + "\n]"))
 

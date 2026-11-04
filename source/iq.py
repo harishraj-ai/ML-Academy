@@ -1,7 +1,7 @@
 # Gathers hidden interview questions and confused pairs; assigns stable ids.
 import importlib
 QS = []
-for mod in ["interview_a", "interview_b", "interview_c"]:
+for mod in ["interview_a", "interview_b", "interview_c", "interview_d"]:
     try: QS += importlib.import_module(mod).Q
     except ModuleNotFoundError: pass
 import deeper as _deeper

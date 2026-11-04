@@ -27,6 +27,7 @@ from iq import QI, PI, LEVELS as IQ_LEVELS
 from exboxes import boxes as _exboxes
 from lesson0_data import LESSON0, OBJ0, SRC0, FIT0, FAQ0, MIST0, EX0, CHECKS0
 from lesson21_data import L21, OBJ21, SRC21
+import part6                          # Part 6 (intermediate) lessons
 PROJ_RES = json.load(open(os.path.join(HERE, 'project_results.json')))
 PROJ_BY_PART = {P['part']: P for P in PROJECTS}
 import io, contextlib, tempfile, warnings
@@ -40,6 +41,7 @@ PARTS = [
     ("Part 3", "Classic algorithms", "The toolbox every ML practitioner knows, from nearest neighbours to support vector machines."),
     ("Part 4", "Finding structure without labels", "Discover groups and patterns in data that nobody has labelled."),
     ("Part 5", "Neural networks & real projects", "Build a neural network from scratch, meet modern deep learning, and ship a complete project."),
+    ("Part 6", "Intermediate topics", "The skills that turn a good beginner into a working practitioner: data from databases, systematic tuning, explaining models, rare events, time series, recommendations and Bayesian thinking."),
 ]
 
 # (num, part_index, title, summary, minutes)
@@ -184,6 +186,7 @@ SOURCES = {
 }
 
 LESSONS.append(L21); OBJECTIVES[21] = OBJ21; SOURCES[21] = SRC21
+LESSONS += part6.LESSONS; OBJECTIVES.update(part6.OBJ); SOURCES.update(part6.SRC)
 OBJECTIVES[0] = OBJ0; SOURCES[0] = SRC0; FIT[0] = FIT0; FAQ[0] = FAQ0; EXERCISES[0] = EX0; MISTAKES[0] = MIST0; CHECKS.update(CHECKS0)
 def ready(n): return os.path.exists(os.path.join(HERE, "lessons", f"{n:02d}.html"))
 import deeper as DEEPER                    # "Going deeper" (intermediate) sections — see deeper.py
@@ -329,8 +332,8 @@ index = head("ML Academy — Learn Machine Learning from Zero", "A free, self-co
 source ml-env/bin/activate        # on Windows: ml-env\\Scripts\\activate
 pip install numpy pandas scikit-learn matplotlib jupyterlab
 jupyter lab</code></pre>
-<p class="sub">JupyterLab opens in your browser. Every lesson has a <strong>ready-made notebook</strong> with all its code (and the expected outputs): use the <em>Download Jupyter notebook</em> button at the top of a lesson, open the file in JupyterLab, and press Shift+Enter to run each cell. All 21 are in the <code>notebooks</code> folder.</p>
-<p class="sub"><strong>Prefer paper?</strong> The <a href="workbook/ML-Academy-workbook.pdf">printable workbook (PDF, about 570 pages)</a> has every lesson with space to work the exercises by hand, and all answers at the back. Each lesson page also prints cleanly on its own.</p>
+<p class="sub">JupyterLab opens in your browser. Every lesson has a <strong>ready-made notebook</strong> with all its code (and the expected outputs): use the <em>Download Jupyter notebook</em> button at the top of a lesson, open the file in JupyterLab, and press Shift+Enter to run each cell. All of them are in the <code>notebooks</code> folder.</p>
+<p class="sub"><strong>Prefer paper?</strong> The <a href="workbook/ML-Academy-workbook.pdf">printable workbook (PDF, about 590 pages)</a> has every lesson with space to work the exercises by hand, and all answers at the back. Each lesson page also prints cleanly on its own.</p>
 <p class="sub"><strong>Prefer plain Python scripts?</strong> <a class="btn" href="downloads/ml-academy-code.zip" download>⬇ Download all the code (.zip)</a> — every lesson as a <code>.py</code> file, the coding challenges, the four projects (starter and solution), the dataset and a <code>pytest</code> test suite that checks every script still gives the published results. Unzip it anywhere and see its README.</p>
 </div></section>
 
@@ -534,7 +537,7 @@ for (n, p, t, s, mins) in [LESSON0] + LESSONS:
     plabel, ptitle, _ = PARTS[p]
     last_in_part = max(L[0] for L in LESSONS if L[1] == p) == n
     part_end = (f'<div class="box tip part-end"><div class="box-title">You\'ve finished {plabel}: {e(ptitle)}</div><p>Check how well it has stuck with a 15-question mixed test. You\'ll get a score and a list of sections to revisit.</p>'
-                f'<p><a class="btn btn-primary" href="tests.html?part={p+1}">Take the {plabel} test →</a> ' + (f'<a class="btn" href="projects.html#{PROJ_BY_PART[p]["id"]}">Do the project: {e(PROJ_BY_PART[p]["title"])}</a> ' if p in PROJ_BY_PART else '') + '<a class="btn" href="review.html">Open spaced review</a></p></div>') if last_in_part else ""
+                f'<p><a class="btn btn-primary" href="tests.html?part={p+1}">Take the {plabel} test →</a> ' + (f'<a class="btn" href="projects.html#{PROJ_BY_PART[p]["id"]}">Do the project: {e(PROJ_BY_PART[p]["title"])}</a> ' if p in PROJ_BY_PART else '') + '<a class="btn" href="review.html">Open spaced review</a></p></div>') if (last_in_part and p in TESTS) else ""
     page = head(f"Lesson {n}: {t} — ML Academy", s, math=True) + f"""<body>
 <div class="progress" aria-hidden="true"></div>
 <a class="skip" href="#content">Skip to content</a>
@@ -657,7 +660,7 @@ for pi in range(len(PARTS)):
     ls = [L for L in LESSONS if L[1] == pi]
     for k, L in enumerate(ls):
         pos[L[0]] = (20 + pi * COLW, 70 + k * ROWH)
-Wmap, Hmap = 20 + len(PARTS) * COLW, 70 + 6 * ROWH + 10
+Wmap, Hmap = 20 + len(PARTS) * COLW, 70 + max(sum(1 for L in LESSONS if L[1] == pi) for pi in range(len(PARTS))) * ROWH + 10
 edges = ""
 for n, ds in DEPS.items():
     x2, y2 = pos[n]
@@ -668,7 +671,7 @@ for n, ds in DEPS.items():
         else:
             sx, sy, ex, ey = x1 + NW, y1 + NH / 2, x2, y2 + NH / 2
             edges += f'<path class="m-edge" data-from="{d}" data-to="{n}" d="M{sx},{sy} C{sx+40},{sy} {ex-40},{ey} {ex},{ey}"/>'
-SHORT = ["Foundations", "Supervised basics", "Classic algorithms", "Unsupervised", "Neural nets & projects"]
+SHORT = ["Foundations", "Supervised basics", "Classic algorithms", "Unsupervised", "Neural nets & projects", "Intermediate"]
 nodes = "".join(f'<text x="{20 + i * COLW + NW/2}" y="40" class="m-part">{i+1} · {e(SHORT[i])}</text>' for i in range(len(PARTS)))
 for (n, p, t, s_, mins) in LESSONS:
     x, y = pos[n]
@@ -680,7 +683,7 @@ for (n, p, t, s_, mins) in LESSONS:
     if len(lines) > 2: lines = [lines[0], " ".join(lines[1:])[:22] + "…"]
     tl = "".join(f'<tspan x="{x+14}" dy="{0 if k == 0 else 16}">{e(L)}</tspan>' for k, L in enumerate(lines))
     nodes += f'<a href="{fname(n)}" class="m-node" data-lesson="{n}"><rect x="{x}" y="{y}" width="{NW}" height="{NH}" rx="12"/><text x="{x+14}" y="{y+20}" class="m-num">LESSON {n:02d}</text><text x="{x+14}" y="{y+40}" class="m-title">{tl}</text><title>{e(t)} — {e(s_)}</title></a>'
-mapsvg = f'<div class="map-wrap"><svg class="course-map" viewBox="0 0 {Wmap} {Hmap}" role="group" aria-label="Map of the 21 lessons and how they depend on each other">{edges}{nodes}</svg></div>'
+mapsvg = f'<div class="map-wrap"><svg class="course-map" viewBox="0 0 {Wmap} {Hmap}" role="group" aria-label="Map of the {len(LESSONS)} lessons and how they depend on each other">{edges}{nodes}</svg></div>'
 legend = '<p class="map-legend"><span class="lg lg-done"></span> completed <span class="lg lg-todo"></span> not yet <span class="lg-line"></span> "builds on" — hover a lesson to highlight its connections.</p>'
 tbl = '<h2 id="dependencies">Every lesson and what it builds on</h2><table class="tbl"><thead><tr><th>Lesson</th><th>Builds on</th></tr></thead><tbody>' + "".join(
     f'<tr><td><a href="{fname(n)}">{n}. {e(t)}</a></td><td>' + (", ".join(f'<a href="{fname(d)}">{d}. {e(LESSONS[d-1][2])}</a>' for d in DEPS[n]) or "— (start here)") + '</td></tr>' for (n, p, t, s_, m) in LESSONS) + '</tbody></table>'
@@ -689,8 +692,8 @@ document.querySelectorAll('.m-node').forEach(function(a){var n=a.getAttribute('d
 a.addEventListener('mouseenter',function(){document.querySelectorAll('.m-edge').forEach(function(p){if(p.getAttribute('data-from')===n||p.getAttribute('data-to')===n)p.classList.add('hot');});});
 a.addEventListener('mouseleave',function(){document.querySelectorAll('.m-edge.hot').forEach(function(p){p.classList.remove('hot');});});});})();</script>"""
 routepick = '<div class="route-pick" role="group" aria-label="Highlight a learning route"><span>Highlight a route:</span><button type="button" class="btn" data-route="">All lessons</button>' + "".join(f'<button type="button" class="btn" data-route="{rid}">{e(name)} ({len(ls)})</button>' for rid, name, blurb, ls in ROUTES) + '</div>'
-intro = '<p>Read the map left to right: each column is one part of the course, and each line means "this lesson builds on that one". The suggested order is simply 1 → 21, but if you want to jump to a topic, follow the lines back to see what to review first.</p>'
-open(os.path.join(OUT, "map.html"), "w").write(page_shell("Course map — ML Academy", "How the 21 lessons connect: a visual map of prerequisites.", "Reference", "Course map", "All 21 lessons and how they build on each other. Click any lesson to open it.", intro + routepick + legend + mapsvg + '<div class="route-panel" aria-live="polite"></div>' + tbl + mapjs))
+intro = '<p>Read the map left to right: each column is one part of the course, and each line means "this lesson builds on that one". The suggested order is simply 1 → ' + str(len(LESSONS)) + ', but if you want to jump to a topic, follow the lines back to see what to review first.</p>'
+open(os.path.join(OUT, "map.html"), "w").write(page_shell("Course map — ML Academy", f"How the {len(LESSONS)} lessons connect: a visual map of prerequisites.", "Reference", "Course map", f"All {len(LESSONS)} lessons and how they build on each other. Click any lesson to open it.", intro + routepick + legend + mapsvg + '<div class="route-panel" aria-live="polite"></div>' + tbl + mapjs))
 print("map built")
 
 # ---------------- comparison page ----------------
@@ -740,7 +743,7 @@ for (n, p, t, s_, mins) in LESSONS:
 for p_, qs in TESTS.items():
     for k, (n, sid, q, opts, c, x) in enumerate(qs):
         QB[f"P{p_+1}-{k}"] = {"n": n, "s": sid, "st": sec_title(n, sid), "q": q, "o": opts, "c": c, "x": x}
-assert sum(1 for k in QB if k[0] == "L") == 105, sum(1 for k in QB if k[0] == "L")
+assert sum(1 for k in QB if k[0] == "L") == 5 * len(LESSONS), sum(1 for k in QB if k[0] == "L")
 open(os.path.join(OUT, "assets", "qbank.js"), "w").write("window.MLA_QBANK=" + json.dumps(QB, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/") + ";")
 parts_js = [{"label": pl, "title": pt, "lessons": [L[0] for L in LESSONS if L[1] == i]} for i, (pl, pt, _) in enumerate(PARTS)]
 qextra = '<script defer src="assets/qbank.js"></script><script>window.MLA_PARTS=' + json.dumps(parts_js, ensure_ascii=False) + ';</script>'

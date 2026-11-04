@@ -1,0 +1,2 @@
+naive target encoding, CV accuracy: 0.731
+target encoding inside the pipeline, CV accuracy: 0.497

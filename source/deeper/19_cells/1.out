@@ -1,0 +1,6 @@
+attention weights (row i: how much token i looks at each token):
+[[0.34 0.13 0.33 0.2 ]
+ [0.78 0.   0.05 0.17]
+ [0.25 0.28 0.29 0.18]
+ [0.22 0.28 0.21 0.29]]
+each row sums to: [1. 1. 1. 1.]   output shape: (4, 8)

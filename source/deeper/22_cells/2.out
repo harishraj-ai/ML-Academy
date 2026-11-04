@@ -1,0 +1,5 @@
+discount > 5          -> rows [1]
+NOT (discount > 5)    -> rows [3]
+discount equals NULL  -> rows []
+discount IS NULL      -> rows [2, 4]
+COUNT(*), COUNT(discount), AVG(discount): (4, 2, 5.0)

@@ -1,0 +1,31 @@
+
+<h2 id="deeper">Going deeper: leak-proof pipelines and efficient tuning</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above builds features and a pipeline for a full project. This section shows, with numbers, how much a single leaky encoding can fake, how to handle numbers, categories and text in one leak-proof pipeline, why random search usually beats grid search, and how teams keep track of hundreds of experiments. (A later intermediate lesson covers hyperparameter tuning in full.)</p>
+<p>You'll need: this lesson, leakage from Lesson 5 and nested cross-validation from Lesson 5's "Going deeper".</p></div>
+
+<h3 id="deeper-target">Target encoding: how much leakage can fake</h3>
+<p><strong>Target encoding</strong> replaces each category with the average target for that category. It's powerful for categories with many levels (postcodes, product IDs), but if the averages are computed using the rows you then evaluate on, each row's own target leaks into its feature. Here a category with 2,000 levels has <em>no</em> real relationship with the target, so the honest accuracy is 50%:</p>
+<!--cell 1-->
+<p>The naive encoding reports 73.1% accuracy on pure noise: with about 2.5 rows per level, each level's average is dominated by the rows' own labels. Inside the pipeline, scikit-learn's <code>TargetEncoder</code> is refitted on each training fold, and also uses <strong>cross-fitting</strong> during training (each training row is encoded using averages from the other internal folds), so the estimate drops to the honest 49.7%. Two further safeguards it applies: <strong>smoothing</strong> towards the overall average for rare levels, much like the Bayesian shrinkage in Lesson 4's "Going deeper", and handling of unseen levels.</p>
+
+<h3 id="deeper-column">One pipeline for mixed data</h3>
+<p>Real tables mix numbers, categories and text, each needing different preprocessing. <code>ColumnTransformer</code> applies the right steps to the right columns, and putting it inside a pipeline means every step is fitted on training folds only:</p>
+<!--cell 2-->
+<p>Four numeric columns (one with a missing value, imputed with the training median and standardised), one-hot encoded areas and a TF-IDF of the descriptions give 30 columns, fed to ridge regression. Cross-validated on the 12 Chennai homes the mean error is about 7.0 lakh, which with so few homes is only an illustration. The important point is structural: the whole object can be cross-validated, tuned with <code>GridSearchCV</code> (parameter names such as <code>columntransformer__num__simpleimputer__strategy</code>) and saved as one file, so training and serving can't drift apart.</p>
+
+<h3 id="deeper-search">Grid search vs random search</h3>
+<p>A grid tries every combination of a few values per setting. <strong>Random search</strong> samples settings from ranges you specify. With the same budget it usually does as well or better, because typically only one or two settings really matter: a 3×3×2 grid tests just 3 distinct values of each, whereas 18 random draws test 18 different values of every setting (Bergstra and Bengio, 2012). Sample learning rates and penalties on a log scale (<code>loguniform</code>), since they matter by orders of magnitude.</p>
+<!--cell 3-->
+<p>Here, with 18 settings each, both reach about the same best cross-validated accuracy (0.975 and 0.972, a difference well within noise). The advantage of random search grows with the number of settings: the grid's size multiplies, the random budget doesn't. Beyond random search, <strong>Bayesian optimisation</strong> (for example Optuna's TPE sampler) uses past results to choose promising settings next, and <strong>successive halving</strong> (<code>HalvingRandomSearchCV</code>) gives every candidate a little data and only the best ones more.</p>
+
+<h3 id="deeper-tracking">Keeping track of experiments</h3>
+<p>After a few weeks a project has hundreds of runs. Without records, nobody can say which data, code and settings produced the model in production. Good practice:</p>
+<ul>
+<li><strong>Log every run:</strong> parameters, metrics, the code version (a git commit), the data version, the random seed and the library versions. Tools such as MLflow and Weights &amp; Biases do this with a few lines.</li>
+<li><strong>Version the data</strong> as well as the code (for example with DVC, or by storing immutable dated snapshots).</li>
+<li><strong>Save the whole pipeline</strong>, not just the model, together with a model card: intended use, training data, metrics by subgroup (Lesson 21) and known limitations.</li>
+<li><strong>Keep the test set out of the loop.</strong> Every decision taken by looking at test results makes them optimistic (Lesson 4's "Going deeper" on multiple testing).</li>
+</ul>
+<!--interview-->
+<!--quiz-->

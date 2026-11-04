@@ -1,0 +1,164 @@
+<h2 id="why">Parameters vs hyperparameters</h2>
+<p>A model has two kinds of numbers. <strong>Parameters</strong> are learned from the data during training: the weights of a linear model, the split points of a tree. <strong>Hyperparameters</strong> are chosen <em>before</em> training and control how learning happens: the regularization strength $\lambda$ (Lesson 10), the number of neighbours $k$ (Lesson 11), a tree's maximum depth (Lesson 13), the SVM's $C$ and $\gamma$ (Lesson 15), the learning rate (Lesson 7).</p>
+<p>Good hyperparameters often matter more than the choice of algorithm. But every time you try a setting and look at a score, you learn a little about the evaluation data, so careless tuning produces scores that are too good to be true. This lesson covers how to search well (grid, random, Bayesian and successive halving), how to report honestly (nested cross-validation), and how to choose between models.</p>
+<div class="box intuition"><div class="box-title">The core idea</div><p>Tuning is itself a learning process, so it needs its own unseen data. Choose hyperparameters using cross-validation on the training set only, search the space efficiently, and keep a final test set (or an outer cross-validation loop) that no tuning decision ever touched.</p></div>
+
+<h2 id="curves">Seeing one hyperparameter at a time: validation curves</h2>
+<p>A <strong>validation curve</strong> shows training and cross-validated scores as one hyperparameter changes. It makes underfitting and overfitting visible. Here the RBF SVM's $\gamma$ (how local each training point's influence is) varies on the breast-cancer data:</p>
+<pre><code>import numpy as np
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import validation_curve
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+
+X, y = load_breast_cancer(return_X_y=True)
+model = make_pipeline(StandardScaler(), SVC())
+gammas = [0.0001, 0.001, 0.01, 0.1, 1]
+train, val = validation_curve(model, X, y, param_name="svc__gamma", param_range=gammas, cv=5)
+for g, a, b in zip(gammas, train.mean(axis=1), val.mean(axis=1)):
+    print(f"gamma {g:&lt;6}: train accuracy {a:.3f}   cross-validated accuracy {b:.3f}")</code></pre>
+<p>Output:</p>
+<pre><code>gamma 0.0001: train accuracy 0.794   cross-validated accuracy 0.796
+gamma 0.001 : train accuracy 0.951   cross-validated accuracy 0.947
+gamma 0.01  : train accuracy 0.978   cross-validated accuracy 0.968
+gamma 0.1   : train accuracy 0.990   cross-validated accuracy 0.960
+gamma 1     : train accuracy 1.000   cross-validated accuracy 0.631</code></pre>
+<p>At $\gamma = 0.0001$ both scores are low (0.794 and 0.796): the boundary is too smooth, so the model underfits. At $\gamma = 1$ training accuracy is perfect but cross-validated accuracy collapses to 0.631: each point's influence is tiny, so the model memorises. The best region is in between ($\gamma = 0.01$, 0.968). Values span orders of magnitude, so always try hyperparameters like this on a <strong>log scale</strong>.</p>
+
+<h2 id="grid">Grid search</h2>
+<p><strong>Grid search</strong> tries every combination of a list of values for each hyperparameter, scores each with cross-validation, and keeps the best. Scikit-learn's <code>GridSearchCV</code> then refits the best setting on all the training data. Hyperparameters of a step inside a pipeline are named <code>step__parameter</code>, as in <code>svc__C</code>.</p>
+<pre><code>from sklearn.model_selection import GridSearchCV, train_test_split
+
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=0, stratify=y)
+grid = {"svc__C": [0.1, 1, 10, 100], "svc__gamma": [0.0001, 0.001, 0.01, 0.1]}
+search = GridSearchCV(model, grid, cv=5).fit(X_tr, y_tr)
+print("settings tried:", len(search.cv_results_["params"]))
+print("best settings:", search.best_params_)
+print("best cross-validated accuracy:", round(search.best_score_, 3))
+print("test accuracy of the refitted best model:", round(search.score(X_te, y_te), 3))</code></pre>
+<p>Output:</p>
+<pre><code>settings tried: 16
+best settings: {'svc__C': 100, 'svc__gamma': 0.001}
+best cross-validated accuracy: 0.988
+test accuracy of the refitted best model: 0.958</code></pre>
+<div class="box example"><div class="box-title">Worked example — how much work is a grid search?</div>
+<p>The grid above has 4 values of $C$ and 4 values of $\gamma$: $4 \times 4 = 16$ settings.</p>
+<p>Each is scored with 5-fold cross-validation, so $16 \times 5 = 80$ models are trained, plus 1 final refit of the best setting: <strong>81 fits</strong>.</p>
+<p>Add a third hyperparameter with 5 values and it becomes $16 \times 5 \times 5 + 1 = 401$ fits. With 5 hyperparameters of 5 values each it's $5^5 \times 5 + 1 = 15{,}626$ fits. The grid's size multiplies with every hyperparameter you add: the curse of dimensionality again (Lesson 11).</p></div>
+<p>The best cross-validated accuracy is 0.988, but the refitted model scores 0.958 on the untouched test set. Part of that gap is chance, because the test set has only 143 cases, and part is the optimism of picking the best of 16 settings (Lesson 5's "Going deeper").</p>
+
+<h2 id="random">Random search</h2>
+<p><strong>Random search</strong> samples each hyperparameter from a distribution, typically <code>loguniform</code> for anything that spans orders of magnitude. With the same budget it usually matches or beats a grid, because in most problems only one or two hyperparameters really matter: a 4×4 grid tries just 4 values of each, while 16 random draws try 16 different values of every one (Bergstra and Bengio, 2012).</p>
+<pre><code>from sklearn.model_selection import RandomizedSearchCV
+from scipy.stats import loguniform
+
+dists = {"svc__C": loguniform(0.01, 1000), "svc__gamma": loguniform(1e-5, 1)}
+rs = RandomizedSearchCV(model, dists, n_iter=16, cv=5, random_state=0).fit(X_tr, y_tr)
+print("best settings:", {k: round(float(v), 4) for k, v in rs.best_params_.items()})
+print("best cross-validated accuracy:", round(rs.best_score_, 3), "  test accuracy:", round(rs.score(X_te, y_te), 3))</code></pre>
+<p>Output:</p>
+<pre><code>best settings: {'svc__C': 1.313, 'svc__gamma': 0.017}
+best cross-validated accuracy: 0.981   test accuracy: 0.951</code></pre>
+<p>Sixteen random draws find a setting with cross-validated accuracy 0.981 and test accuracy 0.951, about the same as the grid. On this problem both work; random search's advantage grows as you add hyperparameters, because its budget doesn't multiply.</p>
+
+<h2 id="demo">Try it: grid vs random search</h2>
+<p>The landscape below has one important hyperparameter (left to right) and one that barely matters (bottom to top). The bright band is where validation scores are high. Change the budget and draw new random points: notice how few distinct values of the important hyperparameter the grid tests.</p>
+<div class="demo" data-demo="search"></div>
+
+<h2 id="smarter">Smarter searches: Bayesian optimisation and successive halving</h2>
+<p><strong>Bayesian optimisation</strong> uses the results so far to choose what to try next. It fits a cheap <em>surrogate</em> model of "score as a function of hyperparameters" (often a Gaussian process or, in Optuna's TPE, density estimates of good and bad settings), then picks the next setting that best balances <em>exploitation</em> (near the current best) and <em>exploration</em> (where the surrogate is uncertain). It shines when each training run is expensive. This lesson's "Going deeper" builds a tiny version.</p>
+<p><strong>Successive halving</strong> saves time differently: start many candidates on a small budget (few rows, few epochs or few trees), keep the best third, give them three times the budget, and repeat:</p>
+<pre><code>from sklearn.experimental import enable_halving_search_cv  # noqa: F401  (switches the feature on)
+from sklearn.model_selection import HalvingRandomSearchCV
+
+hs = HalvingRandomSearchCV(model, dists, n_candidates=48, factor=3, cv=5, random_state=0).fit(X_tr, y_tr)
+for it, (n_cand, n_res) in enumerate(zip(hs.n_candidates_, hs.n_resources_)):
+    print(f"round {it + 1}: {n_cand:2d} candidates, each trained on {n_res} rows")
+print("best cross-validated accuracy:", round(hs.best_score_, 3))</code></pre>
+<p>Output:</p>
+<pre><code>round 1: 48 candidates, each trained on 20 rows
+round 2: 16 candidates, each trained on 60 rows
+round 3:  6 candidates, each trained on 180 rows
+best cross-validated accuracy: 0.978</code></pre>
+<p>48 candidates start on just 20 rows each; 16 survive to 60 rows; 6 reach 180 rows, and the best scores 0.978 in cross-validation. Most of the 48 cheap first-round fits used tiny data, so the whole search costs far less than training 48 candidates fully. <strong>Hyperband</strong> runs several halving schedules with different starting budgets, and early stopping in boosting and neural networks (Lesson 10's "Going deeper") applies the same idea within a single run.</p>
+
+<h2 id="nested">Reporting honestly: nested cross-validation</h2>
+<p>The best score found <em>during</em> a search is optimistic, because it's the best of many tries on the same folds. To report how well "tune, then fit" works on new data, wrap the whole search inside an outer cross-validation loop (Lesson 5's "Going deeper"):</p>
+<pre><code>from sklearn.model_selection import cross_val_score, KFold
+
+inner, outer = KFold(5, shuffle=True, random_state=1), KFold(5, shuffle=True, random_state=2)
+tuned = GridSearchCV(model, grid, cv=inner)
+nested = cross_val_score(tuned, X, y, cv=outer)
+print("nested CV accuracy:", round(nested.mean(), 3), "+/-", round(nested.std(), 3))</code></pre>
+<p>Output:</p>
+<pre><code>nested CV accuracy: 0.979 +/- 0.007</code></pre>
+<p>Nested CV estimates 0.979 accuracy (±0.007 across the outer folds) for the complete tuning procedure. Use it, or a single held-out test set used once, as the number you report. The model you actually deploy is still produced by running the search once on all the training data.</p>
+
+<h2 id="choosing">Choosing between models: the simplest good one</h2>
+<p>Cross-validated scores are noisy, so the setting with the very highest mean is often not truly better than its neighbours. The <strong>one-standard-error rule</strong> picks the <em>simplest</em> model whose score is within one standard error of the best. Simpler models are cheaper, easier to explain, and usually more robust when the data shifts.</p>
+<pre><code>from sklearn.tree import DecisionTreeClassifier
+
+# The one-standard-error rule: prefer the simplest model within 1 SE of the best
+depths = list(range(1, 11))
+res = GridSearchCV(DecisionTreeClassifier(random_state=0), {"max_depth": depths}, cv=10).fit(X_tr, y_tr).cv_results_
+mean, se = res["mean_test_score"], res["std_test_score"] / np.sqrt(10)
+best = int(np.argmax(mean))
+simplest = next(i for i in range(len(depths)) if mean[i] &gt;= mean[best] - se[best])
+print("best depth by score:", depths[best], " CV accuracy", round(mean[best], 3), " SE", round(se[best], 3))
+print("simplest depth within 1 SE:", depths[simplest], " CV accuracy", round(mean[simplest], 3))</code></pre>
+<p>Output:</p>
+<pre><code>best depth by score: 5  CV accuracy 0.941  SE 0.012
+simplest depth within 1 SE: 4  CV accuracy 0.929</code></pre>
+<p>Depth 5 scores highest (0.941), with a standard error of 0.012, but depth 4 scores 0.929, within one standard error, so the rule prefers the shallower tree. Other things to weigh when picking a final model: prediction speed and cost, calibration (Lesson 8's "Going deeper"), fairness across groups (Lesson 21), and how easy it will be to maintain and retrain.</p>
+
+<h2 id="code">In Python: a tuning recipe</h2>
+<p>A pattern that works for most projects: put all preprocessing in a pipeline, use random search with log-scale distributions and stratified folds, and report on a test set used once.</p>
+<pre><code>from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from scipy.stats import loguniform
+
+X, y = load_breast_cancer(return_X_y=True)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=0, stratify=y)
+pipe = make_pipeline(StandardScaler(), LogisticRegression(max_iter=5000))
+search = RandomizedSearchCV(pipe, {"logisticregression__C": loguniform(1e-3, 1e3)},
+                            n_iter=30, cv=StratifiedKFold(5, shuffle=True, random_state=0),
+                            scoring="roc_auc", random_state=0).fit(X_tr, y_tr)
+print("best C:", round(float(search.best_params_["logisticregression__C"]), 4))
+print("CV ROC-AUC:", round(search.best_score_, 4), "  test ROC-AUC:", round(search.score(X_te, y_te), 4))</code></pre>
+<p>Output:</p>
+<pre><code>best C: 0.3483
+CV ROC-AUC: 0.9954   test ROC-AUC: 0.9943</code></pre>
+<p><code>scoring="roc_auc"</code> makes the search optimise the metric you care about (Lesson 9); <code>search.score</code> then uses the same metric on the test set. Libraries such as <strong>Optuna</strong> add Bayesian optimisation, pruning of bad trials and dashboards, and follow the same pattern.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li><strong>Hyperparameters</strong> are set before training and control how a model learns; they're chosen with cross-validation on training data only.</li>
+<li><strong>Validation curves</strong> show underfitting and overfitting as one hyperparameter changes. Search scale-type hyperparameters on a log scale.</li>
+<li><strong>Grid search</strong> grows multiplicatively with each hyperparameter; <strong>random search</strong> covers important hyperparameters far better for the same budget.</li>
+<li><strong>Bayesian optimisation</strong> chooses the next try from past results; <strong>successive halving</strong> gives many candidates a small budget and the best ones more.</li>
+<li>The best search score is optimistic: report <strong>nested CV</strong> or a test set used once.</li>
+<li>Prefer the <strong>simplest</strong> model within about one standard error of the best.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. Which of these is a hyperparameter?</p>
+<button data-opt="a">A linear model's weights</button><button data-opt="b">The number of neighbours $k$ in kNN</button><button data-opt="c">A tree's split thresholds</button>
+<div class="q-explain">$k$ is chosen before training. Weights and split thresholds are parameters learned from the data.</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. A grid has 3 values for each of 4 hyperparameters and uses 5-fold CV. How many models are trained, not counting the final refit?</p>
+<button data-opt="a">60</button><button data-opt="b">81</button><button data-opt="c">405</button>
+<div class="q-explain">$3^4 = 81$ settings × 5 folds = 405 fits.</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. Why does random search usually beat grid search with the same budget?</p>
+<button data-opt="a">It tries many more distinct values of the hyperparameters that matter</button><button data-opt="b">It always finds the global best</button><button data-opt="c">It needs no cross-validation</button>
+<div class="q-explain">Usually only a few hyperparameters matter; a grid wastes tries repeating the same few values of them.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. A grid search reports a best CV accuracy of 0.95. What is the honest estimate of the tuned model's accuracy?</p>
+<button data-opt="a">Exactly 0.95</button><button data-opt="b">Usually a bit lower; measure it with nested CV or an untouched test set</button><button data-opt="c">Higher than 0.95</button>
+<div class="q-explain">The best of many tries is optimistic; the selection used the same folds that produced the score.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. Depths 4 and 6 score 0.929 and 0.935, and the standard error at the best is 0.012. The one-standard-error rule picks…</p>
+<button data-opt="a">Depth 4, the simpler model within one SE of the best</button><button data-opt="b">Depth 6, the highest score</button><button data-opt="c">Neither</button>
+<div class="q-explain">$0.935 - 0.012 = 0.923$, and depth 4's 0.929 is above that, so the simpler tree is preferred.</div></div>
+</div>

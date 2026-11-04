@@ -1,0 +1,39 @@
+
+<h2 id="deeper">Going deeper: the impossibility result, measured</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above introduces the main fairness metrics and states that they can conflict. This section proves why with one line of algebra, shows it happening to a model that is perfectly calibrated for both groups, measures what a common fix (group-specific thresholds) gains and costs, and shows why small groups make fairness numbers unreliable unless you report their uncertainty.</p>
+<p>You'll need: this lesson, the confusion matrix from Lesson 9, calibration from Lesson 8's "Going deeper", and the bootstrap from Lesson 4's.</p></div>
+
+<h3 id="deeper-identity">The identity behind the conflict</h3>
+<p>For any classifier and any group with base rate $p$ (the share of actual positives), the error rates are tied together by a simple identity, which follows from writing out the confusion matrix:</p>
+<p>$$\text{FPR} = \frac{p}{1-p}\cdot\frac{1 - \text{PPV}}{\text{PPV}}\cdot\text{TPR}$$</p>
+<p>Now suppose two groups have <em>different</em> base rates $p$. If the model has equal precision (PPV) in both groups and equal TPR, the identity forces their FPRs to differ. Equal PPV, equal TPR and equal FPR can hold together only if the base rates are equal or the classifier is perfect. This is the result of Chouldechova (2017); Kleinberg, Mullainathan and Raghavan (2016) proved a similar one for calibration. It's not a flaw of a particular model: it is arithmetic.</p>
+
+<h3 id="deeper-calibrated">A perfectly calibrated model can still have unequal error rates</h3>
+<p>Below, every person's score <em>is</em> their true probability of the outcome, so the model is calibrated in both groups by construction: among people scored 0.6–0.7, about 63–65% have the outcome in either group. Group A's base rate is 0.287 and group B's is 0.500. With one threshold of 0.5 for everyone:</p>
+<!--cell 1-->
+<p>Precision is similar (0.607 and 0.636), but group A's true-positive rate is 0.232 against group B's 0.631, and its false-positive rate 0.060 against 0.362. A person in group A who truly has the outcome is far less likely to be flagged; a person in group B who doesn't is far more likely to be wrongly flagged. Which of those matters more depends entirely on what being flagged means: a loan refused, an extra medical test, a police stop. That's a decision for people, not for the metric.</p>
+
+<h3 id="deeper-thresholds">Group-specific thresholds: what they buy and what they cost</h3>
+<p>One common mitigation is to choose a separate threshold for each group so that a chosen metric matches, here the true-positive rate ("equal opportunity"):</p>
+<!--cell 2-->
+<p>Lowering group A's threshold to about 0.305 brings its TPR to 0.634, matching group B's 0.631. The FPRs come closer too (0.320 and 0.362). But group A's accuracy falls from 0.736 to 0.667, because many more of its negatives are now flagged, and precision equality is lost. Every option moves along this trade-off; none removes it. In some countries and domains, using a protected attribute to set different thresholds is also legally restricted, so check before deploying. Alternatives include improving the data for under-served groups, adding features that are informative for them, or changing the decision itself (for example offering a review rather than a refusal).</p>
+
+<h3 id="deeper-uncertainty">Small groups: put error bars on fairness metrics</h3>
+<p>Fairness audits often compare metrics for small groups, and small groups make noisy estimates. Here group A's TPR is measured on just 400 people (106 actual positives):</p>
+<!--cell 3-->
+<p>The TPR is 0.226, but the 95% bootstrap interval runs from 0.151 to 0.311, wider than many gaps people report as unfair (or as fixed). Report intervals for every group's metrics; check intersections (for example older women, not just "women" and "older people"), where groups are smaller still; and treat large gaps on small groups as a reason to collect more evidence, not as a final verdict.</p>
+
+<h3 id="deeper-audit">An audit checklist</h3>
+<table class="tbl">
+<thead><tr><th>Step</th><th>Question</th></tr></thead>
+<tbody>
+<tr><td>Decide what harm matters</td><td>Is a missed positive or a false alarm worse for the people affected?</td></tr>
+<tr><td>Pick the metric before looking</td><td>Equal TPR, equal FPR, equal precision, calibration within groups, or demographic parity?</td></tr>
+<tr><td>Measure every group and intersection</td><td>With bootstrap intervals, on held-out data</td></tr>
+<tr><td>Check calibration within each group</td><td>Do scores mean the same thing for everyone?</td></tr>
+<tr><td>Compare mitigations with their costs</td><td>Thresholds, reweighting, better data, a different decision process</td></tr>
+<tr><td>Document and monitor</td><td>A model card, plus re-checks as data and base rates drift (Lesson 5's "Going deeper")</td></tr>
+</tbody></table>
+<!--interview-->
+<!--quiz-->

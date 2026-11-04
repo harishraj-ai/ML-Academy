@@ -1,0 +1,26 @@
+
+<h2 id="deeper">Going deeper: Bayesian optimisation from scratch</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>This lesson described Bayesian optimisation in words. Here it is in about fifteen lines: a <strong>Gaussian process</strong> surrogate that predicts the validation score <em>and its uncertainty</em> for any setting, and the <strong>expected improvement</strong> rule that decides where to try next. Then we measure whether it actually beats random search.</p>
+<p>You'll need: this lesson, the normal distribution from Lesson 4 and kernels from Lesson 15.</p></div>
+
+<h3 id="deeper-gp">The surrogate: a Gaussian process</h3>
+<p>A <strong>Gaussian process</strong> (GP) is a probability distribution over smooth functions. Given a few observed points, it predicts a mean $\mu(x)$ and a standard deviation $\sigma(x)$ at every other point: close to observed points it's confident, far from them it's uncertain. How smooth it assumes the function to be is set by a kernel, the same idea as the SVM's kernels (Lesson 15). Here we use the common Matérn kernel, and the GP learns its length scale from the data.</p>
+
+<h3 id="deeper-ei">Choosing the next trial: expected improvement</h3>
+<p>Let $f^*$ be the best score found so far. At a candidate $x$, the GP says the score is roughly normal with mean $\mu$ and standard deviation $\sigma$. The <strong>expected improvement</strong> is the average amount by which it would beat $f^*$, counting no improvement as zero:</p>
+<p>$$\text{EI}(x) = (\mu - f^*)\,\Phi(z) + \sigma\,\phi(z), \qquad z = \frac{\mu - f^*}{\sigma}$$</p>
+<p>where $\Phi$ and $\phi$ are the standard normal CDF and density. The first term rewards a high predicted score (<strong>exploitation</strong>); the second rewards high uncertainty (<strong>exploration</strong>). Each round: fit the GP to all results so far, pick the $x$ with the largest EI, evaluate it, and repeat.</p>
+<p>Below, the "validation score" is a made-up curve over $\log_{10}(\text{learning rate})$ from $-5$ to $0$ with a narrow peak. Both methods start fresh 20 times, and we report the average gap between the best score found and the true best:</p>
+<!--cell 1-->
+<p>With only 5 trials, Bayesian optimisation is no better than random (0.130 against 0.119): 3 of those trials are random starting points, and two guided steps aren't enough. By 10 trials it is five times closer to the best (0.0103 against 0.0510), and by 15 it finds the peak every time, while random search is still 0.026 away. That's the pattern in practice: Bayesian optimisation helps most when trials are expensive and you can afford only tens of them, in a low-dimensional space.</p>
+
+<h3 id="deeper-practice">In practice</h3>
+<ul>
+<li><strong>Dimensions.</strong> GPs work best with up to about 10–20 hyperparameters. Optuna's default, TPE (tree-structured Parzen estimator), copes better with many hyperparameters and with categorical and conditional ones (for example "number of layers", then a width per layer).</li>
+<li><strong>Noise.</strong> Validation scores are noisy, so the surrogate should model noise (a white-noise kernel term, or <code>alpha</code>), or it will chase lucky trials.</li>
+<li><strong>Parallelism.</strong> Random search parallelises trivially; Bayesian optimisation is sequential by nature, and needs tricks to propose several trials at once.</li>
+<li><strong>Pruning.</strong> Combining a smart sampler with early stopping of bad trials (Optuna's pruners, or Hyperband) usually gives the biggest savings.</li>
+</ul>
+<!--interview-->
+<!--quiz-->

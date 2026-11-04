@@ -1,0 +1,225 @@
+<h2 id="why">Why SQL belongs in an ML course</h2>
+<p>Every lesson so far started with a tidy table already loaded into Python. In a real job the data lives somewhere else: in a <strong>database</strong>, spread across many tables (customers, orders, payments, support tickets), often with millions of rows. Before any model can be trained, someone has to pull out the right rows, join the tables together, summarise events into features, and do it without accidentally peeking into the future.</p>
+<p>That someone is usually you, and the language is almost always <strong>SQL</strong> (Structured Query Language). Data-science interviews almost always include a SQL round, and a large share of real ML work is data preparation. This lesson teaches the SQL and pandas you need for that work: selecting, filtering, grouping, joining, window functions, reshaping, and the one rule that keeps feature tables honest.</p>
+<div class="box intuition"><div class="box-title">The core idea</div><p>A database stores each kind of thing in its own table and links tables with <strong>keys</strong>. Building a training set means joining those tables back together and summarising each entity's history into one row of features, using only information that was available <em>at the moment the prediction would have been made</em>.</p></div>
+
+<h2 id="tables">Tables, rows and keys</h2>
+<p>A <strong>relational database</strong> is a set of tables. Each row is one record and each column one attribute, with a fixed type (number, text, date). Two kinds of column link tables together:</p>
+<ul>
+<li>A <strong>primary key</strong> uniquely identifies each row of a table, such as <code>houses.id</code>.</li>
+<li>A <strong>foreign key</strong> is a column that refers to another table's primary key, such as <code>viewings.house_id</code>, which says which house each viewing was for.</li>
+</ul>
+<p>Storing viewings in their own table instead of as columns on each house means a house can have any number of viewings (zero, one or fifty) without empty columns or repeated house details. This design is called <strong>normalisation</strong>. Building ML features is mostly the reverse: <em>denormalising</em> many tables back into one wide row per entity.</p>
+<p>Throughout this lesson we use the Chennai Homes table (12 houses) plus a second table of <strong>viewings</strong>: 11 visits by potential buyers, each with a house id and the day it happened. Python's built-in <code>sqlite3</code> module gives us a real SQL database with nothing to install.</p>
+
+<h2 id="select">SELECT, WHERE and ORDER BY</h2>
+<p>A query describes <em>what</em> you want, and the database decides how to find it. The basic shape is:</p>
+<p>$$\texttt{SELECT columns FROM table WHERE condition ORDER BY column}$$</p>
+<pre><code>import sqlite3
+import pandas as pd
+
+con = sqlite3.connect(":memory:")                 # a database that lives in memory
+pd.read_csv("houses.csv").to_sql("houses", con, index=False)
+viewings = pd.DataFrame({"house_id": [1, 1, 2, 4, 4, 4, 5, 8, 11, 11, 12],
+                         "day":      [3, 9, 2, 1, 4, 8, 6, 5, 2, 7, 1]})
+viewings.to_sql("viewings", con, index=False)
+
+q = """SELECT id, area, size_m2, price_lakh
+       FROM houses
+       WHERE price_lakh &gt; 80
+       ORDER BY price_lakh DESC"""
+print(pd.read_sql(q, con))</code></pre>
+<p>Output:</p>
+<pre><code>   id       area  size_m2  price_lakh
+0  12     Suburb      125          96
+1   3    Central      120          95
+2   5     Suburb      110          88
+3   8  Outskirts      150          84
+4   2    Central       90          82</code></pre>
+<p>Five houses cost more than 80 lakh, listed from the most expensive down. <code>pd.read_sql</code> runs the query and returns the result as a pandas DataFrame, which is how SQL and Python usually meet in practice. Useful extras: <code>LIMIT 10</code> keeps the first 10 rows, <code>DISTINCT</code> removes duplicate rows, and conditions combine with <code>AND</code>, <code>OR</code>, <code>IN (...)</code>, <code>BETWEEN</code> and <code>LIKE 'new%'</code> for text patterns. Missing values are <code>NULL</code> and need <code>IS NULL</code>, because <code>= NULL</code> is never true.</p>
+
+<h2 id="groupby">GROUP BY: from rows to summaries</h2>
+<p><code>GROUP BY</code> collapses all rows that share a value into one row, and <strong>aggregate functions</strong> (<code>COUNT</code>, <code>SUM</code>, <code>AVG</code>, <code>MIN</code>, <code>MAX</code>) summarise each group. <code>WHERE</code> filters rows <em>before</em> grouping; <code>HAVING</code> filters groups <em>after</em>.</p>
+<pre><code>q = """SELECT area, COUNT(*) AS homes, ROUND(AVG(price_lakh), 1) AS avg_price,
+              ROUND(AVG(price_lakh * 1.0 / size_m2), 3) AS lakh_per_m2
+       FROM houses
+       GROUP BY area
+       HAVING COUNT(*) &gt;= 3
+       ORDER BY avg_price DESC"""
+print(pd.read_sql(q, con))</code></pre>
+<p>Output:</p>
+<pre><code>        area  homes  avg_price  lakh_per_m2
+0    Central      4       76.8        0.889
+1     Suburb      5       76.4        0.692
+2  Outskirts      3       58.7        0.462</code></pre>
+<div class="box example"><div class="box-title">Worked example — checking a GROUP BY by hand</div>
+<p>The Outskirts homes are ids 8, 9 and 10, priced 84, 42 and 50 lakh, with sizes 150, 95 and 130 m².</p>
+<p><strong>COUNT(*):</strong> 3 rows, so <code>homes = 3</code>.</p>
+<p><strong>AVG(price):</strong> $(84 + 42 + 50)/3 = 176/3 \approx 58.7$ lakh.</p>
+<p><strong>AVG(price/size):</strong> $84/150 = 0.560$, $42/95 = 0.442$, $50/130 = 0.385$; their average is $1.387/3 \approx 0.462$ lakh per m².</p>
+<p>Note that this is the average of the ratios, not total price divided by total size ($176/375 = 0.469$). Which one you want depends on the question, and mixing them up is a classic reporting error.</p></div>
+<p>Central and Suburb homes have almost the same average price (76.8 and 76.4 lakh), but Central costs far more per square metre (0.889 against 0.692). Averages per group like these are exactly the kind of feature a model can use. The <code>* 1.0</code> forces decimal division, because some databases divide whole numbers as whole numbers.</p>
+
+<h2 id="joins">Joins: combining tables</h2>
+<p>A <strong>join</strong> matches rows from two tables using a condition, usually "foreign key equals primary key". The two you'll use most:</p>
+<ul>
+<li><strong>INNER JOIN</strong> keeps only rows that have a match in <em>both</em> tables.</li>
+<li><strong>LEFT JOIN</strong> keeps <em>every</em> row of the left table; where there is no match, the right table's columns are <code>NULL</code>.</li>
+</ul>
+<pre><code>inner = """SELECT h.id, COUNT(v.day) AS n_viewings
+           FROM houses h JOIN viewings v ON v.house_id = h.id
+           GROUP BY h.id"""
+left = """SELECT h.id, COUNT(v.day) AS n_viewings
+          FROM houses h LEFT JOIN viewings v ON v.house_id = h.id
+          GROUP BY h.id"""
+print("inner join rows:", len(pd.read_sql(inner, con)), "  left join rows:", len(pd.read_sql(left, con)))
+print(pd.read_sql(left, con).T)</code></pre>
+<p>Output:</p>
+<pre><code>inner join rows: 7   left join rows: 12
+            0   1   2   3   4   5   6   7   8   9   10  11
+id           1   2   3   4   5   6   7   8   9  10  11  12
+n_viewings   2   1   0   3   1   0   0   1   0   0   2   1</code></pre>
+<p>The inner join returns only the 7 houses that had viewings; the 5 houses with none simply vanish. The left join keeps all 12, with a count of 0 for the unviewed ones. For ML that difference is crucial: an inner join silently drops entities from your training set (often exactly the unusual ones), and "zero viewings" is a valuable feature in its own right. <code>COUNT(v.day)</code> counts only non-NULL values, which is why unmatched houses get 0 rather than 1.</p>
+<div class="box warn"><div class="box-title">The row-explosion trap</div><p>A join produces one row for <em>every</em> matching pair. House 4 had 3 viewings, so joining houses to viewings gives house 4 three rows. If you then compute <code>AVG(price)</code> over the joined table, house 4's price counts three times. Aggregate the "many" side first (count viewings per house), then join the one-row-per-house result. Always check the row count after a join.</p></div>
+
+<h2 id="demo">Try it: INNER vs LEFT join</h2>
+<p>Switch between the two joins and turn grouping on and off. Watch which houses disappear, which get <code>NULL</code>, and how a house with several viewings is repeated until you group.</p>
+<div class="demo" data-demo="join"></div>
+
+<h2 id="window">Window functions: features from context</h2>
+<p>A <strong>window function</strong> computes something across a set of related rows <em>without</em> collapsing them, as <code>GROUP BY</code> would. The <code>OVER (PARTITION BY ... ORDER BY ...)</code> clause defines the window. They're ideal for features such as "rank within its area" or "price compared with the area average":</p>
+<pre><code>q = """SELECT id, area, price_lakh,
+              RANK() OVER (PARTITION BY area ORDER BY price_lakh DESC) AS rank_in_area,
+              ROUND(price_lakh - AVG(price_lakh) OVER (PARTITION BY area), 1) AS vs_area_avg
+       FROM houses
+       ORDER BY area, rank_in_area"""
+print(pd.read_sql(q, con))</code></pre>
+<p>Output:</p>
+<pre><code>    id       area  price_lakh  rank_in_area  vs_area_avg
+0    3    Central          95             1         18.3
+1    2    Central          82             2          5.3
+2   11    Central          72             3         -4.8
+3    1    Central          58             4        -18.8
+4    8  Outskirts          84             1         25.3
+5   10  Outskirts          50             2         -8.7
+6    9  Outskirts          42             3        -16.7
+7   12     Suburb          96             1         19.6
+8    5     Suburb          88             2         11.6
+9    6     Suburb          79             3          2.6
+10   7     Suburb          64             4        -12.4
+11   4     Suburb          55             5        -21.4</code></pre>
+<p>Each house keeps its own row but gains two features: its price rank within its area, and how far its price is above or below its area's average (house 3 is 18.3 lakh above the Central average; house 4 is 21.4 below the Suburb average). Other window functions you'll meet: <code>ROW_NUMBER()</code>, <code>LAG(x)</code> (the previous row's value, perfect for "change since last month"), and running totals such as <code>SUM(x) OVER (ORDER BY day ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)</code> for a 7-day rolling sum.</p>
+
+<h2 id="pandas">The same operations in pandas</h2>
+<p>Once data is in Python, pandas offers the same operations. Translating between them is a daily task:</p>
+<div class="table-scroll"><table class="tbl">
+<thead><tr><th>SQL</th><th>pandas</th></tr></thead>
+<tbody>
+<tr><td><code>WHERE price &gt; 80</code></td><td><code>df[df.price &gt; 80]</code> or <code>df.query("price &gt; 80")</code></td></tr>
+<tr><td><code>GROUP BY area</code> + aggregates</td><td><code>df.groupby("area").agg(...)</code></td></tr>
+<tr><td><code>LEFT JOIN ... ON</code></td><td><code>left.merge(right, on=..., how="left")</code></td></tr>
+<tr><td><code>AVG(x) OVER (PARTITION BY area)</code></td><td><code>df.groupby("area")["x"].transform("mean")</code></td></tr>
+<tr><td><code>ORDER BY x DESC LIMIT 5</code></td><td><code>df.nlargest(5, "x")</code></td></tr>
+</tbody></table></div>
+<pre><code>houses = pd.read_sql("SELECT * FROM houses", con)
+n_view = viewings.groupby("house_id").size().rename("n_viewings")
+merged = houses.merge(n_view, left_on="id", right_index=True, how="left").fillna({"n_viewings": 0})
+summary = merged.groupby("area").agg(homes=("id", "size"), avg_price=("price_lakh", "mean"),
+                                     avg_viewings=("n_viewings", "mean")).round(2)
+print(summary)</code></pre>
+<p>Output:</p>
+<pre><code>           homes  avg_price  avg_viewings
+area                                     
+Central        4      76.75          1.25
+Outskirts      3      58.67          0.33
+Suburb         5      76.40          1.00</code></pre>
+<p>The same left join (with missing counts filled as 0) and group summary, now in pandas: Central homes average 1.25 viewings, Outskirts homes only 0.33. As a rule of thumb, do heavy filtering and joining in the database, close to the data, and finish in pandas, where plotting and modelling live.</p>
+
+<h2 id="reshape">Reshaping and cleaning</h2>
+<p>A few more tools that come up constantly when preparing ML data:</p>
+<ul>
+<li><strong>Long vs wide.</strong> Event tables are "long" (one row per house per day). Models need "wide" tables (one row per house, one column per feature). <code>pivot_table</code> goes from long to wide; <code>melt</code> goes back.</li>
+<li><strong>Types.</strong> Check <code>df.dtypes</code>: numbers stored as text, or dates stored as strings, silently break calculations. Use <code>pd.to_numeric</code> and <code>pd.to_datetime</code>.</li>
+<li><strong>Duplicates.</strong> Check that keys really are unique, for example with <code>df.id.is_unique</code>, before and after every join.</li>
+<li><strong>Missing values.</strong> Decide deliberately: missing can mean "zero", "unknown" or "not applicable", and those need different handling (Lesson 20).</li>
+</ul>
+
+<h2 id="pit">Point-in-time correctness: the rule that prevents leakage</h2>
+<p>Suppose we want to predict on day 5 whether a house will sell fast, using "number of viewings" as a feature. If we count <em>all</em> viewings, including those on days 6 to 9, the feature contains information from the future that the model won't have when it's used for real. That's <strong>leakage</strong> (Lesson 5), and with event data it hides inside innocent-looking joins.</p>
+<p>The fix is to put the time condition <em>in the join</em>, so each feature uses only events before the prediction time:</p>
+<pre><code># Point-in-time features: count only viewings that happened BEFORE the prediction day
+predict_day = 5
+q = """SELECT h.id, COUNT(v.day) AS viewings_so_far
+       FROM houses h LEFT JOIN viewings v
+            ON v.house_id = h.id AND v.day &lt; ?
+       GROUP BY h.id"""
+past = pd.read_sql(q, con, params=(predict_day,))
+allv = pd.read_sql(left, con)
+print("viewings counted, all time:   ", int(allv.n_viewings.sum()))
+print("viewings counted, before day 5:", int(past.viewings_so_far.sum()))</code></pre>
+<p>Output:</p>
+<pre><code>viewings counted, all time:    11
+viewings counted, before day 5: 6</code></pre>
+<p>Counting all time gives 11 viewings, but only 6 had happened before day 5. A model trained with the all-time count would look better in testing than it ever could in practice. In real projects each training row has its own <strong>cut-off time</strong> (for example, the date of each loan application), and every feature must be computed from data before that row's cut-off. Feature stores and tools exist to enforce this, but the idea is just this join condition.</p>
+
+<h2 id="code">In Python: from database to training table</h2>
+<p>A complete pattern, using everything above: aggregate the events per entity with a point-in-time cut-off, left-join onto the entity table, fill true zeros, and hand the result to scikit-learn.</p>
+<pre><code>import sqlite3
+import pandas as pd
+
+con = sqlite3.connect(":memory:")
+pd.read_csv("houses.csv").to_sql("houses", con, index=False)
+pd.DataFrame({"house_id": [1, 1, 2, 4, 4, 4, 5, 8, 11, 11, 12],
+              "day": [3, 9, 2, 1, 4, 8, 6, 5, 2, 7, 1]}).to_sql("viewings", con, index=False)
+
+query = """
+WITH v AS (                                  -- step 1: summarise events before the cut-off
+    SELECT house_id, COUNT(*) AS n_viewings, MIN(day) AS first_view
+    FROM viewings WHERE day &lt; 5 GROUP BY house_id
+)
+SELECT h.*,                                  -- step 2: one row per house, every house kept
+       COALESCE(v.n_viewings, 0) AS n_viewings,
+       AVG(h.price_lakh) OVER (PARTITION BY h.area) AS area_avg_price
+FROM houses h LEFT JOIN v ON v.house_id = h.id
+"""
+train = pd.read_sql(query, con)
+print(train.shape)
+print(train[["id", "area", "n_viewings", "area_avg_price", "sold_fast"]].head())</code></pre>
+<p>Output:</p>
+<pre><code>(12, 11)
+   id       area  n_viewings  area_avg_price  sold_fast
+0   1    Central           1       76.750000          1
+1   2    Central           1       76.750000          1
+2   3    Central           0       76.750000          0
+3  11    Central           1       76.750000          1
+4   8  Outskirts           0       58.666667          0</code></pre>
+<p>The <code>WITH</code> clause (a <strong>common table expression</strong>) names an intermediate result so the query reads top to bottom, and <code>COALESCE</code> turns missing counts into 0. With real databases (PostgreSQL, MySQL, BigQuery, Snowflake) only the connection line changes. Note one subtle leak left in this example: <code>area_avg_price</code> uses every house's price, including the house itself. Inside cross-validation, a group average should be computed from training folds only (Lesson 20's "Going deeper" on target encoding).</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Real ML data lives in databases spread across tables linked by <strong>primary and foreign keys</strong>; building a training set means joining and summarising them.</li>
+<li><code>SELECT … FROM … WHERE … GROUP BY … HAVING … ORDER BY</code>: <code>WHERE</code> filters rows, <code>HAVING</code> filters groups.</li>
+<li><strong>LEFT JOIN</strong> keeps every entity; <strong>INNER JOIN</strong> silently drops the unmatched ones. Check row counts after every join and aggregate the "many" side first.</li>
+<li><strong>Window functions</strong> add context features (rank within group, difference from group average, previous value) without collapsing rows.</li>
+<li>pandas has an equivalent for each: boolean filtering, <code>groupby</code>, <code>merge</code>, <code>transform</code>.</li>
+<li><strong>Point-in-time correctness:</strong> every feature must use only data from before each row's prediction time. Put the time condition in the join.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. Which clause filters <em>groups</em> after aggregation?</p>
+<button data-opt="a">WHERE</button><button data-opt="b">HAVING</button><button data-opt="c">ORDER BY</button>
+<div class="q-explain"><code>WHERE</code> filters rows before grouping; <code>HAVING</code> filters the grouped results, for example <code>HAVING COUNT(*) &gt;= 3</code>.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. 12 customers, 7 of whom placed orders. How many rows does <code>customers LEFT JOIN orders</code> followed by <code>GROUP BY customer</code> give?</p>
+<button data-opt="a">12</button><button data-opt="b">7</button><button data-opt="c">As many as there are orders</button>
+<div class="q-explain">The left join keeps every customer (those without orders get NULLs), and grouping gives one row per customer: 12.</div></div>
+<div class="q" data-correct="c"><p class="q-text">3. You join houses to viewings (one row per viewing) and then take <code>AVG(price)</code>. What goes wrong?</p>
+<button data-opt="a">Nothing</button><button data-opt="b">Houses without viewings count twice</button><button data-opt="c">Houses with many viewings count many times</button>
+<div class="q-explain">Each house appears once per matching viewing, so its price is repeated. Aggregate viewings first, then join.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. Which window-function expression gives each house's price minus its area's average price?</p>
+<button data-opt="a"><code>price - AVG(price)</code> with <code>GROUP BY area</code></button><button data-opt="b"><code>price - AVG(price) OVER (PARTITION BY area)</code></button><button data-opt="c"><code>RANK() OVER (ORDER BY price)</code></button>
+<div class="q-explain">The window version computes the area average for every row without collapsing the rows.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. A churn model uses "number of support calls" counted over the customer's whole history, including after the prediction date. What's the problem?</p>
+<button data-opt="a">Leakage: the feature uses future information</button><button data-opt="b">The feature is categorical</button><button data-opt="c">The join is too slow</button>
+<div class="q-explain">Features must be computed only from events before each row's cut-off time; otherwise test scores are optimistic.</div></div>
+</div>
