@@ -1,0 +1,4 @@
+max_features 1.0  : tree-to-tree correlation 0.83   out-of-bag accuracy 0.960   test 0.930
+max_features 0.5  : tree-to-tree correlation 0.82   out-of-bag accuracy 0.957   test 0.942
+max_features sqrt : tree-to-tree correlation 0.80   out-of-bag accuracy 0.967   test 0.953
+max_features 1    : tree-to-tree correlation 0.70   out-of-bag accuracy 0.965   test 0.936

@@ -1,0 +1,4 @@
+learning rate  1.0: trees used   35   test accuracy 0.924
+learning rate  0.3: trees used   49   test accuracy 0.942
+learning rate  0.1: trees used   83   test accuracy 0.947
+learning rate 0.03: trees used  203   test accuracy 0.936

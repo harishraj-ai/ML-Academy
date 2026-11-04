@@ -1,0 +1,4 @@
+forest : test accuracy 0.953
+boost  : test accuracy 0.942
+knn    : test accuracy 0.942
+stacked: test accuracy 0.942   blender weights [[2.84 2.28 3.05]]

@@ -1,0 +1,3 @@
+boundary direction, linear SVM:      [ 0.384 -0.923]
+boundary direction, logistic regr.:  [ 0.384 -0.923]
+agreement on predictions: 1.0

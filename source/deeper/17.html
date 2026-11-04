@@ -1,0 +1,43 @@
+
+<h2 id="deeper">Going deeper: choosing components, and non-linear maps</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>PCA finds the best <em>flat</em> summary of the data. This section shows how to decide how many components to keep, what reconstruction error tells you, and what to do when the structure is curved: <strong>kernel PCA</strong> for features, and <strong>t-SNE</strong> and <strong>UMAP</strong> for pictures, including how to read those pictures without being misled.</p>
+<p>You'll need: this lesson, and eigenvectors and the SVD from Lesson 2's "Going deeper".</p></div>
+
+<h3 id="deeper-howmany">How many components?</h3>
+<p>Keeping $k$ components has an exact cost: the <strong>reconstruction error</strong>, how far each point is from its projection back into the original space, equals the variance in the components you dropped. Projecting onto the top $k$ principal components gives the smallest possible error of any $k$-dimensional flat subspace (the Eckart–Young result from Lesson 2's "Going deeper"). On the 8×8 handwritten digits (64 pixel features):</p>
+<!--cell 1-->
+<p>Two components keep only 28.5% of the variance; 29 components are needed to keep 95%, and the relative reconstruction error is exactly 1 minus the variance kept (0.041 at 30 components, where 0.959 is kept). Common ways to choose $k$:</p>
+<ul>
+<li>A variance target, such as 90–99%. Scikit-learn accepts it directly: <code>PCA(0.95)</code>.</li>
+<li>An "elbow" in the plot of explained variance against component number.</li>
+<li>Best of all, when PCA feeds a model: treat $k$ as a hyperparameter and choose it by cross-validation of the whole pipeline.</li>
+</ul>
+<p>Reconstruction error has a useful side job: <strong>anomaly detection</strong>. Points that the main components can't reconstruct well don't follow the usual pattern.</p>
+
+<h3 id="deeper-kpca">Kernel PCA: principal components in a curved space</h3>
+<p>PCA can only find flat directions. When classes sit on concentric circles, no straight direction separates them. <strong>Kernel PCA</strong> applies the kernel trick (Lesson 15's "Going deeper") to PCA: it finds principal components in a high-dimensional feature space, computed entirely through the kernel matrix.</p>
+<!--cell 2-->
+<p>Ordinary PCA's single component is useless for separating the inner and outer circles (0.450, worse than guessing). With an RBF kernel, the first kernel principal component separates them perfectly (1.000): in the kernel's feature space, "distance from the centre" becomes a straight direction. Kernel PCA needs the $n\times n$ kernel matrix, so like kernel SVMs it doesn't scale to very large datasets, and its components are hard to interpret.</p>
+
+<h3 id="deeper-tsne">t-SNE and UMAP: maps for looking, not features</h3>
+<p><strong>t-SNE</strong> builds a 2-D map that keeps <em>neighbourhoods</em>: points that are close in the original space should stay close on the map. It turns distances into probabilities of being neighbours (in the original space using a normal curve whose width is set by the <strong>perplexity</strong>, roughly "how many neighbours to care about"; on the map using a heavier-tailed $t$-distribution), then moves the map points to make the two sets of probabilities match. <strong>UMAP</strong> has a similar goal, is faster, and keeps more of the global layout.</p>
+<!--cell 3-->
+<p>How well does each 2-D map keep similar digits together? A point's 5 nearest map neighbours share its label 97.6% of the time for t-SNE, against 60.3% for PCA's flat 2-D projection. That's why t-SNE pictures of the digits show ten neat islands. But read such maps carefully:</p>
+<ul>
+<li><strong>Distances between clusters mean little.</strong> t-SNE preserves local neighbourhoods, not global distances. Two islands far apart are not necessarily very different.</li>
+<li><strong>Cluster sizes mean little.</strong> t-SNE expands dense clusters and shrinks sparse ones.</li>
+<li><strong>Perplexity and the random seed change the picture.</strong> Try several values before trusting a pattern. Random noise can look clustered at low perplexity.</li>
+<li><strong>It's for looking, not for modelling.</strong> t-SNE has no <code>transform</code> for new points, and its axes have no meaning. Use PCA (or UMAP, which can transform new data) when you need features for a model.</li>
+</ul>
+
+<h3 id="deeper-tips">Practical PCA notes</h3>
+<ul>
+<li><strong>Fit PCA inside the pipeline</strong>, on training data only, so test data doesn't leak into the components (Lesson 5).</li>
+<li><strong>Standardise first</strong> when features have different units; otherwise the component directions are dominated by the features with the biggest numbers.</li>
+<li><strong>Whitening</strong> (<code>PCA(whiten=True)</code>) rescales each component to variance 1. It helps some models but also amplifies noise in the small components.</li>
+<li><strong>For huge or sparse data</strong>, use <code>TruncatedSVD</code> (works on sparse matrices, like TF-IDF text, where it's called latent semantic analysis), <code>IncrementalPCA</code> (in batches) or randomized SVD.</li>
+<li><strong>Autoencoders</strong> (Lesson 19) are a neural-network generalisation: an encoder squeezes the data through a small middle layer and a decoder reconstructs it. A linear autoencoder with squared error learns the same subspace as PCA.</li>
+</ul>
+<!--interview-->
+<!--quiz-->

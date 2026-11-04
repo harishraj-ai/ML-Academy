@@ -1,0 +1,5 @@
+k-means                       : ARI 0.253
+Gaussian mixture              : ARI 0.495
+DBSCAN                        : ARI 1.000
+agglomerative, single linkage : ARI 1.000
+agglomerative, Ward linkage   : ARI 0.559

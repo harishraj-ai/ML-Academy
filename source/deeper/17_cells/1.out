@@ -1,0 +1,6 @@
+ 2 components: variance kept 0.285   relative reconstruction error 0.715
+10 components: variance kept 0.738   relative reconstruction error 0.262
+20 components: variance kept 0.894   relative reconstruction error 0.106
+30 components: variance kept 0.959   relative reconstruction error 0.041
+40 components: variance kept 0.988   relative reconstruction error 0.012
+components needed for 95% of the variance: 29

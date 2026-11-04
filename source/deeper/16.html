@@ -1,0 +1,42 @@
+
+<h2 id="deeper">Going deeper: mixture models, density and hierarchy</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>k-means is one answer to "find groups", built on one assumption: clusters are round blobs of similar size. This section covers the main alternatives and when each is right: <strong>Gaussian mixture models</strong> (soft, stretched clusters, fitted by the EM algorithm), <strong>DBSCAN</strong> (clusters of any shape, plus outliers) and <strong>hierarchical clustering</strong> (a whole tree of groupings), along with principled ways to choose the number of clusters.</p>
+<p>You'll need: this lesson, maximum likelihood from Lesson 4's "Going deeper", and covariance from Lesson 17.</p></div>
+
+<h3 id="deeper-gmm">Gaussian mixture models and the EM algorithm</h3>
+<p>A <strong>Gaussian mixture model</strong> (GMM) assumes each point was produced by first picking a cluster $k$ with probability $\pi_k$, then drawing from a normal distribution with that cluster's mean $\boldsymbol\mu_k$ and covariance matrix $\Sigma_k$. The covariance lets each cluster be stretched and tilted, not just round. It's fitted by the <strong>expectation–maximisation</strong> (EM) algorithm, which alternates two steps much like k-means:</p>
+<ul>
+<li><strong>E-step:</strong> for every point, compute the probability ("responsibility") that each cluster produced it, using the current parameters and Bayes' theorem.</li>
+<li><strong>M-step:</strong> re-estimate each cluster's $\pi_k$, $\boldsymbol\mu_k$ and $\Sigma_k$ as weighted averages, with each point weighted by its responsibility.</li>
+</ul>
+<p>Each round never lowers the likelihood, so EM converges, though like k-means it can stop at a local optimum, and it's restarted from several starting points. k-means is in fact a limiting case of EM: round clusters with equal tiny variance, and "hard" responsibilities of 0 or 1.</p>
+<!--cell 1-->
+<p>On three stretched, tilted blobs, k-means gets an adjusted Rand index (ARI, 1 = perfect agreement with the true groups, 0 = chance) of only 0.58: its round-cluster assumption cuts the long clusters in the wrong places. The Gaussian mixture recovers the groups perfectly (ARI 1.0). As a bonus it gives <strong>soft</strong> assignments: here only 0.2% of points are uncertain (no cluster above 90%), but in overlapping data those probabilities show which points are genuinely ambiguous.</p>
+
+<h3 id="deeper-shapes">Clusters of any shape: DBSCAN and linkage</h3>
+<p>Some clusters aren't blobs at all. <strong>DBSCAN</strong> (this lesson) grows clusters through dense regions: a point with at least <code>min_samples</code> neighbours within distance <code>eps</code> is a "core" point, clusters are chains of connected core points, and anything not reachable is labelled noise. <strong>Agglomerative (hierarchical) clustering</strong> starts with every point alone and repeatedly merges the two closest groups. The <strong>linkage</strong> rule defines "closest": <em>single</em> linkage uses the closest pair of points (it can follow long, thin shapes), and <em>Ward</em> linkage merges the pair that least increases within-cluster variance (it prefers compact, k-means-like groups). Here are all five methods on two interlocking half-moons:</p>
+<!--cell 2-->
+<p>DBSCAN and single linkage both recover the moons perfectly (ARI 1.000) because they follow connected, dense regions. k-means (0.253), the Gaussian mixture (0.495) and Ward linkage (0.559) all assume compact groups and cut each moon in half. The catch with single linkage is "chaining": a thin bridge of noise points can merge two real clusters. DBSCAN is sensitive to <code>eps</code>, and struggles when clusters have very different densities; <strong>HDBSCAN</strong> (in scikit-learn since version 1.3) fixes that by trying many densities at once.</p>
+<p>Hierarchical clustering also produces a <strong>dendrogram</strong>, a tree showing every merge and the distance at which it happened. Cutting it at different heights gives different numbers of clusters, which is useful when the "right" level of detail isn't known in advance (for example customer segments, or a taxonomy of documents).</p>
+
+<h3 id="deeper-k">Choosing the number of clusters</h3>
+<p>Without labels, use criteria that reward tight, well-separated clusters without simply rewarding more clusters:</p>
+<ul>
+<li><strong>Silhouette score</strong>: for each point, $s = (b - a)/\max(a, b)$, where $a$ is its average distance to its own cluster and $b$ to the nearest other cluster. Averaged over points, higher is better; values near 1 mean clear clusters.</li>
+<li><strong>BIC</strong> for mixture models: $-2\log L + p\log n$, where $p$ counts parameters. It penalises extra clusters; lower is better.</li>
+</ul>
+<!--cell 3-->
+<p>The data has 4 true clusters. The silhouette peaks at $k = 4$ (0.811) and BIC is lowest at $k = 4$ (5133), so both point to the right answer. On real data the signals are often weaker or disagree. Treat them as guides, and choose $k$ also by whether the clusters are <em>useful</em>: can someone describe and act on each segment?</p>
+
+<h3 id="deeper-choose">Choosing a clustering method</h3>
+<table class="tbl">
+<thead><tr><th>Method</th><th>Finds</th><th>Needs</th><th>Watch out for</th></tr></thead>
+<tbody>
+<tr><td>k-means</td><td>Round blobs of similar size</td><td>$k$</td><td>Scaling; elongated or uneven clusters</td></tr>
+<tr><td>Gaussian mixture</td><td>Elliptical clusters, soft membership</td><td>$k$ (choose by BIC)</td><td>Local optima; many parameters in high dimensions</td></tr>
+<tr><td>DBSCAN / HDBSCAN</td><td>Any shape; marks noise</td><td><code>eps</code>, <code>min_samples</code></td><td>Very different densities (DBSCAN); high dimensions</td></tr>
+<tr><td>Agglomerative</td><td>A hierarchy of groups</td><td>Linkage; where to cut</td><td>About $O(n^2)$ memory; chaining with single linkage</td></tr>
+</tbody></table>
+<!--interview-->
+<!--quiz-->

@@ -1,0 +1,2 @@
+ordinary PCA     : a linear classifier on the 1 new feature scores 0.450
+kernel PCA (RBF) : a linear classifier on the 1 new feature scores 1.000

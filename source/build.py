@@ -330,7 +330,7 @@ source ml-env/bin/activate        # on Windows: ml-env\\Scripts\\activate
 pip install numpy pandas scikit-learn matplotlib jupyterlab
 jupyter lab</code></pre>
 <p class="sub">JupyterLab opens in your browser. Every lesson has a <strong>ready-made notebook</strong> with all its code (and the expected outputs): use the <em>Download Jupyter notebook</em> button at the top of a lesson, open the file in JupyterLab, and press Shift+Enter to run each cell. All 21 are in the <code>notebooks</code> folder.</p>
-<p class="sub"><strong>Prefer paper?</strong> The <a href="workbook/ML-Academy-workbook.pdf">printable workbook (PDF, about 410 pages)</a> has every lesson with space to work the exercises by hand, and all answers at the back. Each lesson page also prints cleanly on its own.</p>
+<p class="sub"><strong>Prefer paper?</strong> The <a href="workbook/ML-Academy-workbook.pdf">printable workbook (PDF, about 570 pages)</a> has every lesson with space to work the exercises by hand, and all answers at the back. Each lesson page also prints cleanly on its own.</p>
 <p class="sub"><strong>Prefer plain Python scripts?</strong> <a class="btn" href="downloads/ml-academy-code.zip" download>⬇ Download all the code (.zip)</a> — every lesson as a <code>.py</code> file, the coding challenges, the four projects (starter and solution), the dataset and a <code>pytest</code> test suite that checks every script still gives the published results. Unzip it anywhere and see its README.</p>
 </div></section>
 

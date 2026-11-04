@@ -1,0 +1,44 @@
+
+<h2 id="deeper">Going deeper: making deep networks trainable</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>A network with one hidden layer, as in this lesson, trains easily. Stack 20 layers and it often won't train at all. This section shows why, with measurements: signals that shrink or explode as they pass through layers, gradients that vanish on the way back, and the standard fixes that made deep learning work: <strong>careful initialisation</strong>, <strong>ReLU</strong>, <strong>batch normalisation</strong> and <strong>dropout</strong>.</p>
+<p>You'll need: backpropagation from this lesson, and variance from Lesson 4.</p></div>
+
+<h3 id="deeper-init">Initialisation: keeping the signal alive</h3>
+<p>Each layer computes $\mathbf{h}_{\text{new}} = \sigma(W\mathbf{h})$. If each of the $n$ inputs to a unit has variance 1 and each weight has variance $s^2$, the sum $W\mathbf{h}$ has variance about $n s^2$. If $n s^2$ is bigger than 1 the signal grows layer after layer; if smaller, it shrinks. Two classic choices keep it steady:</p>
+<ul>
+<li><strong>Xavier (Glorot) initialisation</strong>, weight variance $1/n$, for tanh-like activations.</li>
+<li><strong>He initialisation</strong>, weight variance $2/n$, for ReLU, which sets half its inputs to zero and so needs twice the variance.</li>
+</ul>
+<p>Here a batch passes through 20 layers of width 256 with different setups:</p>
+<!--cell 1-->
+<p>Weights that are too small (std 0.01) make the signal vanish: its spread falls to $10^{-16}$ by layer 20, so every input produces the same output. Weights that are too big (std 1) push tanh into saturation: the spread looks healthy (0.974), but 86.6% of units sit beyond $\pm 0.99$, where tanh's slope is almost 0, so almost no gradient flows back. Xavier keeps tanh in a usable range. Xavier with ReLU slowly dies away (0.000893 by layer 20), while He initialisation keeps ReLU steady (0.674). Frameworks build in scaled defaults like these (PyTorch's layers scale their random starting weights by the number of inputs), so you rarely set them by hand, but they explain why defaults matter, and why you may want <code>torch.nn.init.kaiming_normal_</code> for a very deep ReLU network.</p>
+
+<h3 id="deeper-vanish">Vanishing gradients, measured</h3>
+<p>Backpropagation multiplies by each layer's activation slope on the way back. The sigmoid's slope is at most 0.25, so over 20 layers the gradient can shrink by up to $0.25^{20} \approx 10^{-12}$. ReLU's slope is exactly 1 wherever a unit is active:</p>
+<!--cell 2-->
+<p>With sigmoid, the gradient reaching the first layer is $4\times 10^{-11}$, about a trillionth of its size at the last layer, so the early layers essentially never learn. With ReLU and He initialisation, it stays the same order of magnitude (197 at the end, 524 at the start). That single change, together with good initialisation, is a big part of why deep networks became trainable around 2010–2012. The other big fixes are below, and <strong>residual connections</strong> (Lesson 19), which add a shortcut $\mathbf{h} + f(\mathbf{h})$ so gradients can skip layers.</p>
+
+<h3 id="deeper-norm">Batch normalisation</h3>
+<p><strong>Batch normalisation</strong> standardises each unit's values across the current mini-batch (mean 0, variance 1), then rescales them with two learned numbers per unit, $\gamma$ and $\beta$:</p>
+<p>$$\hat{z} = \frac{z - \mu_{\text{batch}}}{\sqrt{\sigma^2_{\text{batch}} + \epsilon}}, \qquad \text{output} = \gamma\,\hat{z} + \beta$$</p>
+<p>It keeps every layer's inputs in a steady range however the earlier weights change, which allows larger learning rates and makes training much less sensitive to initialisation. At prediction time it uses running averages of $\mu$ and $\sigma^2$ collected during training, not the current batch. <strong>Layer normalisation</strong> standardises across the units of a single example instead; it doesn't depend on the batch, and it's the standard choice in transformers.</p>
+
+<h3 id="deeper-dropout">Dropout</h3>
+<p><strong>Dropout</strong> randomly switches off each hidden unit with probability $p$ at every training step, so the network can't rely on any single unit and has to spread knowledge out. It works like training a huge ensemble of thinned networks that share weights, and averaging them at the end. Modern implementations use <strong>inverted dropout</strong>: scale the surviving units by $1/(1-p)$ during training, so nothing needs to change at prediction time, when dropout is switched off.</p>
+<!--cell 3-->
+<p>With $p = 0.5$, about half the units survive (0.498), and thanks to the $1/(1-p)$ scaling the average activation stays about 1 (0.995), matching prediction time exactly. The batch-norm example shows each feature leaving with exactly the mean $\beta$ and spread $\gamma$ chosen for it. In PyTorch, <code>model.train()</code> and <code>model.eval()</code> switch both dropout and batch norm between their training and prediction behaviour. Forgetting <code>model.eval()</code> before predicting is a classic bug.</p>
+
+<h3 id="deeper-recipe">A training recipe for a new network</h3>
+<table class="tbl">
+<thead><tr><th>Choice</th><th>Sensible default</th></tr></thead>
+<tbody>
+<tr><td>Activation</td><td>ReLU (or GELU in transformers)</td></tr>
+<tr><td>Initialisation</td><td>The framework default (He or Xavier variants)</td></tr>
+<tr><td>Normalisation</td><td>Batch norm for CNNs; layer norm for transformers</td></tr>
+<tr><td>Optimiser</td><td>AdamW, learning rate about $10^{-3}$, warm-up then decay (Lesson 7's "Going deeper")</td></tr>
+<tr><td>Regularization</td><td>Weight decay, dropout 0.1–0.5, early stopping, data augmentation</td></tr>
+<tr><td>First check</td><td>Overfit a tiny batch (say 10 examples) to near-zero loss. If you can't, there's a bug.</td></tr>
+</tbody></table>
+<!--interview-->
+<!--quiz-->

@@ -1,0 +1,2 @@
+stretched blobs: ARI k-means 0.58   ARI Gaussian mixture 1.0
+share of points the mixture is unsure about (max probability < 0.9): 0.002

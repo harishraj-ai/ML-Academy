@@ -1,0 +1,2 @@
+share of units kept: 0.499   average activation, training: 0.997   at prediction time (no dropout): 1.0
+after batch norm, per-feature mean: [ 0.  1. -1.  0.]  std: [1.  2.  1.  0.5]

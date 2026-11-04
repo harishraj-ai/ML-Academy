@@ -1,0 +1,34 @@
+
+<h2 id="deeper">Going deeper: tuning ensembles and how XGBoost works</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>Random forests and gradient boosting are the workhorses of tabular ML. This section explains the maths of <em>why</em> averaging works (and why it needs the trees to disagree), how to tune boosting with early stopping, what XGBoost, LightGBM and CatBoost add to plain gradient boosting, and when combining different models (stacking) is worth the effort.</p>
+<p>You'll need: this lesson, tree instability from Lesson 13's "Going deeper", and early stopping from Lesson 10's.</p></div>
+
+<h3 id="deeper-variance">Why averaging works: correlation is the limit</h3>
+<p>If $B$ models each have variance $\sigma^2$ and every pair has correlation $\rho$, their average has variance</p>
+<p>$$\operatorname{Var}(\text{average}) = \rho\,\sigma^2 + \frac{1-\rho}{B}\,\sigma^2$$</p>
+<p>The second term vanishes as you add trees, but the first doesn't. <strong>Correlation sets the floor</strong>: averaging 1,000 identical trees ($\rho = 1$) is no better than one. That's why a random forest considers only a random subset of features at each split (<code>max_features</code>): it makes the trees disagree more. The trade-off is that each tree becomes individually weaker.</p>
+<!--cell 1-->
+<p>Using all features at every split (1.0, which is plain bagging), trees agree with correlation 0.83 and the test accuracy is 0.930. With $\sqrt{30} \approx 5$ features per split, correlation drops to 0.80 and accuracy rises to 0.953. With just 1 feature per split, correlation falls to 0.70, but each tree is now so weak that accuracy dips again (0.936). The default <code>"sqrt"</code> is a good middle. The out-of-bag accuracy, computed on the rows each tree didn't see in its bootstrap sample, tracks the right ordering without needing a separate validation set.</p>
+
+<h3 id="deeper-early">Tuning gradient boosting: learning rate and early stopping</h3>
+<p>Each boosting round adds a tree multiplied by the learning rate (also called <strong>shrinkage</strong>). A smaller rate means each tree corrects less, so you need more trees, but the combined model usually generalises better. Rather than guess the number of trees, hold back part of the training data and <strong>stop early</strong> when the validation score stops improving (Lesson 10's "Going deeper"):</p>
+<!--cell 2-->
+<p>With rate 1.0, boosting stops after 35 trees at 0.924; at 0.1 it uses 83 trees and reaches 0.947. Going smaller still (0.03, 203 trees) doesn't help on this small dataset; the differences here are within test-set noise (Lesson 9's "Going deeper"). The usual recipe: pick a modest learning rate (0.05–0.1), let early stopping choose the number of trees, then tune tree size (depth or number of leaves) and regularization. Halving the learning rate roughly doubles the trees needed.</p>
+
+<h3 id="deeper-xgboost">What XGBoost, LightGBM and CatBoost add</h3>
+<p>Plain gradient boosting fits each new tree to the negative gradient of the loss (this lesson's "Advanced" box). <strong>XGBoost</strong> made three key improvements:</p>
+<ul>
+<li><strong>Second-order steps.</strong> It uses each point's gradient $g_i$ <em>and</em> curvature $h_i$ (a Newton step, Lesson 3's "Going deeper"). The best value for a leaf is then a closed formula:
+$$w^* = -\frac{\sum_{i \in \text{leaf}} g_i}{\sum_{i \in \text{leaf}} h_i + \lambda}$$</li>
+<li><strong>Regularization built into the objective.</strong> A penalty $\gamma T + \frac{\lambda}{2}\sum_j w_j^2$ on the number of leaves $T$ and on the leaf values. A split is made only if its gain exceeds $\gamma$, which prunes automatically.</li>
+<li><strong>Engineering:</strong> it learns which way missing values should go at each split, computes in parallel, and supports sparse data.</li>
+</ul>
+<p><strong>LightGBM</strong> speeds this up by grouping each feature's values into histograms (about 255 bins) and growing trees <em>leaf-wise</em>, always splitting the leaf with the biggest gain. Scikit-learn's <code>HistGradientBoostingClassifier</code>, used above, follows the same design. <strong>CatBoost</strong> handles categorical features natively, using carefully ordered target statistics that avoid leakage, and builds symmetric trees that are fast at prediction time. On most tabular problems the three are close; differences in tuning usually matter more than the choice of library.</p>
+
+<h3 id="deeper-stacking">Stacking: combining different models</h3>
+<p><strong>Stacking</strong> trains several different models, then a simple "blender" (often logistic regression) that learns how much to trust each one. The blender must be trained on <em>out-of-fold</em> predictions; otherwise it learns from predictions on rows the models memorised, which is a form of leakage (Lesson 5).</p>
+<!--cell 3-->
+<p>Here, stacking a forest, boosting and kNN scores 0.942: no better than the forest alone (0.953). That's an honest and common result: stacking helps most when the base models are strong <em>and make different kinds of mistakes</em>, and with 171 test cases small gains are invisible anyway. It's popular in competitions, where every 0.1% matters. In production, its extra complexity, latency and maintenance often aren't worth it.</p>
+<!--interview-->
+<!--quiz-->

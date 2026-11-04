@@ -1,0 +1,6 @@
+tanh, weights std 1        : activation std after layers 1, 10, 20: 0.975, 0.974, 0.974
+tanh, weights std 0.01     : activation std after layers 1, 10, 20: 0.157, 1.06e-08, 1.12e-16
+tanh, Xavier std 1/sqrt(n) : activation std after layers 1, 10, 20: 0.627, 0.221, 0.163
+ReLU, Xavier std 1/sqrt(n) : activation std after layers 1, 10, 20: 0.581, 0.0212, 0.000893
+ReLU, He std sqrt(2/n)     : activation std after layers 1, 10, 20: 0.829, 0.665, 0.674
+tanh with std 1: share of units with |activation| > 0.99: 0.866

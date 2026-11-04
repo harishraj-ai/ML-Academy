@@ -1,0 +1,39 @@
+
+<h2 id="deeper">Going deeper: the dual problem, kernels and hinge loss</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above describes the SVM as the widest-margin boundary, with kernels for curved boundaries. This section shows the mathematics underneath: the <strong>dual problem</strong> and why only support vectors matter, a numerical check that the kernel trick really computes a dot product in a bigger space, how <code>C</code> and <code>gamma</code> interact in practice, and how the SVM's hinge loss relates to logistic regression.</p>
+<p>You'll need: this lesson, and Lagrange multipliers from Lesson 3's "Going deeper".</p></div>
+
+<h3 id="deeper-dual">The dual problem and the KKT conditions</h3>
+<p>The soft-margin SVM solves: minimise $\frac12\lVert\mathbf{w}\rVert^2 + C\sum_i \xi_i$, subject to $y_i(\mathbf{w}\cdot\mathbf{x}_i + b) \ge 1 - \xi_i$ and $\xi_i \ge 0$, with labels $y_i = \pm 1$. Introducing a Lagrange multiplier $\alpha_i$ for each margin constraint and eliminating $\mathbf{w}$ and $b$ gives the equivalent <strong>dual problem</strong>:</p>
+<p>$$\max_{\boldsymbol\alpha}\ \sum_i \alpha_i - \frac12\sum_{i,j}\alpha_i\alpha_j\,y_iy_j\,(\mathbf{x}_i\cdot\mathbf{x}_j) \quad\text{subject to } 0 \le \alpha_i \le C,\ \ \sum_i \alpha_i y_i = 0$$</p>
+<p>and the weights are recovered as $\mathbf{w} = \sum_i \alpha_i y_i \mathbf{x}_i$. Two consequences follow from the <strong>KKT conditions</strong>, which extend Lagrange multipliers to inequality constraints:</p>
+<ul>
+<li><strong>Only support vectors matter.</strong> Points safely outside the margin get $\alpha_i = 0$, so they don't appear in $\mathbf{w}$ at all. Points on the margin have $0 &lt; \alpha_i &lt; C$; points inside it or misclassified have $\alpha_i = C$.</li>
+<li><strong>The data appears only through dot products</strong> $\mathbf{x}_i\cdot\mathbf{x}_j$, in training and in prediction, $f(\mathbf{x}) = \sum_i \alpha_i y_i\,(\mathbf{x}_i\cdot\mathbf{x}) + b$. Replacing that dot product with a kernel $K(\mathbf{x}_i, \mathbf{x}_j)$ is the whole of the kernel trick.</li>
+</ul>
+
+<h3 id="deeper-trick">The kernel trick, checked</h3>
+<p>The polynomial kernel $K(\mathbf{x}, \mathbf{z}) = (\mathbf{x}\cdot\mathbf{z} + 1)^2$ in 2 dimensions equals an ordinary dot product of 6 explicit features: $\phi(\mathbf{x}) = \big(1, \sqrt2 x_1, \sqrt2 x_2, x_1^2, x_2^2, \sqrt2 x_1x_2\big)$. Expanding $(x_1z_1 + x_2z_2 + 1)^2$ term by term gives exactly $\phi(\mathbf{x})\cdot\phi(\mathbf{z})$.</p>
+<!--cell 1-->
+<p>Both give 4.0, but the kernel needed one 2-D dot product while the explicit version built 6 features. For degree $p$ in $d$ dimensions the explicit space grows like $d^p$, and the RBF kernel corresponds to an <em>infinite</em> number of features. The kernel computes the dot product without ever constructing them. A function can serve as a kernel exactly when every matrix of its values $K(\mathbf{x}_i, \mathbf{x}_j)$ is positive semi-definite (<strong>Mercer's condition</strong>, linking back to Lesson 2's "Going deeper").</p>
+
+<h3 id="deeper-tuning">How C and gamma interact</h3>
+<p>With the RBF kernel $K = \exp(-\gamma\lVert\mathbf{x}-\mathbf{z}\rVert^2)$, <code>gamma</code> sets how far each point's influence reaches and <code>C</code> sets how much margin violations cost. They must be tuned <em>together</em>, usually on a logarithmic grid:</p>
+<!--cell 2-->
+<p>Three patterns stand out. Large $\gamma$ with large $C$ (30, 100) fits the training set perfectly (1.000) but drops to 0.845 on the test set: each point's influence is tiny and violations are expensive, so the boundary wraps around individual points. Large $\gamma$ with small $C$ (30, 0.1) collapses to 0.470: influence is so local and so cheaply ignored that the model predicts almost one class. The best region is moderate values of both (around $C = 1$, $\gamma = 1$: 0.910). The number of support vectors is a useful diagnostic: when nearly every training point is a support vector (193 of 200 here), the model hasn't found a simple boundary.</p>
+
+<h3 id="deeper-hinge">Hinge loss: the SVM as regularized loss minimisation</h3>
+<p>The soft-margin SVM can be rewritten without constraints as</p>
+<p>$$\min_{\mathbf{w}, b}\ \frac{1}{2C}\lVert\mathbf{w}\rVert^2 + \sum_i \max\big(0,\ 1 - y_i(\mathbf{w}\cdot\mathbf{x}_i + b)\big)$$</p>
+<p>The second term is the <strong>hinge loss</strong>: zero for points beyond the margin, rising linearly for points inside it. Logistic regression minimises the same kind of objective with log loss $\log(1 + e^{-y\,f(\mathbf{x})})$ instead, which is a smooth version of the hinge that never quite reaches zero. So a linear SVM and L2-regularized logistic regression are close cousins:</p>
+<!--cell 3-->
+<p>On these 400 points the two boundaries point in the same direction to three decimal places, and the predictions agree on every point. The real differences: the hinge loss ignores points that are confidently correct, giving sparse support vectors and a pure maximum-margin answer, but no probabilities. Logistic regression uses every point and gives calibrated probabilities (Lesson 8's "Going deeper"). With kernels, the SVM's sparsity is what makes it practical, since predictions need only the support vectors.</p>
+
+<h3 id="deeper-scale">Scaling up, and support vector regression</h3>
+<ul>
+<li><strong>Cost.</strong> Kernel SVM training needs the $n \times n$ kernel matrix: roughly $O(n^2)$ memory and between $O(n^2)$ and $O(n^3)$ time. Beyond about 100,000 points, use a linear SVM (<code>LinearSVC</code> or <code>SGDClassifier(loss="hinge")</code>), or approximate the kernel with random features (<code>RBFSampler</code>, <code>Nystroem</code>) and then a linear model.</li>
+<li><strong>Support vector regression</strong> (<code>SVR</code>) uses an "$\varepsilon$-insensitive" loss: errors smaller than $\varepsilon$ cost nothing, so predictions inside a tube around the data are free, and only points outside the tube become support vectors.</li>
+</ul>
+<!--interview-->
+<!--quiz-->
