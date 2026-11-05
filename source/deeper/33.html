@@ -1,0 +1,16 @@
+<h2 id="deeper">Going deeper: checking proportional hazards, and restricted mean survival</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>How to spot an effect that changes over time, which breaks the Cox model's main assumption, and a summary measure that stays meaningful when it does.</p>
+<p>You'll need: this lesson's Kaplan–Meier and Cox sections.</p></div>
+
+<h3 id="deeper-ph">When hazards aren't proportional</h3>
+<p>A Cox model reports one hazard ratio for the whole period. If a group's advantage fades, for example a welcome offer that helps only in the first months, that single number is misleading. A simple check: compute the hazard ratio separately for early and late periods (events per month at risk in each group):</p>
+<!--cell 1-->
+<p>In the first 6 months, group 1 churns at 0.39 times group 0's rate; after that, at 1.04 times: no advantage at all. A single Cox hazard ratio would average these into something like 0.6, true of no period. Fixes include splitting time into periods with separate coefficients, stratifying by the variable, or reporting the curves directly. Plots of $\log(-\log \hat S(t))$ for each group are a classic visual check: under proportional hazards the lines are parallel.</p>
+
+<h3 id="deeper-rmst">Restricted mean survival time</h3>
+<p>When hazards aren't proportional, a robust and easily explained summary is the <strong>restricted mean survival time</strong> (RMST): the average time survived within a fixed horizon, the area under the Kaplan–Meier curve up to that horizon:</p>
+<!--cell 2-->
+<p>Over the first 12 months, group 1 customers stay an average of 7.71 months, against 5.45 for group 0: a gain of 2.3 months per customer, which converts directly into revenue. RMST needs no proportional-hazards assumption, and "2.3 more months on average in the first year" is easier for decision-makers to use than a hazard ratio.</p>
+<!--interview-->
+<!--quiz-->

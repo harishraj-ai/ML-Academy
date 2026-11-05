@@ -1,5 +1,9 @@
 # Version history shown on changelog.html (newest first). Dates are when each release was published to the course folder.
 RELEASES = [
+ ("3.2", "5 November 2026", [
+   "New <strong>Part 7: Advanced topics</strong>, seven full lessons: <a href=\"lesson-29.html\">29 causal inference</a>, <a href=\"lesson-30.html\">30 MLOps: deploying &amp; monitoring models</a>, <a href=\"lesson-31.html\">31 reinforcement learning basics</a>, <a href=\"lesson-32.html\">32 semi-supervised &amp; active learning</a>, <a href=\"lesson-33.html\">33 survival analysis</a>, <a href=\"lesson-34.html\">34 graph data &amp; network analysis</a> and <a href=\"lesson-35.html\">35 graphical models &amp; hidden Markov models</a>.",
+   "Each new lesson has real code and outputs, an interactive demo, worked examples, exercises with answer checking, coding challenges, a notebook, a quiz and a Going deeper section. A Part 7 test (15 questions) is on the tests page.",
+   "24 new interview questions (296 in all); the complete-course route, course map, notebooks, code zip and printable workbook now cover Lessons 0–35."]),
  ("3.1", "5 November 2026", [
    "New <strong>Part 6: Intermediate topics</strong>, seven full lessons: <a href=\"lesson-22.html\">22 SQL &amp; data wrangling for ML</a>, <a href=\"lesson-23.html\">23 hyperparameter tuning</a>, <a href=\"lesson-24.html\">24 explainable AI</a>, <a href=\"lesson-25.html\">25 imbalanced data &amp; anomaly detection</a>, <a href=\"lesson-26.html\">26 time series forecasting</a>, <a href=\"lesson-27.html\">27 recommender systems</a> and <a href=\"lesson-28.html\">28 Bayesian &amp; probabilistic ML</a>.",
    "Each new lesson has real code and outputs, an interactive demo, worked examples, exercises with answer checking, a coding challenge, a notebook, a quiz and its own Going deeper section. A Part 6 test (15 questions) is on the tests page.",

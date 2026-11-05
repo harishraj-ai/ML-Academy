@@ -1,0 +1,16 @@
+<h2 id="deeper">Going deeper: when unlabelled data misleads, and committees</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>A failure case for semi-supervised learning caused by a bad distance measure, and a second active-learning strategy, query-by-committee.</p>
+<p>You'll need: this lesson and feature scaling from Lesson 11.</p></div>
+
+<h3 id="deeper-failure">A wrong distance breaks label spreading</h3>
+<p>Graph methods trust that nearby points share labels, so "nearby" must mean the right thing. Here the label depends only on feature 1, but feature 2 is irrelevant noise on a scale 50 times larger:</p>
+<!--cell 1-->
+<p>Logistic regression on just 20 labels reaches 91.9%: it learns to ignore the noisy feature. Label spreading on the raw features reaches only 55.7%, close to guessing, because its neighbours are decided almost entirely by the noise. After scaling, it recovers to 86.4%, still below the supervised model, because feature 2 still adds noise to the distances. Unlabelled data helps only when the geometry you give it matches how the labels vary, so scale features, choose them carefully, and always compare with the labelled-only baseline.</p>
+
+<h3 id="deeper-committee">Query-by-committee</h3>
+<p>Another way to find informative examples: train a <strong>committee</strong> of models on bootstrap samples of the labelled data, and ask a person to label the points where they disagree most. Here a committee of 5 logistic regressions picks 15 digits per round, compared with random picks:</p>
+<!--cell 2-->
+<p>With 170 labels, committee-based picking (88.6%) is barely ahead of random labelling (88.3%) here: on easy, well-separated digits, random samples already cover the classes well, and a 5-model committee often agrees. Active learning pays off most when classes are imbalanced or the boundary is complex, and its gain over random varies by problem, so measure it on a pilot before committing labelling budget.</p>
+<!--interview-->
+<!--quiz-->

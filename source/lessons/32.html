@@ -1,0 +1,171 @@
+<h2 id="why">When labels are scarce</h2>
+<p>Data is often cheap and labels expensive. A hospital has millions of scans but few that a radiologist has annotated; a support team has thousands of tickets but only a few hundred tagged by topic; a factory records every product image but inspects only some. Two families of methods help:</p>
+<ul>
+<li><strong>Semi-supervised learning</strong> uses the unlabelled data as well as the labelled, assuming its structure carries information about the labels.</li>
+<li><strong>Active learning</strong> chooses <em>which</em> examples to send for labelling, so each label teaches the model as much as possible.</li>
+</ul>
+<p>This lesson uses scikit-learn's handwritten digits (1,797 small 8×8 images of the digits 0–9), pretending only a few are labelled.</p>
+<div class="box intuition"><div class="box-title">The core idea</div><p>Unlabelled points aren't useless: if similar points usually share a label, the unlabelled ones show where the classes lie. And not all labels are equally useful: one example near the boundary between classes teaches the model more than ten it already gets right.</p></div>
+
+<h2 id="setup">The baseline: 50 labels</h2>
+<p>Hold out 30% of the images as a test set. Of the remaining 1,257 "pool" images, pretend only 50 random ones are labelled:</p>
+<pre><code>import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+X, y = load_digits(return_X_y=True)
+X = StandardScaler().fit_transform(X)
+X_pool, X_test, y_pool, y_test = train_test_split(X, y, test_size=0.3, random_state=0, stratify=y)
+rng = np.random.default_rng(0)
+labelled = rng.choice(len(X_pool), 50, replace=False)            # only 50 of 1,257 images labelled
+clf = LogisticRegression(max_iter=2000).fit(X_pool[labelled], y_pool[labelled])
+full = LogisticRegression(max_iter=2000).fit(X_pool, y_pool)
+print("labelled examples:", len(labelled), "of", len(X_pool))
+print("accuracy with 50 labels:", round(clf.score(X_test, y_test), 3), "  with all labels:", round(full.score(X_test, y_test), 3))</code></pre>
+<p>Output:</p>
+<pre><code>labelled examples: 50 of 1257
+accuracy with 50 labels: 0.811   with all labels: 0.972</code></pre>
+<p>With 50 labels, logistic regression reaches 81.1% test accuracy; with all 1,257 it reaches 97.2%. The question for this lesson: how much of that gap can we close without labelling everything?</p>
+
+<h2 id="assumptions">Why unlabelled data can help</h2>
+<p>Semi-supervised methods rely on assumptions about how the data is arranged:</p>
+<ul>
+<li><strong>Smoothness</strong>: points close together tend to have the same label.</li>
+<li><strong>Cluster</strong>: points form clusters, and each cluster mostly has one label, so decision boundaries should pass through low-density gaps.</li>
+<li><strong>Manifold</strong>: high-dimensional data lies near a lower-dimensional surface (Lesson 17), along which labels change slowly.</li>
+</ul>
+<p>When these hold, as they often do for images, text and sensor data, unlabelled points help draw the boundary. When they don't, semi-supervised learning can make things worse, so always compare with the labelled-only baseline.</p>
+
+<h2 id="self">Self-training with pseudo-labels</h2>
+<p><strong>Self-training</strong> is the simplest approach: train on the labelled data, predict the unlabelled data, add the most confident predictions as <strong>pseudo-labels</strong>, retrain, and repeat. The confidence threshold controls the trade-off between adding more data and adding wrong labels:</p>
+<pre><code>from sklearn.semi_supervised import SelfTrainingClassifier
+y_partial = np.full(len(y_pool), -1); y_partial[labelled] = y_pool[labelled]   # -1 means "unlabelled"
+for thr in [0.99, 0.9, 0.6]:
+    st = SelfTrainingClassifier(LogisticRegression(max_iter=2000), threshold=thr).fit(X_pool, y_partial)
+    added = (st.labeled_iter_ &gt; 0).sum()
+    wrong = (st.transduction_[st.labeled_iter_ &gt; 0] != y_pool[st.labeled_iter_ &gt; 0]).mean()
+    print(f"threshold {thr}: pseudo-labels added {added}, of which wrong {wrong:.1%}, test accuracy {st.score(X_test, y_test):.3f}")</code></pre>
+<p>Output:</p>
+<pre><code>threshold 0.99: pseudo-labels added 66, of which wrong 1.5%, test accuracy 0.819
+threshold 0.9: pseudo-labels added 1008, of which wrong 5.8%, test accuracy 0.911
+threshold 0.6: pseudo-labels added 1189, of which wrong 13.0%, test accuracy 0.872</code></pre>
+<p>At a threshold of 0.99, only 66 very safe pseudo-labels are added, and accuracy barely moves (81.9%). At 0.9, 1,008 are added with 5.8% wrong, and accuracy jumps to 91.1%. At 0.6, more wrong labels (13%) creep in and accuracy falls back to 87.2%: the model starts learning its own mistakes, a problem called <strong>confirmation bias</strong>. Tune the threshold on a labelled validation set.</p>
+
+<h2 id="spread">Label spreading on a graph</h2>
+<p><strong>Label propagation</strong> and <strong>label spreading</strong> build a graph connecting each point to its nearest neighbours, then let the known labels flow along the edges until they settle, so each unlabelled point takes the label of the region it's in. It's the smoothness assumption put directly into an algorithm:</p>
+<pre><code>from sklearn.semi_supervised import LabelSpreading
+ls = LabelSpreading(kernel="knn", n_neighbors=7, alpha=0.2).fit(X_pool, y_partial)
+spread_acc = (ls.transduction_ == y_pool).mean()
+print("label spreading: share of pool labels inferred correctly", round(spread_acc, 3))
+clf_ls = LogisticRegression(max_iter=2000).fit(X_pool, ls.transduction_)
+print("logistic regression trained on the spread labels: test accuracy", round(clf_ls.score(X_test, y_test), 3))</code></pre>
+<p>Output:</p>
+<pre><code>label spreading: share of pool labels inferred correctly 0.876
+logistic regression trained on the spread labels: test accuracy 0.881</code></pre>
+<p>From 50 labels, spreading infers the labels of 87.6% of the pool correctly. A classifier trained on those inferred labels reaches 88.1% test accuracy. Graph methods work well when neighbours in feature space really share labels, so they depend on a good distance measure and scaling (Lesson 11), and they get slow on very large datasets.</p>
+
+<h2 id="active">Active learning: choose what to label</h2>
+<p>If a person will label some examples, let the model pick which. <strong>Uncertainty sampling</strong> sends the examples the model is least sure about. Here, uncertainty is the <strong>margin</strong> between its top two class probabilities: a small margin means it's torn between two digits. We start with 20 random labels, then run 10 rounds of picking 15 more, either at random or by uncertainty:</p>
+<pre><code>def active_learning(strategy, rounds=10, batch=15, seed=0):
+    r = np.random.default_rng(seed)
+    lab = list(r.choice(len(X_pool), 20, replace=False))
+    for _ in range(rounds):
+        m = LogisticRegression(max_iter=2000).fit(X_pool[lab], y_pool[lab])
+        rest = np.setdiff1d(np.arange(len(X_pool)), lab)
+        if strategy == "uncertainty":
+            P = np.sort(m.predict_proba(X_pool[rest]), axis=1)
+            pick = rest[np.argsort(P[:, -1] - P[:, -2])[:batch]]    # smallest margin between the top two classes
+        else:
+            pick = r.choice(rest, batch, replace=False)
+        lab += list(pick)
+    return len(lab), LogisticRegression(max_iter=2000).fit(X_pool[lab], y_pool[lab]).score(X_test, y_test)
+for strategy in ["random", "uncertainty"]:
+    res = [active_learning(strategy, seed=s) for s in range(5)]
+    print(f"{strategy:11s}: {res[0][0]} labels, mean test accuracy {np.mean([a for _, a in res]):.3f}")</code></pre>
+<p>Output:</p>
+<pre><code>random     : 170 labels, mean test accuracy 0.917
+uncertainty: 170 labels, mean test accuracy 0.947</code></pre>
+<pre><code>budgets = [50, 100, 200, 400]
+for b in budgets:
+    accs = []
+    for s in range(3):
+        idx = np.random.default_rng(s).choice(len(X_pool), b, replace=False)
+        accs.append(LogisticRegression(max_iter=2000).fit(X_pool[idx], y_pool[idx]).score(X_test, y_test))
+    print(f"{b} random labels: test accuracy {np.mean(accs):.3f}")</code></pre>
+<p>Output:</p>
+<pre><code>50 random labels: test accuracy 0.814
+100 random labels: test accuracy 0.886
+200 random labels: test accuracy 0.922
+400 random labels: test accuracy 0.946</code></pre>
+<p>With the same 170 labels, uncertainty sampling reaches 94.7% accuracy against 91.7% for random labelling. Random labelling needs about 400 labels to reach that level, so active learning saved more than half the labelling effort here. The cost is a human in the loop every round, and a risk: uncertainty sampling can keep picking strange outliers or noisy examples. Practical systems mix in some random picks and choose diverse batches.</p>
+
+<h2 id="demo">Try it: uncertainty vs random</h2>
+<p>Two classes, 300 points, 4 labelled. Ask for 5 labels at a time, either the most uncertain points (closest to the current boundary) or random ones, and watch the boundary and the accuracy. Reset and try the other strategy with the same number of labels.</p>
+<div class="demo" data-demo="active"></div>
+
+<h2 id="practice">Choosing an approach</h2>
+<div class="table-scroll"><table class="tbl">
+<thead><tr><th>Situation</th><th>Try</th></tr></thead>
+<tbody>
+<tr><td>Lots of unlabelled data, clear clusters</td><td>Label spreading, or self-training with a high threshold</td></tr>
+<tr><td>A labelling budget and someone available</td><td>Active learning (uncertainty sampling plus some random picks)</td></tr>
+<tr><td>Labels can be produced roughly by rules</td><td><strong>Weak supervision</strong>: combine several noisy labelling rules, then train on the result</td></tr>
+<tr><td>Images or text with huge unlabelled sets</td><td>Self-supervised pretraining and fine-tuning (covered in deep learning courses)</td></tr>
+<tr><td>A related task has many labels</td><td>Transfer learning: start from a model trained on that task</td></tr>
+</tbody></table></div>
+<p>Whatever you choose, keep a properly labelled test set that the method never touches. It's tempting to evaluate on pseudo-labels, but those carry the model's own mistakes.</p>
+
+<h2 id="code">In Python: self-training by hand</h2>
+<p>The self-training loop in a few lines, so you can see exactly what happens each round: fit, predict the unlabelled points, and move the confident ones into the training set:</p>
+<pre><code>import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+X, y = load_digits(return_X_y=True)
+X_pool, X_test, y_pool, y_test = train_test_split(X / 16, y, test_size=0.3, random_state=1, stratify=y)
+lab = np.random.default_rng(1).choice(len(X_pool), 60, replace=False)
+Xl, yl = X_pool[lab], y_pool[lab]
+Xu = np.delete(X_pool, lab, axis=0)
+for rnd in range(1, 5):
+    m = LogisticRegression(max_iter=3000).fit(Xl, yl)
+    P = m.predict_proba(Xu)
+    sure = P.max(axis=1) &gt; 0.9
+    print(f"round {rnd}: {len(yl)} training labels, test accuracy {m.score(X_test, y_test):.3f}, adding {sure.sum()} pseudo-labels")
+    Xl, yl = np.vstack([Xl, Xu[sure]]), np.concatenate([yl, m.classes_[P[sure].argmax(axis=1)]])
+    Xu = Xu[~sure]</code></pre>
+<p>Output:</p>
+<pre><code>round 1: 60 training labels, test accuracy 0.878, adding 14 pseudo-labels
+round 2: 74 training labels, test accuracy 0.876, adding 32 pseudo-labels
+round 3: 106 training labels, test accuracy 0.870, adding 47 pseudo-labels
+round 4: 153 training labels, test accuracy 0.857, adding 36 pseudo-labels</code></pre>
+<p>Each round adds the confident predictions as labels and retrains. Here, with a different split and simpler scaling than earlier, self-training doesn't help: accuracy drifts down from 87.8% to 85.7%, because the confident pseudo-labels are mostly easy examples the model already handled, plus a few confident mistakes. That's a common real outcome, and exactly why you should always compare with the labelled-only baseline before trusting any semi-supervised method.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li><strong>Semi-supervised learning</strong> uses unlabelled data, relying on smoothness, cluster or manifold assumptions.</li>
+<li><strong>Self-training</strong> adds confident pseudo-labels; too low a threshold teaches the model its own mistakes.</li>
+<li><strong>Label spreading</strong> passes labels along a nearest-neighbour graph.</li>
+<li><strong>Active learning</strong> picks the most informative examples to label, often halving labelling cost.</li>
+<li>Always compare with the labelled-only baseline on a truly labelled test set.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. What is a pseudo-label?</p>
+<button data-opt="a">A label from a domain expert</button><button data-opt="b">A model's own confident prediction used as a training label</button><button data-opt="c">A missing label</button>
+<div class="q-explain">Self-training adds them to the training set.</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. Lowering the self-training threshold from 0.9 to 0.6 reduced accuracy. Why?</p>
+<button data-opt="a">Too few pseudo-labels</button><button data-opt="b">The model underfit</button><button data-opt="c">More wrong pseudo-labels were added, so the model learned its own mistakes</button>
+<div class="q-explain">That's confirmation bias.</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. Label spreading mainly relies on which assumption?</p>
+<button data-opt="a">Nearby points tend to share a label</button><button data-opt="b">Classes are balanced</button><button data-opt="c">Features are independent</button>
+<div class="q-explain">Labels flow along a nearest-neighbour graph.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. Uncertainty sampling sends for labelling the examples…</p>
+<button data-opt="a">The model is most confident about</button><button data-opt="b">The model is least sure about</button><button data-opt="c">Chosen at random</button>
+<div class="q-explain">Those near the boundary teach it most.</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. How should a semi-supervised model be evaluated?</p>
+<button data-opt="a">On its pseudo-labels</button><button data-opt="b">On the training labels</button><button data-opt="c">On a separate, properly labelled test set</button>
+<div class="q-explain">Pseudo-labels contain the model's own errors.</div></div>
+</div>

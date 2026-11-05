@@ -1,0 +1,195 @@
+<h2 id="why">Learning by acting</h2>
+<p>Supervised learning is told the right answer for every example. In many problems nobody can say what the right move is, only whether things went well in the end: a robot reaching a charger, a game won, a warehouse running cheaply, a thermostat saving energy while keeping people comfortable. <strong>Reinforcement learning</strong> (RL) learns from such delayed rewards, by acting, seeing what happens and adjusting.</p>
+<p>This lesson covers the foundations without neural networks: Markov decision processes, value functions and the Bellman equation, value iteration when the rules are known, and Q-learning when they aren't. Lesson 28's bandits were the simplest RL problem: one decision, no state. Deep RL, which uses neural networks to handle huge state spaces such as images, builds directly on these ideas.</p>
+<div class="box intuition"><div class="box-title">The core idea</div><p>The value of a situation is the reward you get now plus the (discounted) value of the situation you'll be in next, if you act well. Write that down for every state and you get the Bellman equation; solving it, or learning it from experience, tells you the best action everywhere.</p></div>
+
+<h2 id="mdp">Markov decision processes</h2>
+<p>A <strong>Markov decision process</strong> (MDP) has:</p>
+<ul>
+<li><strong>States</strong> $s$: the situations the agent can be in.</li>
+<li><strong>Actions</strong> $a$: what it can do in each state.</li>
+<li><strong>Transitions</strong> $P(s' \mid s, a)$: where an action leads, possibly at random.</li>
+<li><strong>Rewards</strong> $R$: the number received after each step.</li>
+<li>A <strong>discount factor</strong> $\gamma$ between 0 and 1: how much future rewards count compared with immediate ones.</li>
+</ul>
+<p>"Markov" means the next state depends only on the current state and action, not on the history. A <strong>policy</strong> $\pi(s)$ says which action to take in each state; the goal is the policy that maximises the expected <strong>return</strong>, $R_1 + \gamma R_2 + \gamma^2 R_3 + \dots$. Our example is a classic grid world: start at S, reach the goal G (+1), avoid the pit X (−1), with a wall at #. Each step costs 0.04, and the floor is slippery: 10% of the time the agent slides sideways instead of moving where it intended:</p>
+<pre><code>import numpy as np
+ROWS, COLS = 4, 5
+GOAL, PIT, WALL, START = (0, 4), (1, 4), (1, 1), (3, 0)
+ACTIONS = {"↑": (-1, 0), "↓": (1, 0), "←": (0, -1), "→": (0, 1)}
+STEP_COST, SLIP = -0.04, 0.1
+states = [(i, j) for i in range(ROWS) for j in range(COLS) if (i, j) != WALL]
+def move(s, a):
+    i, j = s[0] + ACTIONS[a][0], s[1] + ACTIONS[a][1]
+    return s if not (0 &lt;= i &lt; ROWS and 0 &lt;= j &lt; COLS) or (i, j) == WALL else (i, j)
+def outcomes(s, a):                     # (probability, next state) — slips go sideways
+    side = ["←", "→"] if a in "↑↓" else ["↑", "↓"]
+    return [(1 - SLIP, move(s, a)), (SLIP / 2, move(s, side[0])), (SLIP / 2, move(s, side[1]))]
+def reward(s):
+    return 1.0 if s == GOAL else -1.0 if s == PIT else STEP_COST
+terminal = {GOAL, PIT}
+for i in range(ROWS):
+    print(" ".join("G" if (i, j) == GOAL else "X" if (i, j) == PIT else "#" if (i, j) == WALL else "S" if (i, j) == START else "." for j in range(COLS)))</code></pre>
+<p>Output:</p>
+<pre><code>. . . . G
+. # . . X
+. . . . .
+S . . . .</code></pre>
+
+<h2 id="bellman">Values and the Bellman equation</h2>
+<p>The <strong>value</strong> $V(s)$ of a state is the expected return from there when acting optimally. It satisfies the <strong>Bellman optimality equation</strong>:</p>
+<p>$$V(s) = \max_a \sum_{s'} P(s' \mid s, a)\,\big[R(s') + \gamma V(s')\big]$$</p>
+<p>In words: try each action, average over where it might lead, and take the best. <strong>Value iteration</strong> turns this into an algorithm: start with all values at 0, apply the equation to every state, and repeat until nothing changes:</p>
+<pre><code>def value_iteration(gamma=0.9, tol=1e-6):
+    V = {s: 0.0 for s in states}
+    for sweep in range(1, 1000):
+        delta = 0
+        for s in states:
+            if s in terminal: continue
+            best = max(sum(p * (reward(n) + (0 if n in terminal else gamma * V[n])) for p, n in outcomes(s, a)) for a in ACTIONS)
+            delta, V[s] = max(delta, abs(best - V[s])), best
+        if delta &lt; tol:
+            return V, sweep
+V, sweeps = value_iteration()
+print("converged after", sweeps, "sweeps")
+for i in range(ROWS):
+    print(" ".join(f"{V[(i, j)]:6.3f}" if (i, j) in V and (i, j) not in terminal else "   +1 " if (i, j) == GOAL else "   -1 " if (i, j) == PIT else "   ## " for j in range(COLS)))</code></pre>
+<p>Output:</p>
+<pre><code>converged after 13 sweeps
+ 0.558  0.682  0.815  0.973    +1 
+ 0.452    ##   0.684  0.731    -1 
+ 0.363  0.451  0.561  0.596  0.412
+ 0.283  0.363  0.453  0.480  0.385</code></pre>
+<div class="box example"><div class="box-title">Worked example — one Bellman update</div>
+<p>Take the square just left of the goal, (0, 3), with $\gamma = 0.9$. Moving → reaches the goal with probability 0.9, giving reward +1 and no future. With probability 0.05 each, it slides ↑ (into the edge, staying put) or ↓ (to the square with value 0.731).</p>
+<p>So $Q(\rightarrow) = 0.9 \times 1 + 0.05\,(-0.04 + 0.9 \times 0.973) + 0.05\,(-0.04 + 0.9 \times 0.731) = 0.9 + 0.0418 + 0.0309 \approx 0.973$, which matches the converged value. The other actions give less, so → is best.</p></div>
+<p>Values are highest next to the goal and fall with distance, since each step costs 0.04 and future rewards are discounted. The square left of the pit (0.731) is worth less than the one above it (0.973), because a slip could drop the agent into the pit.</p>
+
+<h2 id="policy">From values to a policy</h2>
+<p>Once the values are known, the best action in each state is the one that achieves the maximum in the Bellman equation:</p>
+<pre><code>def greedy(V, gamma=0.9):
+    return {s: max(ACTIONS, key=lambda a: sum(p * (reward(n) + (0 if n in terminal else gamma * V[n])) for p, n in outcomes(s, a)))
+            for s in states if s not in terminal}
+policy = greedy(V)
+for i in range(ROWS):
+    print(" ".join(policy.get((i, j), "G" if (i, j) == GOAL else "X" if (i, j) == PIT else "#") for j in range(COLS)))</code></pre>
+<p>Output:</p>
+<pre><code>→ → → → G
+↑ # ↑ ↑ X
+↑ → ↑ ↑ ←
+→ → ↑ ↑ ←</code></pre>
+<p>The policy goes up the left side and along the top, well away from the pit, rather than taking the shorter route past it: with a slippery floor, the safe path has a higher expected return. In the bottom-right corner the arrows point left, away from the pit. The policy is <em>optimal</em> for this MDP, but finding it needed the full transition probabilities, which real problems rarely give you.</p>
+
+<h2 id="demo">Try it: value iteration</h2>
+<p>Run one sweep at a time to watch values spread outwards from the goal, or run to convergence. Lower the discount and the agent becomes short-sighted; raise the slip chance and the policy steers further from the pit.</p>
+<div class="demo" data-demo="grid"></div>
+
+<h2 id="qlearning">Learning without a model: Q-learning</h2>
+<p>Without known transition probabilities, the agent must learn from experience. <strong>Q-learning</strong> learns the value of each <em>action</em> in each state, $Q(s, a)$, from single steps. After taking action $a$ in state $s$, receiving reward $r$ and landing in $s'$, it nudges its estimate towards a target:</p>
+<p>$$Q(s, a) \leftarrow Q(s, a) + \alpha\big[r + \gamma \max_{a'} Q(s', a') - Q(s, a)\big]$$</p>
+<p>Here $\alpha$ is a learning rate, and the bracket is the <strong>temporal-difference error</strong>: how surprised the agent was. To keep discovering, it uses an <strong>ε-greedy</strong> policy, the bandit idea from Lesson 28: usually take the best-looking action, but with probability ε pick one at random.</p>
+<pre><code>rng = np.random.default_rng(0)
+def step(s, a):
+    r, acc = rng.random(), 0
+    for p, n in outcomes(s, a):
+        acc += p
+        if r &lt; acc: return n, reward(n)
+    return n, reward(n)
+def q_learning(episodes=3000, alpha=0.1, gamma=0.9, eps=0.1):
+    Q = {s: {a: 0.0 for a in ACTIONS} for s in states}
+    for _ in range(episodes):
+        s = START
+        for t in range(100):
+            a = rng.choice(list(ACTIONS)) if rng.random() &lt; eps else max(Q[s], key=Q[s].get)
+            n, r = step(s, a)
+            target = r if n in terminal else r + gamma * max(Q[n].values())
+            Q[s][a] += alpha * (target - Q[s][a])       # move the estimate towards the target
+            s = n
+            if s in terminal: break
+    return Q
+Q = q_learning()
+learned = {s: max(Q[s], key=Q[s].get) for s in policy}
+agree = np.mean([learned[s] == policy[s] for s in policy])
+print("Q-learning's greedy policy matches value iteration in", f"{agree:.0%}", "of states")
+print("estimated value of the start: Q-learning", round(max(Q[START].values()), 3), " value iteration", round(V[START], 3))</code></pre>
+<p>Output:</p>
+<pre><code>Q-learning's greedy policy matches value iteration in 94% of states
+estimated value of the start: Q-learning 0.277  value iteration 0.283</code></pre>
+<p>After 3,000 episodes of trial and error, without ever seeing the transition probabilities, Q-learning's greedy policy matches the optimal one in 94% of states, and its estimate of the start's value (0.277) is close to the true 0.283. The states where it differs are rarely visited, so it has had little experience of them. This is the general shape of RL: data comes from the agent's own behaviour, so what it explores decides what it can learn.</p>
+
+<h2 id="rewards">Rewards shape behaviour</h2>
+<p>The agent optimises exactly the reward you give it, so choosing rewards is a design decision with consequences. Here the same grid is solved with three different step costs (each row of the grid separated by "|"):</p>
+<pre><code>for cost in [-0.01, -0.4, -2.0]:
+    STEP_COST = cost                                        # reward() reads this global
+    pol = greedy(value_iteration()[0])
+    rows = [" ".join(pol.get((i, j), "G" if (i, j) == GOAL else "X" if (i, j) == PIT else "#") for j in range(COLS)) for i in range(ROWS)]
+    print(f"step cost {cost}:   " + "   |   ".join(rows))
+STEP_COST = -0.04</code></pre>
+<p>Output:</p>
+<pre><code>step cost -0.01:   → → → → G   |   ↑ # ↑ ↑ X   |   ↑ → ↑ ↑ ←   |   ↑ → ↑ ↑ ←
+step cost -0.4:   → → → → G   |   ↑ # ↑ ↑ X   |   ↑ → ↑ ↑ ←   |   → → ↑ ↑ ↑
+step cost -2.0:   → → → → G   |   ↑ # → → X   |   → → → ↑ ↑   |   → → → ↑ ↑</code></pre>
+<p>With a small step cost, the agent takes the long, safe route. With a huge one (−2 per step), living is so expensive that from the squares next to the pit the agent heads straight for it: ending the episode at −1 beats wandering towards the goal. That's correct for the reward given, and a small example of <strong>reward hacking</strong>: agents find whatever maximises the reward, intended or not. Real systems need careful reward design and testing, and often constraints.</p>
+
+<h2 id="practice">RL in practice</h2>
+<div class="table-scroll"><table class="tbl">
+<thead><tr><th>Idea</th><th>What it means</th></tr></thead>
+<tbody>
+<tr><td>Model-based vs model-free</td><td>Value iteration uses known transitions; Q-learning learns from experience alone</td></tr>
+<tr><td>On-policy vs off-policy</td><td>SARSA learns the value of the policy it follows; Q-learning learns the optimal policy while exploring</td></tr>
+<tr><td>Policy gradient methods</td><td>Adjust a parameterised policy directly in the direction that increases return (REINFORCE, PPO)</td></tr>
+<tr><td>Function approximation</td><td>Replace the Q table with a model (linear or a neural network: deep Q-networks) when there are too many states</td></tr>
+<tr><td>Offline RL</td><td>Learn from logged data without new experiments; hard, because of distribution shift</td></tr>
+</tbody></table></div>
+<p>RL is powerful but data-hungry and hard to debug. In business settings, start with simpler tools: a bandit (Lesson 28) for choosing between options, a forecast plus optimisation for planning, or supervised learning when the right answer is known. Use full RL when decisions really affect future states and you can simulate or safely experiment.</p>
+
+<h2 id="code">In Python: Q-learning on a corridor</h2>
+<p>A compact, self-contained Q-learning agent on a 6-square corridor: start in the middle, +1 at the right end, −1 at the left:</p>
+<pre><code>import numpy as np
+
+rng = np.random.default_rng(1)
+N, START, gamma, alpha, eps = 6, 2, 0.9, 0.2, 0.2
+Q = np.zeros((N, 2))                      # actions: 0 left, 1 right
+for episode in range(500):
+    s = START
+    while 0 &lt; s &lt; N - 1:
+        a = rng.integers(2) if rng.random() &lt; eps else int(Q[s].argmax())
+        s2 = s + (1 if a == 1 else -1)
+        r = 1.0 if s2 == N - 1 else -1.0 if s2 == 0 else 0.0
+        target = r if s2 in (0, N - 1) else r + gamma * Q[s2].max()
+        Q[s, a] += alpha * (target - Q[s, a])
+        s = s2
+print("Q values for 'right' in squares 1 to 4:", np.round(Q[1:N - 1, 1], 3).tolist())
+print("best action in squares 1 to 4:", ["right" if q[1] &gt; q[0] else "left" for q in Q[1:N - 1]])</code></pre>
+<p>Output:</p>
+<pre><code>Q values for 'right' in squares 1 to 4: [0.729, 0.81, 0.9, 1.0]
+best action in squares 1 to 4: ['right', 'right', 'right', 'right']</code></pre>
+<p>The Q values for "right" grow towards the goal: each one is about $\gamma$ times the next, because the +1 is one more step away. The learned policy goes right everywhere, even from square 1, next to the −1, because the goal's value has propagated back that far.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>RL learns from <strong>rewards</strong> by acting; an <strong>MDP</strong> has states, actions, transitions, rewards and a discount $\gamma$.</li>
+<li>The <strong>Bellman equation</strong> links a state's value to its neighbours'; <strong>value iteration</strong> solves it when the model is known.</li>
+<li>A <strong>policy</strong> follows from the values: pick the action with the best expected return.</li>
+<li><strong>Q-learning</strong> learns action values from experience alone, with ε-greedy exploration.</li>
+<li>Agents optimise exactly the <strong>reward</strong> they're given; design it carefully.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. What does the discount factor $\gamma$ control?</p>
+<button data-opt="a">The learning rate</button><button data-opt="b">How much future rewards count compared with immediate ones</button><button data-opt="c">The chance of exploring</button>
+<div class="q-explain">Low $\gamma$ makes the agent short-sighted.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. Value iteration needs…</p>
+<button data-opt="a">The transition probabilities and rewards</button><button data-opt="b">Only experience</button><button data-opt="c">Labelled actions</button>
+<div class="q-explain">It's model-based; Q-learning is the model-free alternative.</div></div>
+<div class="q" data-correct="c"><p class="q-text">3. In Q-learning, the term $r + \gamma \max_{a'} Q(s', a') - Q(s, a)$ is…</p>
+<button data-opt="a">The reward</button><button data-opt="b">The policy</button><button data-opt="c">The temporal-difference error</button>
+<div class="q-explain">The estimate moves a fraction $\alpha$ of the way to the target.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. Why does an RL agent need exploration?</p>
+<button data-opt="a">To speed up computation</button><button data-opt="b">It can only learn about actions it actually tries</button><button data-opt="c">To reduce the discount</button>
+<div class="q-explain">Its data comes from its own behaviour.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. With a very large step cost, the agent jumps into the pit. This shows…</p>
+<button data-opt="a">The agent optimises exactly the reward given, which may not match what we intended</button><button data-opt="b">Q-learning is broken</button><button data-opt="c">The discount is too high</button>
+<div class="q-explain">Reward design shapes behaviour; this is reward hacking in miniature.</div></div>
+</div>

@@ -42,6 +42,7 @@ PARTS = [
     ("Part 4", "Finding structure without labels", "Discover groups and patterns in data that nobody has labelled."),
     ("Part 5", "Neural networks & real projects", "Build a neural network from scratch, meet modern deep learning, and ship a complete project."),
     ("Part 6", "Intermediate topics", "The skills that turn a good beginner into a working practitioner: data from databases, systematic tuning, explaining models, rare events, time series, recommendations and Bayesian thinking."),
+    ("Part 7", "Advanced topics", "Beyond prediction: causal effects, models in production, learning from rewards, scarce labels, time-to-event data, networks and graphical models."),
 ]
 
 # (num, part_index, title, summary, minutes)
@@ -333,7 +334,7 @@ source ml-env/bin/activate        # on Windows: ml-env\\Scripts\\activate
 pip install numpy pandas scikit-learn matplotlib jupyterlab
 jupyter lab</code></pre>
 <p class="sub">JupyterLab opens in your browser. Every lesson has a <strong>ready-made notebook</strong> with all its code (and the expected outputs): use the <em>Download Jupyter notebook</em> button at the top of a lesson, open the file in JupyterLab, and press Shift+Enter to run each cell. All of them are in the <code>notebooks</code> folder.</p>
-<p class="sub"><strong>Prefer paper?</strong> The <a href="workbook/ML-Academy-workbook.pdf">printable workbook (PDF, about 750 pages)</a> has every lesson with space to work the exercises by hand, and all answers at the back. Each lesson page also prints cleanly on its own.</p>
+<p class="sub"><strong>Prefer paper?</strong> The <a href="workbook/ML-Academy-workbook.pdf">printable workbook (PDF, about 900 pages)</a> has every lesson with space to work the exercises by hand, and all answers at the back. Each lesson page also prints cleanly on its own.</p>
 <p class="sub"><strong>Prefer plain Python scripts?</strong> <a class="btn" href="downloads/ml-academy-code.zip" download>⬇ Download all the code (.zip)</a> — every lesson as a <code>.py</code> file, the coding challenges, the four projects (starter and solution), the dataset and a <code>pytest</code> test suite that checks every script still gives the published results. Unzip it anywhere and see its README.</p>
 </div></section>
 
@@ -671,7 +672,7 @@ for n, ds in DEPS.items():
         else:
             sx, sy, ex, ey = x1 + NW, y1 + NH / 2, x2, y2 + NH / 2
             edges += f'<path class="m-edge" data-from="{d}" data-to="{n}" d="M{sx},{sy} C{sx+40},{sy} {ex-40},{ey} {ex},{ey}"/>'
-SHORT = ["Foundations", "Supervised basics", "Classic algorithms", "Unsupervised", "Neural nets & projects", "Intermediate"]
+SHORT = ["Foundations", "Supervised basics", "Classic algorithms", "Unsupervised", "Neural nets & projects", "Intermediate", "Advanced"]
 nodes = "".join(f'<text x="{20 + i * COLW + NW/2}" y="40" class="m-part">{i+1} · {e(SHORT[i])}</text>' for i in range(len(PARTS)))
 for (n, p, t, s_, mins) in LESSONS:
     x, y = pos[n]
@@ -750,7 +751,7 @@ qextra = '<script defer src="assets/qbank.js"></script><script>window.MLA_PARTS=
 tinner = ('<div class="box tip"><div class="box-title">How the tests work</div><p>Each part ends with a 15-question test mixing all of its lessons. The questions are new — not the ones from the lesson quizzes — and the answer order is shuffled every time. '
           'After you submit you get your score, an explanation for every question, and links to the exact sections to re-read. Your best score is saved in this browser.</p></div>'
           '<div id="tests-app" aria-live="polite"><noscript><p>The tests need JavaScript.</p></noscript></div>')
-open(os.path.join(OUT, "tests.html"), "w").write(page_shell("End-of-part tests — ML Academy", "A 15-question mixed test for each of the six parts of the course, with explanations and links to weak areas.", "Practice", "End-of-part tests", "Six mixed tests, one per part. Find out what has stuck and what to revisit.", tinner, math=True, extra=qextra))
+open(os.path.join(OUT, "tests.html"), "w").write(page_shell("End-of-part tests — ML Academy", "A 15-question mixed test for each of the seven parts of the course, with explanations and links to weak areas.", "Practice", "End-of-part tests", "Seven mixed tests, one per part. Find out what has stuck and what to revisit.", tinner, math=True, extra=qextra))
 rinner = ('<div class="box tip"><div class="box-title">Why spaced review?</div><p>We forget most new material within days unless we recall it again — and recalling it just as it starts to fade makes it stick much longer. '
           'This page brings back quiz questions at growing intervals: questions you answer correctly return less and less often; ones you miss come back the next day. '
           'Everything is saved in this browser only.</p></div><div id="review-app" aria-live="polite"><noscript><p>Spaced review needs JavaScript.</p></noscript></div>')

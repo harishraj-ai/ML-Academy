@@ -1,0 +1,192 @@
+<h2 id="why">Not "whether", but "when"</h2>
+<p>Many questions are about <em>time until</em> something happens: how long until a customer cancels, a machine fails, a loan defaults, a patient recovers, an employee leaves. <strong>Survival analysis</strong> (also called time-to-event analysis) models these times. Its special challenge is <strong>censoring</strong>: for many people the event hasn't happened <em>yet</em> when the data is collected. A customer who joined three months ago and is still subscribed hasn't survived "three months"; they've survived <em>at least</em> three months.</p>
+<p>Treat those customers as if they'd churned at three months and you underestimate how long people stay; drop them and you lose information and bias the data towards short times. This lesson covers the tools built for this: Kaplan–Meier curves, the log-rank test, the Cox proportional hazards model, and the concordance index for evaluation.</p>
+<div class="box intuition"><div class="box-title">The core idea</div><p>At each moment, look only at the people still "at risk" (not yet churned and still observed), and ask what fraction of them churn right then. Chaining those fractions together gives the survival curve, and censored people contribute for exactly as long as they were watched.</p></div>
+
+<h2 id="censoring">Censored data</h2>
+<p>Each row has a time and an event flag: <code>churned = 1</code> means the customer cancelled at that time; <code>churned = 0</code> means they were still subscribed when the study ended (<strong>right-censored</strong>). Here are 600 simulated subscribers on monthly or annual plans, with the number of support tickets they raised in their first month:</p>
+<pre><code>import numpy as np
+import pandas as pd
+rng = np.random.default_rng(4)
+n = 600
+plan = rng.integers(0, 2, n)                                  # 0 monthly, 1 annual
+support = rng.poisson(2, n)                                   # support tickets in the first month
+rate = np.exp(-2.0 - 0.8 * plan + 0.25 * support)             # monthly hazard of cancelling
+churn_time = rng.exponential(1 / rate)
+study_end = rng.uniform(6, 24, n)                             # customers joined at different times
+df = pd.DataFrame({"plan": plan, "support": support,
+                   "months": np.minimum(churn_time, study_end).round(2),
+                   "churned": (churn_time &lt;= study_end).astype(int)})
+print(df.head(4).to_string(index=False))
+print("customers who churned during the study:", df.churned.sum(), "of", n)
+print("naive average of 'months' (ignoring censoring):", round(df.months.mean(), 2), "  true mean time to churn:", round(churn_time.mean(), 2))</code></pre>
+<p>Output:</p>
+<pre><code> plan  support  months  churned
+    1        3    3.71        1
+    1        3    7.30        1
+    1        4    2.44        1
+    1        0    5.78        1
+customers who churned during the study: 494 of 600
+naive average of 'months' (ignoring censoring): 6.02   true mean time to churn: 7.86</code></pre>
+<p>106 of the 600 are censored. Averaging the observed times gives 6.02 months, well below the true average of 7.86, because censored customers are counted at the time the study stopped watching them instead of when they eventually leave.</p>
+
+<h2 id="km">The Kaplan–Meier estimator</h2>
+<p>The <strong>survival function</strong> $S(t)$ is the probability of still being a customer after time $t$. The <strong>Kaplan–Meier</strong> estimator builds it step by step. At each time $t_k$ when someone churns, with $n_k$ customers still at risk and $d_k$ churning:</p>
+<p>$$\hat S(t) = \prod_{t_k \le t} \left(1 - \frac{d_k}{n_k}\right)$$</p>
+<div class="box example"><div class="box-title">Worked example — Kaplan–Meier by hand</div>
+<p>Five customers: churned at 2 months, censored at 3, churned at 4, churned at 4, censored at 6.</p>
+<p>At $t = 2$: 5 at risk, 1 churns, so $S = 1 - 1/5 = 0.8$. At $t = 3$ one is censored: no churn, so no step, but the risk set falls to 3. At $t = 4$: 3 at risk, 2 churn, so $S = 0.8 \times (1 - 2/3) \approx 0.267$. After that, one customer remains, censored at 6, so the curve stays at 0.267.</p>
+<p>Treating the censored customer at 3 months as a churner would instead give $S(4) = 1/5 = 0.2$: too pessimistic.</p></div>
+<pre><code>def kaplan_meier(t, e):
+    order = np.argsort(t); t, e = t[order], e[order]
+    times, surv, s, at_risk = [0.0], [1.0], 1.0, len(t)
+    for u in np.unique(t):
+        d = e[t == u].sum()                                     # churned at exactly this time
+        if d: s *= 1 - d / at_risk; times.append(u); surv.append(s)
+        at_risk -= (t == u).sum()                               # churned or censored leave the risk set
+    return np.array(times), np.array(surv)
+def median_survival(times, surv):
+    below = np.where(surv &lt;= 0.5)[0]
+    return times[below[0]] if len(below) else np.inf
+for p, name in [(0, "monthly"), (1, "annual")]:
+    g = df[df.plan == p]
+    tt, ss = kaplan_meier(g.months.to_numpy(), g.churned.to_numpy())
+    s12 = ss[tt &lt;= 12][-1]
+    print(f"{name:8s}: still subscribed after 12 months {s12:.3f}, median survival {median_survival(tt, ss):.1f} months")</code></pre>
+<p>Output:</p>
+<pre><code>monthly : still subscribed after 12 months 0.112, median survival 3.2 months
+annual  : still subscribed after 12 months 0.297, median survival 6.9 months</code></pre>
+<p>After 12 months, 29.7% of annual-plan customers are still subscribed, against 11.2% of monthly ones. The <strong>median survival</strong>, when the curve crosses 0.5, is 6.9 months for annual and 3.2 for monthly. Medians are the usual summary, because the mean depends on the far tail, which censoring hides.</p>
+
+<h2 id="demo">Try it: censoring and survival curves</h2>
+<p>Two groups of 100 customers, with true medians of 4.9 and 9.7 months. Increase the share who are still active when the study ends (censored at a random time) and watch Kaplan–Meier still recover curves, and medians, close to the truth.</p>
+<div class="demo" data-demo="survival"></div>
+
+<h2 id="logrank">Comparing groups: the log-rank test</h2>
+<p>Is the difference between the curves real or noise? The <strong>log-rank test</strong> compares, at each churn time, how many churns occurred in one group with how many would be expected if both groups had the same risk, given who was at risk. It sums the differences and converts them to a chi-squared statistic with 1 degree of freedom:</p>
+<pre><code>from scipy import stats
+def logrank(t, e, g):
+    O_minus_E, V = 0.0, 0.0
+    for u in np.unique(t[e == 1]):
+        at = t &gt;= u; n_all, n1 = at.sum(), (at &amp; (g == 1)).sum()
+        d_all, d1 = ((t == u) &amp; (e == 1)).sum(), ((t == u) &amp; (e == 1) &amp; (g == 1)).sum()
+        O_minus_E += d1 - d_all * n1 / n_all
+        if n_all &gt; 1: V += d_all * (n1 / n_all) * (1 - n1 / n_all) * (n_all - d_all) / (n_all - 1)
+    chi2 = O_minus_E ** 2 / V
+    return chi2, stats.chi2.sf(chi2, 1)
+chi2, p = logrank(df.months.to_numpy(), df.churned.to_numpy(), df.plan.to_numpy())
+print(f"log-rank test, annual vs monthly: chi-squared {chi2:.1f}, p-value {p:.2g}")</code></pre>
+<p>Output:</p>
+<pre><code>log-rank test, annual vs monthly: chi-squared 55.0, p-value 1.2e-13</code></pre>
+<p>A chi-squared of 55.0 and a p-value around $10^{-13}$: annual customers really do stay longer. Like any test (Lesson 4's "Going deeper"), it says the difference is unlikely to be chance, not how big it is or why. Annual customers may differ in other ways, so this isn't proof that switching someone's plan would make them stay (Lesson 29).</p>
+
+<h2 id="cox">The Cox proportional hazards model</h2>
+<p>To use several features at once, model the <strong>hazard</strong> $h(t \mid x)$: the instantaneous rate of churning at time $t$ among those still at risk. The <strong>Cox model</strong> assumes</p>
+<p>$$h(t \mid x) = h_0(t)\,\exp(\beta_1 x_1 + \dots + \beta_p x_p)$$</p>
+<p>The baseline hazard $h_0(t)$ can have any shape and is never estimated directly; the features multiply it by a constant factor. $e^{\beta_j}$ is the <strong>hazard ratio</strong> for a one-unit increase in $x_j$. The coefficients are fitted by maximising the <strong>partial likelihood</strong>: at each churn, the probability that it was <em>this</em> customer, among everyone at risk at that moment, who churned:</p>
+<pre><code>from scipy.optimize import minimize
+Xc = df[["plan", "support"]].to_numpy(float); T, E = df.months.to_numpy(), df.churned.to_numpy()
+def neg_partial_loglik(beta):
+    eta = Xc @ beta; total = 0.0
+    for i in np.where(E == 1)[0]:
+        total += eta[i] - np.log(np.exp(eta[T &gt;= T[i]]).sum())   # the risk set at that moment
+    return -total
+fit = minimize(neg_partial_loglik, np.zeros(2), method="BFGS")
+for name, b in zip(["annual plan", "support tickets"], fit.x):
+    print(f"{name:15s} coefficient {b:+.3f}   hazard ratio {np.exp(b):.2f}")
+print("true coefficients: -0.8 and +0.25")</code></pre>
+<p>Output:</p>
+<pre><code>annual plan     coefficient -0.698   hazard ratio 0.50
+support tickets coefficient +0.258   hazard ratio 1.29
+true coefficients: -0.8 and +0.25</code></pre>
+<p>The annual plan has a hazard ratio of 0.50: at any moment, annual customers churn at about half the rate of otherwise similar monthly ones. Each support ticket multiplies the churn rate by 1.29, about 29% higher. Both are close to the true values used in the simulation. The model's key assumption is <strong>proportional hazards</strong>: the ratio stays constant over time. Check it, for example by fitting separate models for early and late periods; if an effect fades over time, a time-varying coefficient is needed.</p>
+
+<h2 id="evaluate">Evaluating survival models</h2>
+<p>Censoring makes ordinary metrics unusable: you don't know the true time for censored people. The standard metric is the <strong>concordance index</strong> (C-index): among all pairs where we know who churned first, the share in which the model gave the earlier churner a higher risk score. 0.5 is random and 1 is a perfect ordering; it's the survival version of ROC-AUC (Lesson 9):</p>
+<pre><code>def concordance(T, E, risk):
+    ok = tot = 0
+    for i in np.where(E == 1)[0]:
+        later = T &gt; T[i]                                           # pairs we can order: i churned first
+        tot += later.sum(); ok += (risk[i] &gt; risk[later]).sum() + 0.5 * (risk[i] == risk[later]).sum()
+    return ok / tot
+print("concordance index, Cox model:", round(concordance(T, E, Xc @ fit.x), 3))
+print("concordance index, support tickets only:", round(concordance(T, E, Xc[:, 1]), 3))
+print("concordance index, random scores:", round(concordance(T, E, rng.random(len(T))), 3))</code></pre>
+<p>Output:</p>
+<pre><code>concordance index, Cox model: 0.639
+concordance index, support tickets only: 0.59
+concordance index, random scores: 0.517</code></pre>
+<p>The Cox model reaches 0.639, support tickets alone 0.59, and random scores 0.517. Churn timing is noisy, so values of 0.6 to 0.75 are typical in practice. Other tools: the <strong>Brier score over time</strong> (calibration at each horizon), and machine-learning models built for censoring, such as random survival forests and gradient boosting with a Cox loss. The <code>lifelines</code> and <code>scikit-survival</code> libraries implement all of these; this lesson builds the core from NumPy and SciPy.</p>
+
+<h2 id="practice">Survival analysis in practice</h2>
+<ul>
+<li><strong>Define time zero carefully</strong>: sign-up date, installation date, diagnosis date. Everyone's clock must start at a comparable moment.</li>
+<li><strong>Censoring must be non-informative</strong>: people mustn't drop out of observation <em>because</em> they were about to churn. A customer who closed their account through a different channel isn't censored; they churned.</li>
+<li><strong>Don't use features from the future</strong>: a feature measured after time zero (such as support tickets in month six) leaks information about survival. Use values known at time zero, or time-varying models.</li>
+<li><strong>Competing risks</strong>: if several events are possible (cancelled, or moved to a partner), treating one as censoring for the other biases the estimates; use competing-risk methods.</li>
+</ul>
+
+<h2 id="code">In Python: survival from a subscription table</h2>
+<p>From raw sign-up and cancellation dates to a Kaplan–Meier table, computing the time and censoring flag yourself, as you would from a real database:</p>
+<pre><code>import numpy as np
+import pandas as pd
+
+subs = pd.DataFrame({
+    "signup":   pd.to_datetime(["2025-01-05", "2025-02-10", "2025-02-20", "2025-03-01", "2025-04-15", "2025-05-01", "2025-06-10", "2025-07-01"]),
+    "cancelled": pd.to_datetime(["2025-04-01", None, "2025-05-20", "2025-03-30", None, "2025-09-15", None, "2025-08-01"])})
+today = pd.Timestamp("2025-12-31")
+subs["event"] = subs.cancelled.notna().astype(int)
+subs["months"] = ((subs.cancelled.fillna(today) - subs.signup).dt.days / 30.44).round(1)
+rows, s, at_risk = [], 1.0, len(subs)
+for t, g in subs.sort_values("months").groupby("months"):
+    d = g.event.sum()
+    if d:
+        s *= 1 - d / at_risk
+        rows.append((t, at_risk, d, round(s, 3)))
+    at_risk -= len(g)
+print(subs[["months", "event"]].to_string(index=False))
+print(pd.DataFrame(rows, columns=["month", "at risk", "churned", "survival"]).to_string(index=False))</code></pre>
+<p>Output:</p>
+<pre><code> months  event
+    2.8      1
+   10.6      0
+    2.9      1
+    1.0      1
+    8.5      0
+    4.5      1
+    6.7      0
+    1.0      1
+ month  at risk  churned  survival
+   1.0        8        2     0.750
+   2.8        6        1     0.625
+   2.9        5        1     0.500
+   4.5        4        1     0.375</code></pre>
+<p>Customers still subscribed on the cut-off date get <code>event</code> 0 and their time so far. The survival column falls only when someone churns, and each step's size depends on how many were still at risk, exactly as in the worked example.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Survival analysis models <strong>time until an event</strong>, handling <strong>censored</strong> observations properly.</li>
+<li><strong>Kaplan–Meier</strong> multiplies the share surviving each event time among those at risk; report <strong>medians</strong>.</li>
+<li>The <strong>log-rank test</strong> compares survival curves between groups.</li>
+<li>The <strong>Cox model</strong> gives <strong>hazard ratios</strong> for features, assuming proportional hazards.</li>
+<li>Evaluate with the <strong>concordance index</strong>; define time zero carefully and avoid future features.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. A customer joined 5 months ago and is still subscribed. In survival analysis, their record is…</p>
+<button data-opt="a">Deleted</button><button data-opt="b">Right-censored at 5 months</button><button data-opt="c">A churn at 5 months</button>
+<div class="q-explain">We know only that they survived at least 5 months.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. At a churn time, 40 customers are at risk and 4 churn. By what factor does the Kaplan–Meier curve drop?</p>
+<button data-opt="a">0.9</button><button data-opt="b">0.1</button><button data-opt="c">0.96</button>
+<div class="q-explain">$1 - 4/40 = 0.9$.</div></div>
+<div class="q" data-correct="c"><p class="q-text">3. A Cox coefficient of 0.4 for "missed payments" means…</p>
+<button data-opt="a">40% churn</button><button data-opt="b">Churn 0.4 months earlier</button><button data-opt="c">Each missed payment multiplies the churn hazard by $e^{0.4} \approx 1.49$</button>
+<div class="q-explain">The hazard ratio is $e^\beta$.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. Why is the median survival time usually reported instead of the mean?</p>
+<button data-opt="a">It's always larger</button><button data-opt="b">The mean depends on the long tail, which censoring often hides</button><button data-opt="c">Means can't be computed for times</button>
+<div class="q-explain">The median only needs the curve to cross 0.5.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. A survival model has a concordance index of 0.5. That means…</p>
+<button data-opt="a">It orders who churns first no better than random</button><button data-opt="b">It's 50% accurate</button><button data-opt="c">Half the customers are censored</button>
+<div class="q-explain">0.5 is random ordering; 1 is perfect.</div></div>
+</div>

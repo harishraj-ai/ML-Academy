@@ -1,0 +1,16 @@
+<h2 id="deeper">Going deeper: drift alarms and champion–challenger tests</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>Two judgement calls in monitoring: why statistical drift tests raise false alarms with big data, and how to decide whether a new model is really better than the one in production.</p>
+<p>You'll need: this lesson, hypothesis tests from Lesson 4's "Going deeper", and the bootstrap.</p></div>
+
+<h3 id="deeper-alarms">Significant is not the same as important</h3>
+<p>Here the live data is shifted by a tiny, harmless 0.03 standard deviations. Watch what happens to the KS test's p-value and to the PSI as the live sample grows:</p>
+<!--cell 1-->
+<p>With 500 rows the KS test sees nothing (p = 0.158); with 50,000 rows the same tiny shift gives p ≈ $10^{-6}$, an "alarm" about nothing. The PSI stays tiny throughout (below 0.03), because it measures the <em>size</em> of the shift, not how surely it exists; with small samples it's a little noisier. In production, alert on effect sizes (PSI, the KS statistic itself, change in mean in standard deviations) with thresholds tied to impact, not on p-values, or every big feature will alarm every day.</p>
+
+<h3 id="deeper-challenger">Is the challenger really better?</h3>
+<p>A new model scores higher on a test set. Before replacing the <strong>champion</strong>, check whether the difference is bigger than the noise. Bootstrapping the test set (resampling it with replacement many times) gives an interval for the improvement:</p>
+<!--cell 2-->
+<p>The challenger's AUC is 0.003 higher, but the 95% interval for the improvement runs from −0.022 to 0.027: the data can't tell the two apart. Switching would add risk for no proven gain. Stronger evidence comes from more test data, comparing on the <em>same</em> rows (paired, as here), and a shadow or canary deployment that measures the business outcome, not just the offline metric.</p>
+<!--interview-->
+<!--quiz-->

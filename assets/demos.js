@@ -1287,11 +1287,195 @@
     draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
   }
 
+  // ---- Part 7 demos ----
+  function rngFrom(seed) { var s = seed >>> 0; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+  function gauss(r) { var u = Math.max(r(), 1e-9), v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+  function confoundDemo(el) {
+    var S = shell(el, "a confounder makes a discount look far better than it is", 0.55);
+    var strength = 1.5, r = rngFrom(7), base = [];
+    for (var i = 0; i < 400; i++) base.push([gauss(r), r(), gauss(r)]);
+    slider(S.controls, "How much loyalty drives who gets a discount", 0, 3, 0.1, strength, function (v) { return v.toFixed(1); }, function (v) { strength = v; draw(); });
+    function draw() {
+      var c = colors(), W = S.state.W, H = S.state.H, ctx = S.ctx;
+      var pts = base.map(function (b) { var t = b[1] < 1 / (1 + Math.exp(-strength * b[0])) ? 1 : 0; return [b[0], 100 + 25 * b[0] + 10 * t + 15 * b[2], t]; });
+      var A = axes(W, H, -3, 3, 20, 190, 34);
+      drawGrid(ctx, A, W, H, c, 1, 40, "loyalty", "spend");
+      pts.forEach(function (p) { dot(ctx, A.x(Math.max(-3, Math.min(3, p[0]))), A.y(Math.max(20, Math.min(190, p[1]))), 3, p[2] ? c.accent : c.warn); });
+      var m = [0, 0], k = [0, 0]; pts.forEach(function (p) { m[p[2]] += p[1]; k[p[2]]++; });
+      var naive = m[1] / Math.max(1, k[1]) - m[0] / Math.max(1, k[0]);
+      // adjusted: least squares of spend on [1, loyalty, t]
+      var X = pts.map(function (p) { return [1, p[0], p[2]]; }), y = pts.map(function (p) { return p[1]; });
+      var M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], v = [0, 0, 0];
+      X.forEach(function (x, i) { for (var a = 0; a < 3; a++) { v[a] += x[a] * y[i]; for (var b = 0; b < 3; b++) M[a][b] += x[a] * x[b]; } });
+      var beta = solve3(M, v);
+      S.readout.innerHTML = "<span>naive difference <b>" + naive.toFixed(1) + "</b></span><span>adjusted for loyalty <b>" + beta[2].toFixed(1) + "</b></span><span>true effect <b>10</b></span><span>green: got a discount · orange: didn't</span>";
+    }
+    draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
+  }
+  function solve3(M, v) {
+    var A = M.map(function (r, i) { return r.concat([v[i]]); }), n = 3;
+    for (var i = 0; i < n; i++) { var p = i; for (var j = i + 1; j < n; j++) if (Math.abs(A[j][i]) > Math.abs(A[p][i])) p = j; var t = A[i]; A[i] = A[p]; A[p] = t;
+      for (var j2 = 0; j2 < n; j2++) if (j2 !== i) { var f = A[j2][i] / A[i][i]; for (var k = i; k <= n; k++) A[j2][k] -= f * A[i][k]; } }
+    return A.map(function (r, i) { return r[n] / r[i]; });
+  }
+
+  function driftDemo(el) {
+    var S = shell(el, "spot drift: compare live inputs with the training data", 0.5);
+    var shift = 0, spread = 1, r = rngFrom(3), z = [], z2 = [];
+    for (var i = 0; i < 2000; i++) { z.push(gauss(r)); z2.push(gauss(r)); }
+    slider(S.controls, "Shift in the live mean", -2, 2, 0.1, shift, function (v) { return v.toFixed(1); }, function (v) { shift = v; draw(); });
+    slider(S.controls, "Live spread (× training)", 0.5, 2, 0.05, spread, function (v) { return v.toFixed(2); }, function (v) { spread = v; draw(); });
+    function draw() {
+      var c = colors(), W = S.state.W, H = S.state.H, ctx = S.ctx;
+      var edges = [-Infinity, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, Infinity], nb = 8;
+      function hist(arr) { var h = new Array(nb).fill(0); arr.forEach(function (x) { for (var b = 0; b < nb; b++) if (x >= edges[b] && x < edges[b + 1]) { h[b]++; break; } }); return h.map(function (v) { return Math.max(v / arr.length, 1e-4); }); }
+      var e = hist(z), a = hist(z2.map(function (x) { return shift + spread * x; }));
+      var psi = 0; for (var b = 0; b < nb; b++) psi += (a[b] - e[b]) * Math.log(a[b] / e[b]);
+      var A = axes(W, H, 0, nb, 0, 0.5, 34);
+      drawGrid(ctx, A, W, H, c, 1, 0.1, "bin of the feature (left: low · right: high)", "share");
+      for (var b2 = 0; b2 < nb; b2++) {
+        ctx.fillStyle = c.text; ctx.globalAlpha = 0.5; ctx.fillRect(A.x(b2 + 0.1), A.y(e[b2]), A.x(b2 + 0.45) - A.x(b2 + 0.1), A.y(0) - A.y(e[b2]));
+        ctx.globalAlpha = 1; ctx.fillStyle = c.accent; ctx.fillRect(A.x(b2 + 0.5), A.y(a[b2]), A.x(b2 + 0.85) - A.x(b2 + 0.5), A.y(0) - A.y(a[b2]));
+      }
+      var verdict = psi < 0.1 ? "stable" : psi < 0.25 ? "moderate drift: investigate" : "major drift: act";
+      S.readout.innerHTML = "<span>PSI <b>" + psi.toFixed(3) + "</b></span><span><b>" + verdict + "</b></span><span>grey: training · green: live</span>";
+    }
+    draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
+  }
+
+  function gridDemo(el) {
+    var S = shell(el, "value iteration on a small grid world", 0.62);
+    var gamma = 0.9, slip = 0.1, sweeps = 0, V;
+    var R = 4, C = 5, goal = [0, 4], pit = [1, 4], wall = [1, 1];
+    function isWall(i, j) { return i === wall[0] && j === wall[1]; }
+    function term(i, j) { return (i === goal[0] && j === goal[1]) || (i === pit[0] && j === pit[1]); }
+    var acts = [[-1, 0], [1, 0], [0, -1], [0, 1]], arrows = ["↑", "↓", "←", "→"];
+    function move(i, j, a) { var ni = i + acts[a][0], nj = j + acts[a][1]; if (ni < 0 || nj < 0 || ni >= R || nj >= C || isWall(ni, nj)) return [i, j]; return [ni, nj]; }
+    function reward(i, j) { return i === goal[0] && j === goal[1] ? 1 : i === pit[0] && j === pit[1] ? -1 : -0.04; }
+    function q(i, j, a) { var side = a < 2 ? [2, 3] : [0, 1], tot = 0;
+      [[a, 1 - slip], [side[0], slip / 2], [side[1], slip / 2]].forEach(function (o) { var s = move(i, j, o[0]); tot += o[1] * (reward(s[0], s[1]) + (term(s[0], s[1]) ? 0 : gamma * V[s[0]][s[1]])); }); return tot; }
+    function reset() { V = []; for (var i = 0; i < R; i++) { V.push(new Array(C).fill(0)); } sweeps = 0; }
+    function sweep() { var N = V.map(function (r) { return r.slice(); }); for (var i = 0; i < R; i++) for (var j = 0; j < C; j++) if (!isWall(i, j) && !term(i, j)) N[i][j] = Math.max(q(i, j, 0), q(i, j, 1), q(i, j, 2), q(i, j, 3)); V = N; sweeps++; }
+    slider(S.controls, "Discount γ", 0.5, 0.99, 0.01, gamma, function (v) { return v.toFixed(2); }, function (v) { gamma = v; reset(); draw(); });
+    slider(S.controls, "Chance of slipping sideways", 0, 0.6, 0.05, slip, function (v) { return Math.round(v * 100) + "%"; }, function (v) { slip = v; reset(); draw(); });
+    button(S.controls, "1 sweep", function () { sweep(); draw(); });
+    button(S.controls, "Run to convergence", function () { for (var k = 0; k < 200; k++) sweep(); draw(); });
+    button(S.controls, "Reset", function () { reset(); draw(); });
+    function draw() {
+      var c = colors(), W = S.state.W, H = S.state.H, ctx = S.ctx; ctx.clearRect(0, 0, W, H);
+      var cw = Math.min((W - 20) / C, (H - 20) / R), ox = (W - cw * C) / 2, oy = (H - cw * R) / 2;
+      ctx.font = Math.round(cw / 5) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      for (var i = 0; i < R; i++) for (var j = 0; j < C; j++) {
+        var x = ox + j * cw, y = oy + i * cw;
+        ctx.fillStyle = isWall(i, j) ? c.text : (i === goal[0] && j === goal[1]) ? c.accent : (i === pit[0] && j === pit[1]) ? c.bad : c.bg;
+        ctx.fillRect(x + 1, y + 1, cw - 2, cw - 2); ctx.strokeStyle = c.grid; ctx.strokeRect(x + 1, y + 1, cw - 2, cw - 2);
+        if (isWall(i, j)) continue;
+        ctx.fillStyle = c.ink;
+        if (term(i, j)) { ctx.fillText(reward(i, j) > 0 ? "+1" : "−1", x + cw / 2, y + cw / 2); continue; }
+        var best = 0, bq = -1e9; if (sweeps) for (var a = 0; a < 4; a++) { var qq = q(i, j, a); if (qq > bq) { bq = qq; best = a; } }
+        ctx.fillText(V[i][j].toFixed(2), x + cw / 2, y + cw * 0.38); if (sweeps) ctx.fillText(arrows[best], x + cw / 2, y + cw * 0.7);
+      }
+      S.readout.innerHTML = "<span>sweeps <b>" + sweeps + "</b></span><span>value of the start (bottom left) <b>" + V[R - 1][0].toFixed(3) + "</b></span><span>each step costs 0.04 · arrows: best action</span>";
+    }
+    reset(); draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
+  }
+
+  function activeDemo(el) {
+    var S = shell(el, "which points should a person label next?", 0.6);
+    var r0 = rngFrom(11), P = [];
+    for (var i = 0; i < 300; i++) { var y = i % 2, a = gauss(r0), b = gauss(r0); P.push([a * 0.9 + (y ? 1.1 : -1.1) + 0.5 * b, b * 0.9 + (y ? -0.4 : 0.4), y]); }
+    var labelled;
+    function reset() { labelled = [0, 1, 2, 3]; }
+    function fit() { var w = [0, 0, 0]; for (var it = 0; it < 300; it++) { var g = [0, 0, 0]; labelled.forEach(function (k) { var p = P[k], s = 1 / (1 + Math.exp(-(w[0] + w[1] * p[0] + w[2] * p[1]))); g[0] += s - p[2]; g[1] += (s - p[2]) * p[0]; g[2] += (s - p[2]) * p[1]; });
+      for (var d = 0; d < 3; d++) w[d] -= 0.5 * (g[d] / labelled.length + 0.01 * w[d] * (d > 0)); } return w; }
+    function prob(w, p) { return 1 / (1 + Math.exp(-(w[0] + w[1] * p[0] + w[2] * p[1]))); }
+    var rr = rngFrom(5);
+    button(S.controls, "Label 5 most uncertain", function () { var w = fit(); var cand = P.map(function (p, k) { return [Math.abs(prob(w, p) - 0.5), k]; }).filter(function (x) { return labelled.indexOf(x[1]) < 0; }).sort(function (a, b) { return a[0] - b[0]; }); cand.slice(0, 5).forEach(function (x) { labelled.push(x[1]); }); draw(); });
+    button(S.controls, "Label 5 at random", function () { var n = 0; while (n < 5) { var k = Math.floor(rr() * P.length); if (labelled.indexOf(k) < 0) { labelled.push(k); n++; } } draw(); });
+    button(S.controls, "Reset", function () { reset(); draw(); });
+    function draw() {
+      var c = colors(), W = S.state.W, H = S.state.H, ctx = S.ctx, w = fit();
+      var A = axes(W, H, -4, 4, -3, 3, 34); drawGrid(ctx, A, W, H, c, 1, 1, "feature 1", "feature 2");
+      var acc = 0; P.forEach(function (p) { if ((prob(w, p) > 0.5 ? 1 : 0) === p[2]) acc++; });
+      if (Math.abs(w[2]) > 1e-6) { ctx.strokeStyle = c.warn; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(A.x(-4), A.y(-(w[0] + w[1] * -4) / w[2])); ctx.lineTo(A.x(4), A.y(-(w[0] + w[1] * 4) / w[2])); ctx.stroke(); }
+      P.forEach(function (p, k) { var on = labelled.indexOf(k) >= 0; dot(ctx, A.x(p[0]), A.y(p[1]), on ? 5 : 2.5, on ? (p[2] ? c.accent : c.violet) : c.grid); });
+      S.readout.innerHTML = "<span>labelled <b>" + labelled.length + "</b> of 300</span><span>accuracy on all points <b>" + (100 * acc / P.length).toFixed(1) + "%</b></span><span>big dots: labelled · orange: decision boundary</span>";
+    }
+    reset(); draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
+  }
+
+  function survivalDemo(el) {
+    var S = shell(el, "Kaplan–Meier survival curves with censoring", 0.55);
+    var cens = 0.3, r = rngFrom(9), base = [];
+    for (var i = 0; i < 200; i++) base.push([r(), r(), r(), i % 2]);
+    slider(S.controls, "Share of customers still active when the study ends (censored)", 0, 0.8, 0.05, cens, function (v) { return Math.round(v * 100) + "%"; }, function (v) { cens = v; draw(); });
+    function km(rows) { rows.sort(function (a, b) { return a[0] - b[0]; }); var at = rows.length, s = 1, out = [[0, 1]];
+      rows.forEach(function (rw) { if (rw[1]) { s *= (at - 1) / at; out.push([rw[0], s]); } at--; }); return out; }
+    function draw() {
+      var c = colors(), W = S.state.W, H = S.state.H, ctx = S.ctx;
+      var A = axes(W, H, 0, 24, 0, 1.05, 34); drawGrid(ctx, A, W, H, c, 4, 0.2, "months", "share still subscribed");
+      var meds = [];
+      [0, 1].forEach(function (g) {
+        var rows = base.filter(function (b) { return b[3] === g; }).map(function (b) { var t = -Math.log(1 - b[0]) * (g ? 14 : 7), ct = b[1] < cens ? b[2] * 24 : 24; return t <= ct ? [t, 1] : [ct, 0]; });
+        var curve = km(rows); ctx.strokeStyle = g ? c.accent : c.warn; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(A.x(0), A.y(1));
+        var med = null; curve.forEach(function (p, i) { if (i) { ctx.lineTo(A.x(Math.min(24, p[0])), A.y(curve[i - 1][1])); ctx.lineTo(A.x(Math.min(24, p[0])), A.y(p[1])); } if (med === null && p[1] <= 0.5) med = p[0]; });
+        ctx.lineTo(A.x(24), A.y(curve[curve.length - 1][1])); ctx.stroke(); meds.push(med);
+      });
+      S.readout.innerHTML = "<span>orange: monthly plan · median <b>" + (meds[0] === null ? "> 24" : meds[0].toFixed(1)) + "</b> months</span><span>green: annual plan · median <b>" + (meds[1] === null ? "> 24" : meds[1].toFixed(1)) + "</b> months</span><span>true medians 4.9 and 9.7</span>";
+    }
+    draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
+  }
+
+  function graphDemo(el) {
+    var S = shell(el, "PageRank: who is important in a network?", 0.6);
+    var pos = [[0.15, 0.3], [0.3, 0.15], [0.32, 0.45], [0.12, 0.62], [0.5, 0.5], [0.68, 0.3], [0.85, 0.2], [0.88, 0.5], [0.7, 0.72], [0.5, 0.85], [0.3, 0.8]];
+    var E = [[0, 1], [0, 2], [1, 2], [2, 3], [0, 3], [2, 4], [4, 5], [5, 6], [6, 7], [5, 7], [4, 8], [7, 8], [8, 9], [9, 10], [3, 10], [4, 9]];
+    var d = 0.85, removed = -1;
+    slider(S.controls, "Damping (chance of following a link)", 0.1, 0.99, 0.01, d, function (v) { return v.toFixed(2); }, function (v) { d = v; draw(); });
+    button(S.controls, "Remove the top node's links", function () { removed = removed >= 0 ? -1 : top; draw(); });
+    var top = 4;
+    function pr() { var n = pos.length, nb = pos.map(function () { return []; }); E.forEach(function (e) { if (e[0] !== removed && e[1] !== removed) { nb[e[0]].push(e[1]); nb[e[1]].push(e[0]); } });
+      var p = new Array(n).fill(1 / n); for (var it = 0; it < 100; it++) { var q = new Array(n).fill((1 - d) / n); for (var i = 0; i < n; i++) { if (nb[i].length) nb[i].forEach(function (j) { q[j] += d * p[i] / nb[i].length; }); else for (var j = 0; j < n; j++) q[j] += d * p[i] / n; } p = q; } return [p, nb]; }
+    function draw() {
+      var c = colors(), W = S.state.W, H = S.state.H, ctx = S.ctx; ctx.clearRect(0, 0, W, H);
+      var res = pr(), p = res[0], nb = res[1]; top = removed >= 0 ? removed : p.indexOf(Math.max.apply(null, p));
+      ctx.strokeStyle = c.grid; ctx.lineWidth = 1.5; E.forEach(function (e) { if (e[0] === removed || e[1] === removed) return; ctx.beginPath(); ctx.moveTo(pos[e[0]][0] * W, pos[e[0]][1] * H); ctx.lineTo(pos[e[1]][0] * W, pos[e[1]][1] * H); ctx.stroke(); });
+      ctx.font = "12px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      pos.forEach(function (q, i) { dot(ctx, q[0] * W, q[1] * H, 6 + 120 * p[i], i === removed ? c.grid : c.accent); ctx.fillStyle = i === removed ? c.ink : c.bg; ctx.font = "bold 13px system-ui"; ctx.fillText(String.fromCharCode(65 + i), q[0] * W, q[1] * H); });
+      var order = p.map(function (v, i) { return [v, i]; }).sort(function (a, b) { return b[0] - a[0]; }).slice(0, 3);
+      S.readout.innerHTML = "<span>top 3: " + order.map(function (o) { return "<b>" + String.fromCharCode(65 + o[1]) + "</b> " + o[0].toFixed(3); }).join(" · ") + "</span><span>circle size: PageRank</span>";
+    }
+    draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
+  }
+
+  function hmmDemo(el) {
+    var S = shell(el, "decode hidden states with the Viterbi algorithm", 0.5);
+    var stay = 0.9, noise = 0.2, r = rngFrom(21), T = 60, U = [], V = [];
+    for (var t = 0; t < T; t++) { U.push(r()); V.push(r()); }
+    slider(S.controls, "How sticky the hidden state is", 0.5, 0.99, 0.01, stay, function (v) { return Math.round(v * 100) + "% stay"; }, function (v) { stay = v; draw(); });
+    slider(S.controls, "How noisy the signal is", 0.05, 0.45, 0.01, noise, function (v) { return Math.round(v * 100) + "% misleading"; }, function (v) { noise = v; draw(); });
+    function draw() {
+      var c = colors(), W = S.state.W, H = S.state.H, ctx = S.ctx; ctx.clearRect(0, 0, W, H);
+      var z = [], o = [], s = 0; for (var t = 0; t < T; t++) { if (t && U[t] > stay) s = 1 - s; z.push(s); o.push(V[t] < noise ? 1 - s : s); }
+      var lt = [[Math.log(stay), Math.log(1 - stay)], [Math.log(1 - stay), Math.log(stay)]], le = function (st, ob) { return Math.log(st === ob ? 1 - noise : noise); };
+      var dp = [[Math.log(0.5) + le(0, o[0]), Math.log(0.5) + le(1, o[0])]], bp = [];
+      for (var t2 = 1; t2 < T; t2++) { var row = [], b = []; for (var k = 0; k < 2; k++) { var a0 = dp[t2 - 1][0] + lt[0][k], a1 = dp[t2 - 1][1] + lt[1][k]; row.push(Math.max(a0, a1) + le(k, o[t2])); b.push(a0 >= a1 ? 0 : 1); } dp.push(row); bp.push(b); }
+      var path = new Array(T); path[T - 1] = dp[T - 1][0] >= dp[T - 1][1] ? 0 : 1; for (var t3 = T - 1; t3 > 0; t3--) path[t3 - 1] = bp[t3 - 1][path[t3]];
+      var cw = (W - 40) / T, rows = [["true state", z, c.ink], ["signal", o, c.text], ["Viterbi", path, c.accent]];
+      ctx.font = "12px system-ui"; ctx.textBaseline = "middle";
+      rows.forEach(function (rw, k) { var y = 20 + k * (H - 30) / 3; ctx.fillStyle = c.text; ctx.fillText(rw[0], 20, y); for (var t4 = 0; t4 < T; t4++) { ctx.fillStyle = rw[1][t4] ? rw[2] : c.grid; ctx.fillRect(20 + t4 * cw, y + 10, Math.max(1, cw - 1), (H - 30) / 3 - 30); } });
+      var sig = 0, vit = 0; for (var t5 = 0; t5 < T; t5++) { if (o[t5] === z[t5]) sig++; if (path[t5] === z[t5]) vit++; }
+      S.readout.innerHTML = "<span>signal alone correct <b>" + Math.round(100 * sig / T) + "%</b></span><span>Viterbi correct <b>" + Math.round(100 * vit / T) + "%</b></span><span>dark: state 1 · light: state 0</span>";
+    }
+    draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
+  }
+
   var REGISTRY = { "fit-line": fitLine, "dot-product": dotProduct, "tangent": tangent, "bayes": bayes, "normal": normal,
     "overfit": overfit, "least-squares": leastSquares, "gd-contour": gdContour, "logistic": logistic,
     "threshold": thresholdDemo, "ridge": ridgeDemo, "knn": knnDemo, "naive-bayes": nbDemo,
     "tree": treeDemo, "boosting": boostingDemo, "svm": svmDemo, "kmeans": kmeansDemo,
-    "pca": pcaDemo, "nn": nnDemo, "conv": convDemo, "prep": prepDemo, "fairness": fairnessDemo, "join": joinDemo, "search": searchDemo, "shapley": shapleyDemo, "anomaly": anomalyDemo, "forecast": forecastDemo, "recommend": recommendDemo, "beta": betaDemo };
+    "pca": pcaDemo, "nn": nnDemo, "conv": convDemo, "prep": prepDemo, "fairness": fairnessDemo, "join": joinDemo, "search": searchDemo, "shapley": shapleyDemo, "anomaly": anomalyDemo, "forecast": forecastDemo, "recommend": recommendDemo, "beta": betaDemo, "confound": confoundDemo, "drift": driftDemo, "grid": gridDemo, "active": activeDemo, "survival": survivalDemo, "graph": graphDemo, "hmm": hmmDemo };
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll(".demo[data-demo]").forEach(function (el) {
       var fn = REGISTRY[el.getAttribute("data-demo")];

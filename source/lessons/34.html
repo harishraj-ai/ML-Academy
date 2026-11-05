@@ -1,0 +1,199 @@
+<h2 id="why">When the connections are the data</h2>
+<p>Some data is about relationships: who follows whom, which accounts send money to which, which papers cite which, which products are bought together, which roads connect which junctions. Treating each row on its own throws away the most useful information. A fraudster's account looks ordinary on its own, but it's connected to a ring of other new accounts; a customer's churn risk rises when their friends leave.</p>
+<p>A <strong>graph</strong> (or network) represents this: <strong>nodes</strong> (people, accounts, pages) joined by <strong>edges</strong> (friendships, payments, links). This lesson covers the classical toolkit: representing graphs, measuring how important a node is, finding communities, predicting missing links, and turning graph structure into features for ordinary models. Graph neural networks, which learn these features automatically, build on the same ideas.</p>
+<div class="box intuition"><div class="box-title">The core idea</div><p>Who you're connected to says a lot about you. Important nodes are linked to by other important nodes, communities are groups with many edges inside and few between, and two nodes with many shared neighbours are likely to be connected too.</p></div>
+
+<h2 id="represent">Representing a graph</h2>
+<p>The <strong>adjacency matrix</strong> $A$ has $A_{ij} = 1$ if nodes $i$ and $j$ are connected, otherwise 0. For an undirected graph it's symmetric. A node's <strong>degree</strong> is its number of edges, the row sum of $A$. Large real graphs are stored as <strong>edge lists</strong> or sparse matrices, because almost all entries are 0. Here is a simulated social network of 100 people in three hidden communities, where people are 20 times more likely to know someone in their own community:</p>
+<pre><code>import numpy as np
+rng = np.random.default_rng(2)
+sizes = [40, 35, 25]                                            # three hidden communities
+group = np.repeat([0, 1, 2], sizes); n = len(group)
+p_in, p_out = 0.20, 0.01
+P = np.where(group[:, None] == group[None, :], p_in, p_out)
+A = np.triu(rng.random((n, n)) &lt; P, 1).astype(int); A = A + A.T   # undirected, no self-loops
+deg = A.sum(axis=1)
+print("nodes", n, " edges", A.sum() // 2, " average degree", round(deg.mean(), 2))
+print("edges inside communities:", int((A * (group[:, None] == group[None, :])).sum() // 2), "  between:", int((A * (group[:, None] != group[None, :])).sum() // 2))</code></pre>
+<p>Output:</p>
+<pre><code>nodes 100  edges 357  average degree 7.14
+edges inside communities: 332   between: 25</code></pre>
+<p>Of 357 edges, 332 are inside communities and only 25 cross between them. In real data the communities aren't given; finding them is one of the tasks below.</p>
+
+<h2 id="centrality">Who matters? Centrality</h2>
+<ul>
+<li><strong>Degree centrality</strong>: how many connections a node has.</li>
+<li><strong>PageRank</strong>: a node is important if important nodes link to it. Imagine a random surfer who follows a random edge with probability $d$ (usually 0.85), or jumps to a random node otherwise; PageRank is the share of time spent at each node. It's the leading eigenvector of the surfer's transition matrix (Lesson 3's "Going deeper"), found by repeated multiplication.</li>
+<li><strong>Closeness</strong>: how near a node is, on average, to everyone else (reciprocal of the mean shortest-path distance, found by breadth-first search).</li>
+<li><strong>Betweenness</strong>: how often a node lies on the shortest paths between others, so it acts as a bridge.</li>
+</ul>
+<p>$$r_j = \frac{1-d}{n} + d \sum_{i \to j} \frac{r_i}{\text{out-degree}(i)}$$</p>
+<pre><code>def pagerank(A, d=0.85, iters=100):
+    n = len(A); out = A.sum(axis=1)
+    M = np.where(out[:, None] &gt; 0, A / np.maximum(out[:, None], 1), 1 / n)   # row-stochastic transitions
+    r = np.full(n, 1 / n)
+    for _ in range(iters):
+        r = (1 - d) / n + d * r @ M
+    return r
+def closeness(A):
+    n = len(A); c = np.zeros(n)
+    for s in range(n):                                          # breadth-first search from each node
+        dist = np.full(n, -1); dist[s] = 0; frontier, d = [s], 0
+        while frontier:
+            d += 1
+            nxt = {v for u in frontier for v in np.nonzero(A[u])[0] if dist[v] &lt; 0}
+            for v in nxt: dist[v] = d
+            frontier = list(nxt)
+        reach = dist[dist &gt; 0]; c[s] = len(reach) / reach.sum() if len(reach) else 0
+    return c
+pr, cl = pagerank(A), closeness(A)
+for name, score in [("degree", deg), ("PageRank", pr), ("closeness", cl)]:
+    top = np.argsort(-score)[:3]
+    print(f"{name:9s} top nodes {top.tolist()}  (communities {group[top].tolist()})")
+print("correlation of PageRank with degree:", round(np.corrcoef(pr, deg)[0, 1], 3))</code></pre>
+<p>Output:</p>
+<pre><code>degree    top nodes [41, 29, 78]  (communities [1, 0, 2])
+PageRank  top nodes [41, 78, 29]  (communities [1, 2, 0])
+closeness top nodes [15, 41, 29]  (communities [0, 1, 0])
+correlation of PageRank with degree: 0.986</code></pre>
+<p>On this undirected network, PageRank and degree agree closely (correlation 0.986), and the same hubs top both lists. Closeness picks node 15 first, a node near the middle of the whole network rather than the busiest in its group. The measures answer different questions: degree for activity, PageRank for influence, closeness for reach, betweenness for brokerage. On directed graphs, such as web links or payments, PageRank differs much more from degree.</p>
+
+<h2 id="demo">Try it: PageRank</h2>
+<p>Circle size shows each node's PageRank. Change the damping factor to see how much the link structure matters, and remove the top node's links to see importance shift to others.</p>
+<div class="demo" data-demo="graph"></div>
+
+<h2 id="communities">Finding communities</h2>
+<p><strong>Community detection</strong> groups nodes that are densely connected among themselves. A common score is <strong>modularity</strong>: the fraction of edges inside groups minus the fraction expected if edges were placed at random with the same degrees:</p>
+<p>$$Q = \frac{1}{2m}\sum_{ij}\Big(A_{ij} - \frac{k_i k_j}{2m}\Big)[c_i = c_j]$$</p>
+<p>where $m$ is the number of edges, $k_i$ the degrees and $c_i$ the groups. Values above about 0.3 indicate clear structure. Methods include greedy modularity optimisation (the Louvain and Leiden algorithms) and <strong>spectral clustering</strong>, which clusters nodes using the eigenvectors of the graph, the graph version of Lesson 16's clustering:</p>
+<pre><code>from sklearn.cluster import SpectralClustering
+from sklearn.metrics import adjusted_rand_score
+def modularity(A, labels):
+    m, k = A.sum() / 2, A.sum(axis=1)
+    same = labels[:, None] == labels[None, :]
+    return float(((A - np.outer(k, k) / (2 * m)) * same).sum() / (2 * m))
+found = SpectralClustering(3, affinity="precomputed", random_state=0).fit_predict(A)
+print("adjusted Rand index against the true communities:", round(adjusted_rand_score(group, found), 3))
+print("modularity: found", round(modularity(A, found), 3), "  true", round(modularity(A, group), 3), "  random labels", round(modularity(A, rng.integers(0, 3, n)), 3))</code></pre>
+<p>Output:</p>
+<pre><code>adjusted Rand index against the true communities: 0.971
+modularity: found 0.573   true 0.574   random labels -0.01</code></pre>
+<p>Spectral clustering recovers the three communities almost perfectly (adjusted Rand index 0.971, where 1 is a perfect match), and the modularity of its grouping, 0.573, equals the true grouping's. Random labels score about 0. In real networks, communities overlap and have no single right answer, so judge them by modularity and by whether they make sense to people who know the domain.</p>
+
+<h2 id="links">Predicting missing links</h2>
+<p><strong>Link prediction</strong> scores pairs of unconnected nodes by how likely they are to be connected: friend suggestions, products to recommend together, missing interactions in biology. Classic scores:</p>
+<ul>
+<li><strong>Common neighbours</strong>: how many neighbours the two share.</li>
+<li><strong>Adamic–Adar</strong>: shared neighbours, each weighted by $1/\log(\text{degree})$, so a shared friend with few friends counts more than a shared celebrity.</li>
+<li><strong>Preferential attachment</strong>: the product of the degrees, since busy nodes gain more links.</li>
+</ul>
+<p>To evaluate, hide 10% of the edges, score them alongside an equal number of truly unconnected pairs, and compute ROC-AUC:</p>
+<pre><code>from sklearn.metrics import roc_auc_score
+edges = np.argwhere(np.triu(A, 1)); rng.shuffle(edges)
+hidden = edges[: len(edges) // 10]                               # hide 10% of the edges
+A_obs = A.copy(); A_obs[hidden[:, 0], hidden[:, 1]] = A_obs[hidden[:, 1], hidden[:, 0]] = 0
+non = np.argwhere(np.triu(1 - A, 1)); non = non[rng.choice(len(non), len(hidden), replace=False)]
+pairs, truth = np.vstack([hidden, non]), np.r_[np.ones(len(hidden)), np.zeros(len(non))]
+k_obs = A_obs.sum(axis=1)
+common = np.array([(A_obs[u] &amp; A_obs[v]).sum() for u, v in pairs])
+adamic = np.array([sum(1 / np.log(k_obs[w]) for w in np.nonzero(A_obs[u] &amp; A_obs[v])[0] if k_obs[w] &gt; 1) for u, v in pairs])
+pref = np.array([k_obs[u] * k_obs[v] for u, v in pairs])
+for name, s in [("common neighbours", common), ("Adamic-Adar", adamic), ("preferential attachment", pref)]:
+    print(f"{name:24s} AUC {roc_auc_score(truth, s):.3f}")</code></pre>
+<p>Output:</p>
+<pre><code>common neighbours        AUC 0.613
+Adamic-Adar              AUC 0.605
+preferential attachment  AUC 0.384</code></pre>
+<p>Common neighbours (AUC 0.613) and Adamic–Adar (0.605) do better than chance; preferential attachment does <em>worse</em> than chance (0.384), because here connections depend on communities, not on popularity: the busiest nodes in different communities rarely connect. Neighbourhood scores are weak in this sparse network (an average of 7 connections), where many truly connected pairs share no neighbour at all. On denser real networks they're often much stronger, and a classifier combining several scores does better still. Always check which mechanism fits your graph.</p>
+
+<h2 id="features">Graph features for ordinary models</h2>
+<p>The easiest way to use a graph in machine learning is to compute features from it and add them to a normal model: a node's degree, PageRank, community, clustering coefficient, and averages of its neighbours' features or labels. This uses <strong>homophily</strong>, the tendency of connected nodes to be similar. Here each person has a weak, noisy signal of being in community 0; adding the average signal of their contacts:</p>
+<pre><code>from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+# Each person has a noisy personal signal; predict whether they're in community 0.
+target = (group == 0).astype(int)
+signal = target + rng.normal(0, 1.2, n)
+neigh_mean = (A @ signal) / np.maximum(deg, 1)                    # average signal of their contacts
+for name, feats in [("own signal only", np.c_[signal]), ("plus contacts' average", np.c_[signal, neigh_mean])]:
+    acc = cross_val_score(LogisticRegression(), feats, target, cv=5).mean()
+    print(f"{name:23s} accuracy {acc:.3f}")</code></pre>
+<p>Output:</p>
+<pre><code>own signal only         accuracy 0.630
+plus contacts' average  accuracy 0.720</code></pre>
+<p>Accuracy rises from 63.0% to 72.0%: contacts' signals average out each person's noise. This is the core idea behind <strong>graph neural networks</strong> too: each layer replaces a node's features with a learned combination of its own and its neighbours' features. One caution: when computing neighbour features from <em>labels</em>, use only labels that would be known at prediction time, and split train and test carefully, because connected nodes leak information to each other (Lesson 5).</p>
+
+<h2 id="practice">Graphs in practice</h2>
+<div class="table-scroll"><table class="tbl">
+<thead><tr><th>Task</th><th>Examples</th><th>Classical tools</th></tr></thead>
+<tbody>
+<tr><td>Node importance</td><td>Key influencers, critical servers</td><td>Degree, PageRank, betweenness</td></tr>
+<tr><td>Communities</td><td>Customer segments, fraud rings</td><td>Louvain/Leiden, spectral clustering</td></tr>
+<tr><td>Link prediction</td><td>Friend and product suggestions</td><td>Common neighbours, Adamic–Adar, embeddings</td></tr>
+<tr><td>Node classification</td><td>Fraud, bot detection, topic of a paper</td><td>Graph features + a classifier, label propagation, GNNs</td></tr>
+<tr><td>Paths and flows</td><td>Delivery routes, supply chains</td><td>Shortest paths, max-flow</td></tr>
+</tbody></table></div>
+<p>The <code>networkx</code> library implements all of these classical algorithms for small and medium graphs; graph databases and libraries such as PyTorch Geometric handle large graphs and GNNs. This lesson builds the core with NumPy and scikit-learn.</p>
+
+<h2 id="code">In Python: a graph from an edge list</h2>
+<p>Real graph data usually arrives as a table of edges. Here a small table of payments between accounts becomes an adjacency matrix, and a few lines compute each account's degree, PageRank and connected component:</p>
+<pre><code>import numpy as np
+import pandas as pd
+
+pay = pd.DataFrame({"from": ["A", "A", "B", "C", "D", "E", "F", "F", "G", "H"],
+                    "to":   ["B", "C", "C", "A", "E", "F", "D", "G", "H", "G"]})
+nodes = sorted(set(pay["from"]) | set(pay["to"])); idx = {v: i for i, v in enumerate(nodes)}
+A = np.zeros((len(nodes), len(nodes)))
+for a, b in zip(pay["from"], pay["to"]):
+    A[idx[a], idx[b]] = A[idx[b], idx[a]] = 1                  # treat payments as undirected links
+comp, c = -np.ones(len(nodes), int), 0
+for s in range(len(nodes)):                                    # connected components by search
+    if comp[s] &lt; 0:
+        stack = [s]
+        while stack:
+            u = stack.pop()
+            if comp[u] &lt; 0:
+                comp[u] = c; stack += list(np.nonzero(A[u])[0])
+        c += 1
+M, r = A / A.sum(axis=1, keepdims=True), np.full(len(nodes), 1 / len(nodes))
+for _ in range(100):
+    r = 0.15 / len(nodes) + 0.85 * r @ M
+print(pd.DataFrame({"account": nodes, "degree": A.sum(axis=1).astype(int), "pagerank": r.round(3), "component": comp}).to_string(index=False))</code></pre>
+<p>Output:</p>
+<pre><code>account  degree  pagerank  component
+      A       2     0.125          0
+      B       2     0.125          0
+      C       2     0.125          0
+      D       2     0.120          1
+      E       2     0.120          1
+      F       3     0.177          1
+      G       2     0.133          1
+      H       1     0.075          1</code></pre>
+<p>Accounts A–C form one tight triangle and D–H another group, with no payments between them: two separate components. A sudden new component of fresh accounts paying each other in a ring is exactly the kind of pattern fraud teams look for. In the first group all three accounts are equal (PageRank 0.125); in the second, F has the highest PageRank (0.177) and the only degree of 3, because it joins the D–E–F triangle to G and H. H, with one link, is the least central.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>A <strong>graph</strong> of nodes and edges is stored as an adjacency matrix or edge list.</li>
+<li><strong>Centrality</strong> measures importance: degree, <strong>PageRank</strong>, closeness, betweenness.</li>
+<li><strong>Communities</strong> are dense groups; measure them with <strong>modularity</strong>, find them with Louvain or spectral clustering.</li>
+<li><strong>Link prediction</strong> scores pairs by shared neighbours; check which mechanism fits the graph.</li>
+<li>Graph features (degree, PageRank, neighbour averages) improve ordinary models through <strong>homophily</strong>.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. In PageRank, a node is important if…</p>
+<button data-opt="a">It has a long name</button><button data-opt="b">Important nodes link to it</button><button data-opt="c">It links to many nodes</button>
+<div class="q-explain">Importance flows along incoming links.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. What does a modularity near 0 mean for a grouping?</p>
+<button data-opt="a">No more edges inside groups than random wiring would give</button><button data-opt="b">Perfect communities</button><button data-opt="c">The graph has no edges</button>
+<div class="q-explain">Clear community structure gives values above about 0.3.</div></div>
+<div class="q" data-correct="c"><p class="q-text">3. Why does Adamic–Adar down-weight shared neighbours with high degree?</p>
+<button data-opt="a">They're less reliable data</button><button data-opt="b">To speed it up</button><button data-opt="c">A shared celebrity says less about two people than a shared friend with few friends</button>
+<div class="q-explain">Rare shared neighbours carry more information.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. Adding contacts' average signal improved accuracy because of…</p>
+<button data-opt="a">Overfitting</button><button data-opt="b">Homophily: connected nodes tend to be similar</button><button data-opt="c">A larger dataset</button>
+<div class="q-explain">Neighbours' information averages out each node's noise.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. Why must train/test splits be careful with graph features?</p>
+<button data-opt="a">Connected nodes can leak label information to each other</button><button data-opt="b">Graphs can't be split</button><button data-opt="c">PageRank changes randomly</button>
+<div class="q-explain">Use only information that would be known at prediction time.</div></div>
+</div>

@@ -1,0 +1,3 @@
+largest eigenvalue: 1.0   power iteration converged in 27 steps
+max difference from the eigenvector: 3.6e-12
+correlation with in-degree: 0.724   with out-degree: -0.208

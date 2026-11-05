@@ -1,0 +1,174 @@
+<h2 id="why">Prediction is not causation</h2>
+<p>Every model so far answered "what will happen?": which customers will churn, what a house will sell for. Many business questions are different: "what will happen <em>if we do something</em>?" Will a discount increase spending? Did the new app cause the rise in orders? Which customers should get the coupon? These are <strong>causal</strong> questions, and a model that predicts well can still answer them badly.</p>
+<p>The reason is <strong>confounding</strong>: something that affects both the action and the outcome. If loyal customers are more likely to get discounts <em>and</em> spend more anyway, then discount-takers spend more even if the discount does nothing. This lesson shows how to measure causal effects: randomised experiments, adjusting for confounders, propensity scores, difference-in-differences, and uplift models that find who benefits.</p>
+<div class="box intuition"><div class="box-title">The core idea</div><p>A causal effect compares the same people in two worlds, with and without the action. We only ever see one of those worlds for each person, so causal inference is about building a fair comparison group: by randomising, or by adjusting for everything that drives both the action and the outcome.</p></div>
+
+<h2 id="potential">Potential outcomes</h2>
+<p>For each customer $i$, imagine two numbers: $Y_i(1)$, what they'd spend with a discount, and $Y_i(0)$, what they'd spend without. The individual effect is $Y_i(1) - Y_i(0)$, and the <strong>average treatment effect</strong> (ATE) is its average over everyone:</p>
+<p>$$\text{ATE} = \mathbb{E}[Y(1) - Y(0)]$$</p>
+<p>We never see both numbers for the same person: the "fundamental problem of causal inference". The naive comparison, average spend of discount-takers minus everyone else, equals the ATE only if the two groups would have spent the same without the discount. Here is a simulation where the true effect is +10, but loyalty drives both discounts and spending:</p>
+<pre><code>import numpy as np
+import pandas as pd
+rng = np.random.default_rng(1)
+n = 5000
+loyalty = rng.normal(0, 1, n)                                   # the confounder
+discount = rng.random(n) &lt; 1 / (1 + np.exp(-1.5 * loyalty))     # loyal customers get more discounts
+spend = 100 + 25 * loyalty + 10 * discount + rng.normal(0, 15, n)   # true effect of a discount: +10
+df = pd.DataFrame({"loyalty": loyalty, "discount": discount.astype(int), "spend": spend})
+naive = df[df.discount == 1].spend.mean() - df[df.discount == 0].spend.mean()
+print("share given a discount:", round(df.discount.mean(), 3))
+print("naive difference in spend:", round(naive, 1), "(the true effect is 10)")</code></pre>
+<p>Output:</p>
+<pre><code>share given a discount: 0.489
+naive difference in spend: 35.7 (the true effect is 10)</code></pre>
+<p>The naive difference is 35.7, more than three times the real effect, because the discount group is full of loyal customers who'd spend more anyway. A predictive model trained on this data would happily learn that discounts "cause" a big jump in spending.</p>
+
+<h2 id="demo">Try it: how a confounder misleads</h2>
+<p>Each dot is a customer: green dots got a discount. Increase how much loyalty decides who gets a discount, and watch the naive difference grow while the adjusted estimate stays near the true 10. At 0, discounts are given at random and both estimates agree.</p>
+<div class="demo" data-demo="confound"></div>
+
+<h2 id="rct">The gold standard: randomised experiments</h2>
+<p>If a coin decides who gets the discount, loyalty can't influence the choice, so the two groups are alike on average in <em>everything</em>, measured or not. Then the simple difference in means is an unbiased estimate of the ATE. This is why A/B tests (Lesson 4's "Going deeper", Lesson 28) are trusted:</p>
+<pre><code>rand = rng.random(n) &lt; 0.5                                       # a coin decides who gets the discount
+spend_rct = 100 + 25 * loyalty + 10 * rand + rng.normal(0, 15, n)
+diff = spend_rct[rand].mean() - spend_rct[~rand].mean()
+se = np.sqrt(spend_rct[rand].var(ddof=1) / rand.sum() + spend_rct[~rand].var(ddof=1) / (~rand).sum())
+print("randomised experiment:", round(diff, 1), "  95% interval", round(diff - 1.96 * se, 1), "to", round(diff + 1.96 * se, 1))</code></pre>
+<p>Output:</p>
+<pre><code>randomised experiment: 10.9   95% interval 9.3 to 12.6</code></pre>
+<p>The randomised estimate is 10.9, with a 95% interval of 9.3 to 12.6 that contains the true value. When you can randomise, do: it removes confounding you haven't even thought of. When you can't (it's unethical, too slow, or the decision has already been made), you need the methods below, and assumptions you must defend.</p>
+
+<h2 id="adjust">Adjusting for confounders</h2>
+<p>If you've measured every confounder, you can compare like with like. Two common ways:</p>
+<ul>
+<li><strong>Regression adjustment</strong>: include the confounders in a regression of the outcome on the treatment; the treatment's coefficient is the effect, holding them fixed.</li>
+<li><strong>Propensity scores</strong>: model each person's probability of being treated, $e(x) = P(T = 1 \mid x)$. Weighting each treated person by $1/e(x)$ and each untreated person by $1/(1 - e(x))$ (<strong>inverse propensity weighting</strong>, IPW) creates a pseudo-population in which treatment is unrelated to the confounders.</li>
+</ul>
+<pre><code>from sklearn.linear_model import LinearRegression, LogisticRegression
+adj = LinearRegression().fit(df[["discount", "loyalty"]], df.spend)
+print("regression adjusting for loyalty:", round(adj.coef_[0], 1))
+ps = LogisticRegression().fit(df[["loyalty"]], df.discount).predict_proba(df[["loyalty"]])[:, 1]
+t, y = df.discount.to_numpy(), df.spend.to_numpy()
+ipw = np.mean(t * y / ps) - np.mean((1 - t) * y / (1 - ps))      # inverse propensity weighting
+print("propensity scores range from", round(ps.min(), 3), "to", round(ps.max(), 3))
+print("inverse propensity weighting:", round(ipw, 1))
+psc = np.clip(ps, 0.05, 0.95)                                    # trim extreme weights
+w1, w0 = t / psc, (1 - t) / (1 - psc)
+ipw_trim = np.sum(w1 * y) / w1.sum() - np.sum(w0 * y) / w0.sum()  # normalised (Hajek) weights
+print("trimmed, normalised weighting:", round(ipw_trim, 1))</code></pre>
+<p>Output:</p>
+<pre><code>regression adjusting for loyalty: 10.0
+propensity scores range from 0.006 to 0.996
+inverse propensity weighting: 11.4
+trimmed, normalised weighting: 10.0</code></pre>
+<div class="box example"><div class="box-title">Worked example — an inverse propensity weight</div>
+<p>A very loyal customer had a 0.9 chance of getting a discount and got one. Her weight is $1/0.9 \approx 1.11$: she's a typical discount-taker. A similar customer who <em>didn't</em> get one gets weight $1/(1 - 0.9) = 10$: he's rare, and he stands in for the nine other loyal customers who did get one. Weighting rebalances the groups so that each looks like the whole population.</p>
+<p>The danger is visible here too: with a propensity of 0.996, the weight would be 250, so one person dominates the estimate.</p></div>
+<p>Regression adjustment gives 10.0. Plain IPW gives 11.4: some propensity scores are near 0 or 1, so a few people get enormous weights and the estimate is noisy. Trimming the scores to [0.05, 0.95] and normalising the weights gives 10.0. Both methods rest on one big assumption, <strong>no unmeasured confounding</strong>: if something else drives both discount and spend and isn't in the model, every estimate is biased. They also need <strong>overlap</strong>: for every kind of customer, some must be treated and some not.</p>
+
+<h2 id="did">Difference-in-differences</h2>
+<p>Sometimes a change affects a whole group at once: a city launches an app, a country changes a law. Comparing before and after mixes the effect with everything else that changed over time. <strong>Difference-in-differences</strong> (DiD) uses a similar untreated group to measure that background change and subtracts it:</p>
+<p>$$\text{DiD} = (\bar{y}_{B,\text{after}} - \bar{y}_{B,\text{before}}) - (\bar{y}_{A,\text{after}} - \bar{y}_{A,\text{before}})$$</p>
+<pre><code># Two cities; city B starts a loyalty app in month 7. Both share a seasonal trend.
+months = np.arange(1, 13)
+trend = 50 + 2 * months + 5 * np.sin(months / 2)
+city_a = trend + rng.normal(0, 1, 12)
+city_b = trend + 20 + 8 * (months &gt;= 7) + rng.normal(0, 1, 12)    # true effect: +8
+before, after = months &lt; 7, months &gt;= 7
+naive_b = city_b[after].mean() - city_b[before].mean()
+did = naive_b - (city_a[after].mean() - city_a[before].mean())
+print("city B, after minus before:", round(naive_b, 1))
+print("difference-in-differences:", round(did, 1), "(the true effect is 8)")</code></pre>
+<p>Output:</p>
+<pre><code>city B, after minus before: 13.4
+difference-in-differences: 7.5 (the true effect is 8)</code></pre>
+<p>City B's orders rose by 13.4 after the app launched, but city A, without the app, also rose because of the seasonal trend. Subtracting A's change gives 7.5, close to the true effect of 8. DiD's key assumption is <strong>parallel trends</strong>: without the app, B would have changed the way A did. Check it by plotting both groups before the change: their lines should move together.</p>
+
+<h2 id="uplift">Who benefits? Uplift modelling</h2>
+<p>An average effect hides variation: a coupon may change some customers' behaviour and do nothing for others (who'd buy anyway, or never). <strong>Uplift modelling</strong> estimates the effect for each person, the <strong>conditional average treatment effect</strong> $\tau(x) = \mathbb{E}[Y(1) - Y(0) \mid x]$, so you can target the people it helps. The simplest version, the <strong>T-learner</strong>, trains one model on treated customers and one on untreated ones, using data from a randomised test, and takes the difference of their predictions:</p>
+<pre><code>from sklearn.ensemble import GradientBoostingRegressor
+# A coupon only helps price-sensitive customers; a randomised test is used to learn who.
+m = 8000
+sens = rng.random(m); age = rng.normal(40, 12, m)
+coupon = rng.random(m) &lt; 0.5
+buy = (rng.random(m) &lt; 0.10 + 0.20 * sens * coupon + 0.002 * (age - 40)).astype(int)
+X = np.c_[sens, age]
+tr, te = np.arange(m) &lt; 6000, np.arange(m) &gt;= 6000
+m1 = GradientBoostingRegressor(max_depth=2, random_state=0).fit(X[tr &amp; coupon], buy[tr &amp; coupon])
+m0 = GradientBoostingRegressor(max_depth=2, random_state=0).fit(X[tr &amp; ~coupon], buy[tr &amp; ~coupon])
+uplift = m1.predict(X[te]) - m0.predict(X[te])                    # the "two-model" (T-learner) estimate
+top = uplift &gt;= np.quantile(uplift, 0.7)
+def lift(mask):
+    c, b = coupon[te][mask], buy[te][mask]
+    return b[c].mean() - b[~c].mean()
+print("coupon effect, top 30% by predicted uplift:", round(lift(top), 3))
+print("coupon effect, the other 70%:", round(lift(~top), 3))
+print("correlation of predicted uplift with sensitivity:", round(np.corrcoef(uplift, sens[te])[0, 1], 2))</code></pre>
+<p>Output:</p>
+<pre><code>coupon effect, top 30% by predicted uplift: 0.179
+coupon effect, the other 70%: 0.09
+correlation of predicted uplift with sensitivity: 0.64</code></pre>
+<p>For the 30% of test customers with the highest predicted uplift, the coupon raises the buying rate by 17.9 percentage points; for the rest, by only 9.0. The predictions correlate 0.64 with the true driver, price sensitivity, which the model was never told about. Note what's needed: randomised (or well-adjusted) data. A model that just predicts who buys would target loyal customers who'd buy anyway, wasting the coupon.</p>
+
+<h2 id="practice">Causal inference in practice</h2>
+<div class="table-scroll"><table class="tbl">
+<thead><tr><th>Situation</th><th>Method</th><th>Key assumption</th></tr></thead>
+<tbody>
+<tr><td>You can randomise</td><td>A/B test, difference in means</td><td>Randomisation done properly; no interference between units</td></tr>
+<tr><td>Observational data, rich confounders</td><td>Regression adjustment, propensity weighting or matching</td><td>No unmeasured confounding; overlap</td></tr>
+<tr><td>A change hits one group at a known time</td><td>Difference-in-differences</td><td>Parallel trends</td></tr>
+<tr><td>A threshold decides treatment (e.g. a score above 600)</td><td>Regression discontinuity</td><td>People just either side of the threshold are comparable</td></tr>
+<tr><td>Targeting an action</td><td>Uplift / CATE models (T-learner, causal forests)</td><td>Randomised or well-adjusted training data</td></tr>
+</tbody></table></div>
+<p>Draw a <strong>causal diagram</strong> (a directed graph of what causes what) before choosing variables: adjust for confounders, but never for things the treatment itself causes, such as "visited checkout" when measuring the effect of a discount on purchases. That would block part of the effect you're trying to measure. Libraries such as DoWhy and EconML implement these methods; this lesson builds them from scikit-learn.</p>
+
+<h2 id="code">In Python: a reusable effect estimator</h2>
+<p>A function that estimates an effect three ways and lets you compare them. If they disagree, that's a warning about the assumptions:</p>
+<pre><code>import numpy as np
+from sklearn.linear_model import LinearRegression, LogisticRegression
+
+def estimate_effect(X, t, y):
+    naive = y[t == 1].mean() - y[t == 0].mean()
+    reg = LinearRegression().fit(np.c_[t, X], y).coef_[0]
+    ps = np.clip(LogisticRegression().fit(X, t).predict_proba(X)[:, 1], 0.05, 0.95)
+    w1, w0 = t / ps, (1 - t) / (1 - ps)
+    ipw = (w1 * y).sum() / w1.sum() - (w0 * y).sum() / w0.sum()
+    return {"naive": round(float(naive), 2), "regression": round(float(reg), 2), "weighting": round(float(ipw), 2)}
+
+rng = np.random.default_rng(2)
+X = rng.normal(0, 1, (3000, 2))                                 # two confounders
+t = (rng.random(3000) &lt; 1 / (1 + np.exp(-(X[:, 0] + X[:, 1])))).astype(int)
+y = 5 + 3 * X[:, 0] + 2 * X[:, 1] + 4 * t + rng.normal(0, 2, 3000)   # true effect: 4
+print(estimate_effect(X, t, y))</code></pre>
+<p>Output:</p>
+<pre><code>{'naive': 7.54, 'regression': 3.94, 'weighting': 4.0}</code></pre>
+<p>With both confounders measured, regression and weighting recover the true effect of 4, while the naive difference is far off. Drop one confounder from <code>X</code> and both adjusted estimates go wrong too: no method can fix a confounder you didn't measure.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Causal questions ask what happens <strong>if we act</strong>; good prediction doesn't answer them.</li>
+<li><strong>Confounders</strong> affect both treatment and outcome and bias naive comparisons.</li>
+<li><strong>Randomised experiments</strong> remove confounding, even unmeasured; use them when you can.</li>
+<li><strong>Regression adjustment</strong> and <strong>propensity weighting</strong> need no unmeasured confounding and overlap; trim extreme weights.</li>
+<li><strong>Difference-in-differences</strong> removes shared trends, assuming parallel trends.</li>
+<li><strong>Uplift models</strong> estimate effects per person, so actions go to those they help.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. Customers who use a premium feature churn less. Why can't you conclude the feature reduces churn?</p>
+<button data-opt="a">The sample is too small</button><button data-opt="b">Engaged customers may both use the feature and stay anyway (confounding)</button><button data-opt="c">Churn can't be measured</button>
+<div class="q-explain">Engagement drives both; a randomised test or adjustment is needed.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. Why does randomisation give an unbiased effect estimate?</p>
+<button data-opt="a">It makes the groups alike on average in everything, measured or not</button><button data-opt="b">It increases the sample size</button><button data-opt="c">It removes noise</button>
+<div class="q-explain">The coin can't be influenced by any confounder.</div></div>
+<div class="q" data-correct="c"><p class="q-text">3. A treated person had a propensity score of 0.2. Their inverse propensity weight is…</p>
+<button data-opt="a">0.2</button><button data-opt="b">1.25</button><button data-opt="c">5</button>
+<div class="q-explain">$1/0.2 = 5$: they represent the many similar people who weren't treated.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. What does difference-in-differences assume?</p>
+<button data-opt="a">The treated group was chosen at random</button><button data-opt="b">Without treatment, both groups would have followed parallel trends</button><button data-opt="c">There's no seasonality</button>
+<div class="q-explain">The control group's change stands in for what would have happened to the treated group.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. Why target a coupon by predicted uplift instead of predicted purchase probability?</p>
+<button data-opt="a">High-probability buyers may buy anyway; uplift finds people whose behaviour the coupon changes</button><button data-opt="b">Uplift models are more accurate</button><button data-opt="c">Probabilities can't be ranked</button>
+<div class="q-explain">The goal is extra purchases caused by the coupon.</div></div>
+</div>

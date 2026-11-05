@@ -1,0 +1,16 @@
+<h2 id="deeper">Going deeper: forward–backward and Baum–Welch</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>Two HMM algorithms the lesson only mentioned: forward–backward, which gives each day's probability of each hidden state using the whole sequence, and Baum–Welch, which learns an HMM from observations alone.</p>
+<p>You'll need: this lesson and expectation–maximisation from Lesson 16's "Going deeper".</p></div>
+
+<h3 id="deeper-fb">Each day's probabilities: forward–backward</h3>
+<p>Viterbi gives one best path. Often you want the probability of each state on each day, given <em>all</em> the observations, before and after. The forward pass $\alpha$ summarises the past, a backward pass $\beta$ summarises the future, and their product, normalised, gives the posterior $P(z_t \mid x_{1:n})$:</p>
+<!--cell 1-->
+<p>The probability of rain rises through the two shopping days to 0.741 on the cleaning day, then falls back as the activities return to shopping and walking. Day 5's shopping gets 0.488: genuinely uncertain, information that Viterbi's single path hides. These per-day probabilities are what you'd use for decisions with costs, and they're the "expectation" step of Baum–Welch.</p>
+
+<h3 id="deeper-bw">Learning from observations alone: Baum–Welch</h3>
+<p>Without labelled states, <strong>Baum–Welch</strong> repeats two steps: use forward–backward with the current parameters to get the expected state on each day and the expected number of each transition (E step), then re-estimate the parameters from those expected counts (M step). Each iteration increases the likelihood. Here it starts from a rough guess and sees only 3,000 activities:</p>
+<!--cell 2-->
+<p>Without seeing a single weather label, it learns transitions of 0.75/0.25 and emissions close to the true values (true transitions 0.8/0.2 and 0.3/0.7). The estimates aren't exact, because they're learned from noisy observations only. The scaling by $c_t$ at each step stops the probabilities underflowing to 0 on long sequences. Like all EM methods, Baum–Welch can stop at a local optimum, so run it from several starting guesses and keep the highest likelihood.</p>
+<!--interview-->
+<!--quiz-->

@@ -1,0 +1,2 @@
+random   : test accuracy with 170 labels 0.883
+committee: test accuracy with 170 labels 0.886

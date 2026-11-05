@@ -1,0 +1,209 @@
+<h2 id="why">From notebook to production</h2>
+<p>A model in a notebook helps nobody. It creates value when it runs reliably, every day, on new data, inside a product or a process, and keeps working as the world changes. <strong>MLOps</strong> (machine-learning operations) is the set of practices that makes that happen: packaging and versioning models, checking the data that comes in, serving predictions, monitoring for drift, retraining, and testing ML code like any other software.</p>
+<p>Lesson 20 introduced pipelines and deployment; this lesson goes through the whole life cycle with working code. It uses a simulated loan-risk model, because what matters here is everything around the model.</p>
+<div class="box intuition"><div class="box-title">The core idea</div><p>Treat a model as a product that decays. Make every version reproducible and traceable, refuse bad inputs, watch the inputs and the results continuously, and have a tested, routine way to retrain and roll out a new version, and to roll back.</p></div>
+
+<h2 id="lifecycle">The ML life cycle</h2>
+<ol>
+<li><strong>Develop</strong>: data, features, model, offline evaluation (everything up to now).</li>
+<li><strong>Package and version</strong>: save the fitted pipeline with its metadata: data version, code version, library versions, metrics.</li>
+<li><strong>Validate inputs</strong>: check every request against the expected schema.</li>
+<li><strong>Serve</strong>: as a batch job (score all customers nightly) or online (an API answering in milliseconds).</li>
+<li><strong>Monitor</strong>: input drift, prediction drift, and real performance once labels arrive.</li>
+<li><strong>Retrain and redeploy</strong>: on a schedule or when monitoring says so, with tests and a gradual rollout.</li>
+</ol>
+
+<h2 id="package">Packaging and versioning a model</h2>
+<p>Save the <em>whole pipeline</em> (preprocessing and model together, Lesson 20), so the same transformations are applied in production. Alongside it, store metadata: a version number, the features it expects, its test metrics, the library versions used, and a fingerprint (hash) of the file so you can prove which model made a prediction:</p>
+<pre><code>import numpy as np
+import pandas as pd
+import joblib, json, hashlib, sklearn
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score
+rng = np.random.default_rng(0)
+def make_loans(n, shift=0.0, flip=0.0):
+    income = rng.normal(50 + shift, 15, n); debt = rng.normal(20, 8, n); age = rng.integers(21, 70, n)
+    logit = (-0.08 + flip) * (income - 50) + 0.12 * (debt - 20) - 1.5
+    return pd.DataFrame({"income": income, "debt": debt, "age": age}), (rng.random(n) &lt; 1 / (1 + np.exp(-logit))).astype(int)
+X_train, y_train = make_loans(5000)
+X_test, y_test = make_loans(2000)
+model = make_pipeline(StandardScaler(), LogisticRegression()).fit(X_train, y_train)
+auc = roc_auc_score(y_test, model.predict_proba(X_test)[:, 1])
+joblib.dump(model, "model_v1.joblib")
+meta = {"version": "1.0.0", "features": list(X_train.columns), "test_auc": round(auc, 3),
+        "sklearn": sklearn.__version__, "sha256": hashlib.sha256(open("model_v1.joblib", "rb").read()).hexdigest()[:12]}
+json.dump(meta, open("model_v1.json", "w"), indent=1)
+loaded = joblib.load("model_v1.joblib")
+print("saved model", meta["version"], " test AUC", meta["test_auc"], " fingerprint length", len(meta["sha256"]))
+print("reloaded model gives identical predictions:", bool(np.allclose(loaded.predict_proba(X_test), model.predict_proba(X_test))))</code></pre>
+<p>Output:</p>
+<pre><code>saved model 1.0.0  test AUC 0.818  fingerprint length 12
+reloaded model gives identical predictions: True</code></pre>
+<p>The reloaded model gives identical predictions, which is the first thing to check after any save. Library versions matter: a model saved with one scikit-learn version may not load, or may behave differently, with another, so pin versions (a <code>requirements.txt</code> or a container image). Model registries such as MLflow keep these files, metadata and stages ("staging", "production") in one place.</p>
+
+<h2 id="validate">Validating inputs</h2>
+<p>Production data is messier than training data: missing fields, wrong types, units changed upstream, impossible values. A model will happily return a confident prediction for nonsense, so check every input against a <strong>schema</strong> first and reject or flag what fails:</p>
+<pre><code>SCHEMA = {"income": (0, 500), "debt": (0, 200), "age": (18, 100)}
+def validate(rows):
+    problems = []
+    for i, r in enumerate(rows):
+        for col, (lo, hi) in SCHEMA.items():
+            v = r.get(col)
+            if v is None or not isinstance(v, (int, float)) or v != v:
+                problems.append((i, col, "missing or not a number"))
+            elif not lo &lt;= v &lt;= hi:
+                problems.append((i, col, f"{v} outside [{lo}, {hi}]"))
+    return problems
+incoming = [{"income": 62.0, "debt": 18.5, "age": 34}, {"income": 48.0, "age": 29},
+            {"income": -5.0, "debt": 30.0, "age": 41}, {"income": 55.0, "debt": "12", "age": 230}]
+for p in validate(incoming):
+    print("row", p[0], "·", p[1], "·", p[2])</code></pre>
+<p>Output:</p>
+<pre><code>row 1 · debt · missing or not a number
+row 2 · income · -5.0 outside [0, 500]
+row 3 · debt · missing or not a number
+row 3 · age · 230 outside [18, 100]</code></pre>
+<p>Each problem is caught before the model sees it: a missing debt value, a negative income, a number sent as text, and an age of 230. Decide in advance what happens to bad rows: reject the request, use a safe default, or send it to a person. Log them, too, because a sudden rise in bad inputs usually means something broke upstream.</p>
+
+<h2 id="drift">Detecting data drift</h2>
+<p><strong>Data drift</strong> means the inputs no longer look like the training data. Two common measures compare a feature's training and live distributions:</p>
+<ul>
+<li>The <strong>population stability index</strong> (PSI): bin the feature by training quantiles and sum $(a - e)\ln(a/e)$ over bins, where $e$ and $a$ are the training and live shares. Rules of thumb: below 0.1 stable, 0.1 to 0.25 worth watching, above 0.25 a major shift.</li>
+<li>The <strong>Kolmogorov–Smirnov test</strong>: the largest gap between the two cumulative distributions, with a p-value. With large samples even trivial shifts become "significant", so look at the statistic's size too.</li>
+</ul>
+<pre><code>from scipy import stats
+def psi(expected, actual, bins=10):
+    edges = np.quantile(expected, np.linspace(0, 1, bins + 1)); edges[0], edges[-1] = -np.inf, np.inf
+    e = np.histogram(expected, edges)[0] / len(expected); a = np.histogram(actual, edges)[0] / len(actual)
+    e, a = np.clip(e, 1e-4, None), np.clip(a, 1e-4, None)
+    return float(np.sum((a - e) * np.log(a / e)))
+X_live, _ = make_loans(2000, shift=-12)                 # incomes have fallen
+for col in X_train.columns:
+    ks = stats.ks_2samp(X_train[col], X_live[col])
+    print(f"{col:6s}  PSI {psi(X_train[col], X_live[col]):.3f}   KS statistic {ks.statistic:.3f}   p-value {ks.pvalue:.3g}")</code></pre>
+<p>Output:</p>
+<pre><code>income  PSI 0.612   KS statistic 0.312   p-value 1.12e-123
+debt    PSI 0.003   KS statistic 0.021   p-value 0.536
+age     PSI 0.007   KS statistic 0.015   p-value 0.892</code></pre>
+<p>Incomes in the live data have fallen: income's PSI is 0.612, a major shift, and the KS statistic is 0.312. Debt and age are stable (PSI under 0.01). Drift doesn't always hurt performance, but it's an early warning that arrives long before labels do. Monitor the model's predictions in the same way: a sudden change in the share of high-risk scores is easy to spot.</p>
+
+<h2 id="demo">Try it: measuring drift</h2>
+<p>Shift the live data's mean or change its spread, and watch the PSI and the verdict. Notice that a change in spread alone, with the same average, is also caught.</p>
+<div class="demo" data-demo="drift"></div>
+
+<h2 id="monitor">Concept drift and retraining</h2>
+<p>Sometimes the inputs look the same but the <em>relationship</em> between inputs and outcome changes: <strong>concept drift</strong>. After an economic shock, the same income may mean a different risk. Only real outcomes reveal it, so monitor performance as labels arrive. Here, from month 5, the effect of income fades and then reverses. One model is never retrained; the other is retrained each month on the previous month's labelled loans:</p>
+<pre><code># 12 months of new loans; from month 5 the effect of income fades and then reverses (concept drift).
+static, retrained, current = [], [], model
+for month in range(1, 13):
+    flip = 0.0 if month &lt; 5 else 0.02 * (month - 4)
+    Xm, ym = make_loans(1500, flip=flip)
+    static.append(roc_auc_score(ym, model.predict_proba(Xm)[:, 1]))
+    retrained.append(roc_auc_score(ym, current.predict_proba(Xm)[:, 1]))
+    current = make_pipeline(StandardScaler(), LogisticRegression()).fit(Xm, ym)   # retrain on this month's labels
+print("AUC, never retrained:   ", [round(a, 2) for a in static])
+print("AUC, retrained monthly: ", [round(a, 2) for a in retrained])</code></pre>
+<p>Output:</p>
+<pre><code>AUC, never retrained:    [0.82, 0.83, 0.82, 0.84, 0.77, 0.76, 0.71, 0.65, 0.58, 0.55, 0.46, 0.41]
+AUC, retrained monthly:  [0.82, 0.83, 0.82, 0.84, 0.77, 0.77, 0.74, 0.72, 0.73, 0.79, 0.78, 0.83]</code></pre>
+<p>The original model's AUC falls from 0.82 to 0.41, worse than guessing, while the regularly retrained model recovers to 0.83, lagging a month behind the change. Retraining strategies range from a fixed schedule (weekly, monthly) to triggers: retrain when drift or performance crosses a threshold. Either way, validate each new model on recent data before it replaces the old one, and keep the old one ready for a rollback.</p>
+
+<h2 id="testing">Testing ML code</h2>
+<p>ML systems need ordinary unit tests (does the feature function handle missing values?) plus tests of the model's <em>behaviour</em>:</p>
+<ul>
+<li><strong>Minimum quality</strong>: the metric on a fixed test set is above a threshold.</li>
+<li><strong>Directional tests</strong>: changing an input in a known direction moves the prediction the right way.</li>
+<li><strong>Invariance tests</strong>: changing something that shouldn't matter (or mustn't, such as a protected attribute) doesn't change the prediction much.</li>
+</ul>
+<pre><code>def report(name, ok):
+    print(("PASS " if ok else "FAIL ") + name)
+base = pd.DataFrame({"income": [50.0], "debt": [20.0], "age": [40]})
+p0 = model.predict_proba(base)[0, 1]
+report("minimum quality: test AUC above 0.70", meta["test_auc"] &gt; 0.70)
+report("directional: more debt means higher risk", model.predict_proba(base.assign(debt=35.0))[0, 1] &gt; p0)
+report("directional: more income means lower risk", model.predict_proba(base.assign(income=80.0))[0, 1] &lt; p0)
+report("invariance: age changes risk by under 2 points", abs(model.predict_proba(base.assign(age=65))[0, 1] - p0) &lt; 0.02)
+report("output is a valid probability", 0 &lt;= p0 &lt;= 1)</code></pre>
+<p>Output:</p>
+<pre><code>PASS minimum quality: test AUC above 0.70
+PASS directional: more debt means higher risk
+PASS directional: more income means lower risk
+PASS invariance: age changes risk by under 2 points
+PASS output is a valid probability</code></pre>
+<p>All five checks pass. Run them automatically (with <code>pytest</code>, as in the course's code zip) every time code, data or the model changes, as part of <strong>continuous integration</strong>: a failing test should block a deployment, just as in any other software.</p>
+
+<h2 id="serving">Serving and rollout</h2>
+<div class="table-scroll"><table class="tbl">
+<thead><tr><th>Pattern</th><th>How it works</th><th>Good for</th></tr></thead>
+<tbody>
+<tr><td>Batch scoring</td><td>A scheduled job scores all rows and writes the results to a table</td><td>Daily churn lists, weekly forecasts</td></tr>
+<tr><td>Online API</td><td>A web service (for example FastAPI or Flask) loads the model and answers each request</td><td>Fraud checks at checkout, recommendations</td></tr>
+<tr><td>Shadow deployment</td><td>The new model scores live traffic, but its answers aren't used, only logged and compared</td><td>Checking a new model safely</td></tr>
+<tr><td>Canary / A/B rollout</td><td>A small share of traffic gets the new model, increased if it performs well</td><td>Measuring real impact before full release</td></tr>
+</tbody></table></div>
+<p>Log every prediction with the input, the output, the model version and a timestamp: you'll need it to debug, to monitor, to join with outcomes later for retraining, and to explain decisions to the people affected.</p>
+
+<h2 id="code">In Python: a prediction service function</h2>
+<p>The core of an online service, without a web framework: validate the request, predict with the pipeline, and return the answer with the model version, logging everything. A FastAPI or Flask endpoint would just call this function:</p>
+<pre><code>import json, time
+import numpy as np
+import pandas as pd
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Ridge
+
+df = pd.read_csv("houses.csv")   # download it from Lesson 1
+FEATURES = ["size_m2", "bedrooms", "dist_km", "age_yrs"]
+model = make_pipeline(StandardScaler(), Ridge(1.0)).fit(df[FEATURES], df["price_lakh"])
+VERSION, LOG = "houses-1.0.0", []
+
+def handle(request_json):
+    req = json.loads(request_json)
+    missing = [f for f in FEATURES if not isinstance(req.get(f), (int, float))]
+    if missing:
+        result = {"error": "missing or invalid: " + ", ".join(missing), "model": VERSION}
+    else:
+        price = model.predict(pd.DataFrame([req])[FEATURES])[0]
+        result = {"price_lakh": round(float(price), 1), "model": VERSION}
+    LOG.append({"time": time.time(), "request": req, "response": result})
+    return json.dumps(result)
+
+print(handle('{"size_m2": 110, "bedrooms": 3, "dist_km": 6, "age_yrs": 4}'))
+print(handle('{"size_m2": 110, "bedrooms": "three", "dist_km": 6}'))
+print("requests logged:", len(LOG))</code></pre>
+<p>Output:</p>
+<pre><code>{"price_lakh": 91.9, "model": "houses-1.0.0"}
+{"error": "missing or invalid: bedrooms, age_yrs", "model": "houses-1.0.0"}
+requests logged: 2</code></pre>
+<p>A valid request gets a price and the model version; an invalid one gets a clear error instead of a made-up prediction, and both are logged. In a real service, the log would go to a database or a monitoring system, the model would be loaded from the registry by version, and the function would be wrapped in an HTTP endpoint with authentication.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Save the <strong>whole pipeline</strong> with metadata: version, features, metrics, library versions and a fingerprint.</li>
+<li><strong>Validate inputs</strong> against a schema before predicting; log and handle failures deliberately.</li>
+<li>Monitor <strong>data drift</strong> (PSI, KS) early and <strong>performance</strong> when labels arrive.</li>
+<li><strong>Concept drift</strong> needs retraining; validate new models and keep rollbacks ready.</li>
+<li>Test model <strong>behaviour</strong>: minimum quality, directional and invariance tests, in CI.</li>
+<li>Roll out with <strong>shadow</strong> or <strong>canary</strong> deployments, and log every prediction.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. Why save the whole pipeline rather than just the model?</p>
+<button data-opt="a">It's smaller</button><button data-opt="b">So the exact same preprocessing is applied in production</button><button data-opt="c">Models can't be saved alone</button>
+<div class="q-explain">Re-implementing the preprocessing separately is a classic source of production bugs.</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. A feature's PSI between training and live data is 0.4. What does that suggest?</p>
+<button data-opt="a">The model is accurate</button><button data-opt="b">No change</button><button data-opt="c">A major shift in that feature's distribution</button>
+<div class="q-explain">Above about 0.25 is usually treated as a major shift.</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. Inputs look the same as in training, but accuracy has dropped. This is most likely…</p>
+<button data-opt="a">Concept drift: the input–outcome relationship changed</button><button data-opt="b">Data drift</button><button data-opt="c">A schema error</button>
+<div class="q-explain">Only outcomes reveal it, so monitor performance once labels arrive.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. "Increasing debt should never lower the predicted risk" is an example of…</p>
+<button data-opt="a">An invariance test</button><button data-opt="b">A directional test</button><button data-opt="c">A load test</button>
+<div class="q-explain">It checks the prediction moves the expected way.</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. In a shadow deployment, the new model…</p>
+<button data-opt="a">Replaces the old one immediately</button><button data-opt="b">Serves 5% of users</button><button data-opt="c">Scores live traffic, but its answers are only logged and compared</button>
+<div class="q-explain">It's a safe way to check a model on real data before it affects anyone.</div></div>
+</div>

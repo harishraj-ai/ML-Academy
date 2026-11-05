@@ -1,0 +1,16 @@
+<h2 id="deeper">Going deeper: PageRank as an eigenvector, and the graph Laplacian</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The linear algebra behind two of this lesson's methods: why PageRank is an eigenvector and why repeated multiplication finds it, and how the eigenvectors of the graph Laplacian split a graph into communities.</p>
+<p>You'll need: this lesson and eigenvectors from Lesson 3's "Going deeper".</p></div>
+
+<h3 id="deeper-eigen">PageRank is an eigenvector</h3>
+<p>The random surfer's moves form a matrix $G = \frac{1-d}{n}\mathbf{1}\mathbf{1}^\top + d M$, where $M$ follows links. PageRank is the vector $r$ with $r G = r$: an eigenvector with eigenvalue 1. Because every entry of $G$ is positive, the Perron–Frobenius theorem guarantees this eigenvalue is the largest and the eigenvector is unique and positive, which is why <strong>power iteration</strong> (multiplying by $G$ again and again) converges to it. Here on a random directed graph of 60 nodes:</p>
+<!--cell 1-->
+<p>The largest eigenvalue is exactly 1, power iteration converges in 27 steps, and its answer matches the eigenvector to $10^{-11}$. The damping factor sets the speed: errors shrink by a factor of about $d$ each step. On this directed graph, PageRank correlates with in-degree (0.724), not out-degree (−0.208): links <em>to</em> a node count, links <em>from</em> it don't.</p>
+
+<h3 id="deeper-laplacian">The graph Laplacian</h3>
+<p>The <strong>Laplacian</strong> is $L = D - A$, where $D$ holds the degrees on its diagonal. For any vector $f$, $f^\top L f = \sum_{\text{edges } ij}(f_i - f_j)^2$: small when connected nodes get similar values. Its smallest eigenvalue is always 0 (a constant vector), and the eigenvector of the second-smallest, the <strong>Fiedler vector</strong>, is the smoothest non-constant way to give nodes values, which tends to split the graph along its weakest cut:</p>
+<!--cell 2-->
+<p>The eigenvalues start at 0, then 2.091; splitting the nodes by the sign of the Fiedler vector recovers the two planted communities exactly. Spectral clustering does this with several eigenvectors and k-means. The same Laplacian appears in label spreading (Lesson 32) and in graph neural networks, where a layer smooths node features over neighbours.</p>
+<!--interview-->
+<!--quiz-->

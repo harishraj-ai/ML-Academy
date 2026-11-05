@@ -1,0 +1,17 @@
+<h2 id="deeper">Going deeper: SARSA versus Q-learning on a cliff</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>A classic experiment showing the difference between learning the best policy and learning the best policy <em>given that you keep exploring</em>, and why that matters for real systems.</p>
+<p>You'll need: this lesson's Q-learning section.</p></div>
+
+<h3 id="deeper-cliff">Two learners, one cliff</h3>
+<p>On a 4×8 grid, the agent starts bottom left and must reach bottom right. The squares between them are a cliff: stepping on one costs −100 and sends it back to the start; every other step costs −1. <strong>SARSA</strong> differs from Q-learning in one word: it updates towards the value of the action it will <em>actually</em> take next (including random exploratory ones), not the best one:</p>
+<p>$$Q(s, a) \leftarrow Q(s, a) + \alpha\big[r + \gamma\,Q(s', a') - Q(s, a)\big]$$</p>
+<!--cell 1-->
+<p>Q-learning learns the shortest route, 9 steps with 8 of them right along the cliff edge: optimal if you never make a mistake. SARSA learns a longer, 13-step route that keeps away from the edge, because it knows that its own ε-greedy exploration will sometimes take a random step, and next to the cliff that's a disaster.</p>
+
+<h3 id="deeper-online">Which is better depends on when you're judged</h3>
+<p>Measure the reward actually collected during learning, while both agents still explore 10% of the time:</p>
+<!--cell 2-->
+<p>SARSA collects more reward while exploring (−21.0 against −31.2), because Q-learning's edge-hugging route often falls off when a random step happens. If exploration stops after training, Q-learning's policy is better; if the agent keeps exploring, or a real robot occasionally slips, SARSA's caution pays. In real systems where mistakes during learning are costly, that's a strong argument for on-policy or explicitly risk-aware methods, and for learning in simulation first.</p>
+<!--interview-->
+<!--quiz-->

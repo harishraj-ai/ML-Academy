@@ -1,0 +1,16 @@
+<h2 id="deeper">Going deeper: bad controls and regression discontinuity</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>Two things that separate careful causal work from careless: knowing which variables <em>not</em> to adjust for, and using a threshold rule as a natural experiment.</p>
+<p>You'll need: this lesson and linear regression from Lesson 6.</p></div>
+
+<h3 id="deeper-mediator">Don't adjust for what the treatment causes</h3>
+<p>Adding more controls feels safer, but adjusting for a <strong>mediator</strong>, a variable on the path from treatment to outcome, removes part of the effect you want to measure. Here a randomised discount brings customers back more often, and all of its effect on spending works through those extra visits:</p>
+<!--cell 1-->
+<p>Without adjustment, the estimate is 11.96, matching the true effect of 12. "Controlling" for visits drops it to about 0, as if the discount did nothing. Similar traps are <strong>colliders</strong>, variables caused by both the treatment and the outcome (such as "contacted support"), which create spurious associations when adjusted for. A causal diagram tells you which variables are confounders (adjust), mediators (don't, unless you want the direct effect only) and colliders (never).</p>
+
+<h3 id="deeper-rdd">Regression discontinuity</h3>
+<p>When treatment is decided by a threshold, such as a credit score of 600 or more, people just above and just below are very similar, so comparing them is almost an experiment. <strong>Regression discontinuity</strong> fits a line on each side, near the threshold, and measures the jump at the cut-off:</p>
+<!--cell 2-->
+<p>The naive difference (29.8) mixes the effect with the fact that high-score customers spend more anyway. The discontinuity estimate, using only customers within 25 points of the threshold, is 14.7, close to the true 15. The key assumptions: people can't precisely manipulate their score to cross the threshold, and nothing else changes at exactly 600. Check by plotting the outcome against the score and looking for bunching of people just above the cut-off.</p>
+<!--interview-->
+<!--quiz-->

@@ -1,0 +1,181 @@
+<h2 id="why">Structure in probability</h2>
+<p>Real problems involve many uncertain things that affect each other: a disease causes symptoms, a machine's hidden wear causes noisy sensor readings, the day's weather drives what people do. Writing one giant probability table for every combination is hopeless: 30 yes/no variables would need over a billion entries. <strong>Probabilistic graphical models</strong> use a graph to say which variables directly influence which, and break the joint distribution into small, understandable pieces.</p>
+<p>This lesson covers two of the most useful kinds: <strong>Bayesian networks</strong>, for reasoning about causes and evidence, and <strong>hidden Markov models</strong> (HMMs), for sequences where the state you care about is hidden and only noisy signals are seen. Naive Bayes (Lesson 12) was already a tiny graphical model: one class node pointing to every feature.</p>
+<div class="box intuition"><div class="box-title">The core idea</div><p>Draw an arrow from each variable to the ones it directly affects. Then the probability of everything together is just the product of each variable's probability given its parents. Small local tables combine into a complete model you can query in any direction: from causes to effects, or from evidence back to causes.</p></div>
+
+<h2 id="bn">Bayesian networks</h2>
+<p>A <strong>Bayesian network</strong> is a directed graph without cycles, with one conditional probability table per node. The joint distribution factorises as</p>
+<p>$$P(x_1, \dots, x_n) = \prod_i P(x_i \mid \text{parents}(x_i))$$</p>
+<p>The classic example: rain makes the sprinkler less likely to be switched on, and both rain and the sprinkler make the grass wet. Three small tables replace one table of $2^3$ combinations, and we can ask any question by summing over the unknowns (<strong>inference by enumeration</strong>):</p>
+<pre><code>import itertools
+import numpy as np
+# A small Bayesian network: Rain → Sprinkler, and both → WetGrass.
+P_rain = {1: 0.2, 0: 0.8}
+P_sprinkler = {1: {1: 0.01, 0: 0.99}, 0: {1: 0.4, 0: 0.6}}          # P(sprinkler | rain)
+P_wet = {(1, 1): 0.99, (1, 0): 0.9, (0, 1): 0.8, (0, 0): 0.0}         # P(wet = 1 | sprinkler, rain)
+def joint(r, s, w):
+    pw = P_wet[(s, r)]
+    return P_rain[r] * P_sprinkler[r][s] * (pw if w else 1 - pw)
+def query(target, evidence):
+    num = den = 0.0
+    for r, s, w in itertools.product([0, 1], repeat=3):
+        vals = {"rain": r, "sprinkler": s, "wet": w}
+        if all(vals[k] == v for k, v in evidence.items()):
+            p = joint(r, s, w); den += p
+            if vals[target] == 1: num += p
+    return num / den
+print("P(rain)                         ", round(P_rain[1], 3))
+print("P(rain | grass is wet)          ", round(query("rain", {"wet": 1}), 3))
+print("P(rain | wet, sprinkler was on) ", round(query("rain", {"wet": 1, "sprinkler": 1}), 3))</code></pre>
+<p>Output:</p>
+<pre><code>P(rain)                          0.2
+P(rain | grass is wet)           0.358
+P(rain | wet, sprinkler was on)  0.007</code></pre>
+<p>Before seeing anything, the chance of rain is 0.2. Seeing wet grass raises it to 0.358: rain is one explanation. Learning that the sprinkler was on drops it to 0.007, because the sprinkler already explains the wet grass. This is <strong>explaining away</strong>: two causes that are independent of each other become linked once you observe their shared effect. It's hard to get right by intuition, and a graphical model gets it right automatically.</p>
+<div class="box example"><div class="box-title">Worked example — P(rain | wet) by hand</div>
+<p>The tables say: rain 0.2; the sprinkler is on with probability 0.01 if it rains and 0.4 if not; the grass is wet with probability 0.99 (sprinkler and rain), 0.8 (rain only), 0.9 (sprinkler only) or 0 (neither).</p>
+<p>Sum the joint probabilities with wet grass. With rain: $0.2 \times (0.01 \times 0.99 + 0.99 \times 0.8) = 0.2 \times 0.8019 = 0.1604$. Without rain: $0.8 \times (0.4 \times 0.9 + 0.6 \times 0) = 0.288$.</p>
+<p>So $P(\text{rain} \mid \text{wet}) = 0.1604 / (0.1604 + 0.288) \approx 0.358$, matching the code.</p></div>
+
+<h2 id="hmm">Hidden Markov models</h2>
+<p>A <strong>hidden Markov model</strong> describes a sequence of hidden states $z_1, z_2, \dots$ that follow a Markov chain (each depends only on the one before), each producing an observation $x_t$. Three sets of numbers define it:</p>
+<ul>
+<li>Initial probabilities $\pi_i = P(z_1 = i)$.</li>
+<li>A <strong>transition matrix</strong> $T_{ij} = P(z_{t+1} = j \mid z_t = i)$.</li>
+<li>An <strong>emission matrix</strong> $E_{ik} = P(x_t = k \mid z_t = i)$.</li>
+</ul>
+<p>Our example: a friend's weather is hidden (Sunny or Rainy), but you hear what they did each day: walk, shop or clean. Sunny days are usually followed by sunny days; on rainy days they tend to clean. The <strong>forward algorithm</strong> computes the probability of a whole observation sequence by passing a vector of probabilities along the sequence, summing over all hidden paths efficiently:</p>
+<p>$$\alpha_{t+1}(j) = \Big(\sum_i \alpha_t(i)\,T_{ij}\Big)\,E_{j,\,x_{t+1}}$$</p>
+<pre><code># Two-state weather HMM: hidden Sunny/Rainy, observed activity Walk/Shop/Clean.
+states, obs_names = ["Sunny", "Rainy"], ["Walk", "Shop", "Clean"]
+pi = np.array([0.6, 0.4])
+T = np.array([[0.8, 0.2], [0.3, 0.7]])                               # T[i, j] = P(next j | now i)
+E = np.array([[0.6, 0.3, 0.1], [0.1, 0.4, 0.5]])                     # E[i, k] = P(observe k | state i)
+def forward(obs):
+    alpha = pi * E[:, obs[0]]
+    for o in obs[1:]:
+        alpha = (alpha @ T) * E[:, o]
+    return alpha.sum()
+week = [0, 0, 1, 2, 2, 1, 0]                                         # Walk Walk Shop Clean Clean Shop Walk
+print("P(this week's activities) under the model:", f"{forward(week):.6f}")
+print("same activities, shuffled order:", f"{forward([2, 0, 2, 0, 1, 0, 1]):.6f}")</code></pre>
+<p>Output:</p>
+<pre><code>P(this week's activities) under the model: 0.000555
+same activities, shuffled order: 0.000255</code></pre>
+<p>The week's activities are about twice as likely in their real order as shuffled: the model has learned that runs of similar days are common. The forward algorithm takes time proportional to the sequence length times the number of states squared, instead of summing over all $2^7$ hidden paths. Comparing these likelihoods is how HMMs classify sequences: fit one model per class and pick the one that makes the sequence most likely.</p>
+
+<h2 id="viterbi">Decoding: the Viterbi algorithm</h2>
+<p>Usually we want the hidden states themselves: what was the weather each day? The <strong>Viterbi algorithm</strong> finds the single most likely sequence of hidden states. It's the forward algorithm with the sum replaced by a maximum, plus back-pointers to recover the path (dynamic programming, using logarithms to avoid tiny numbers):</p>
+<pre><code>def viterbi(obs):
+    logd = np.log(pi) + np.log(E[:, obs[0]]); back = []
+    for o in obs[1:]:
+        cand = logd[:, None] + np.log(T)                             # cand[i, j]: best path ending i, then j
+        back.append(cand.argmax(axis=0)); logd = cand.max(axis=0) + np.log(E[:, o])
+    path = [int(logd.argmax())]
+    for b in reversed(back):
+        path.append(int(b[path[-1]]))
+    return path[::-1]
+print("activities:", [obs_names[o] for o in week])
+print("most likely weather:", [states[s] for s in viterbi(week)])</code></pre>
+<p>Output:</p>
+<pre><code>activities: ['Walk', 'Walk', 'Shop', 'Clean', 'Clean', 'Shop', 'Walk']
+most likely weather: ['Sunny', 'Sunny', 'Rainy', 'Rainy', 'Rainy', 'Rainy', 'Sunny']</code></pre>
+<p>Shopping on day 3 is ambiguous on its own (sunny 0.3, rainy 0.4), but because days 4 and 5 involve cleaning, and weather tends to persist, Viterbi decides the rain started on day 3. On day 6, shopping again, it keeps the rain going; walking on day 7 brings the sun back. The sequence context is what a day-by-day classifier would miss.</p>
+
+<h2 id="demo">Try it: decoding a noisy signal</h2>
+<p>The top row is the true hidden state, the middle a noisy signal of it, and the bottom Viterbi's decoding. Make the hidden state stickier or the signal noisier, and compare how often the raw signal and the decoding are right.</p>
+<div class="demo" data-demo="hmm"></div>
+
+<h2 id="learning">Learning an HMM's parameters</h2>
+<p>If training sequences come with their hidden states labelled, learning is just counting: the share of sunny days followed by rainy ones estimates $T$, and the share of rainy days with cleaning estimates $E$. When the states aren't labelled, the <strong>Baum–Welch</strong> algorithm (expectation–maximisation, as in Lesson 16's "Going deeper" for mixture models) alternates between estimating the hidden states' probabilities and re-estimating the parameters from them.</p>
+<pre><code>rng = np.random.default_rng(0)
+def sample(n):
+    z = [rng.choice(2, p=pi)]
+    for _ in range(n - 1): z.append(rng.choice(2, p=T[z[-1]]))
+    return np.array(z), np.array([rng.choice(3, p=E[s]) for s in z])
+z_train, o_train = sample(5000)
+# Learn the parameters by counting, from labelled sequences
+T_hat = np.array([[np.mean(z_train[1:][z_train[:-1] == i] == j) for j in range(2)] for i in range(2)])
+E_hat = np.array([[np.mean(o_train[z_train == i] == k) for k in range(3)] for i in range(2)])
+print("learned transitions:", T_hat.round(2).tolist(), "  true:", T.tolist())
+print("learned emissions:  ", E_hat.round(2).tolist())</code></pre>
+<p>Output:</p>
+<pre><code>learned transitions: [[0.79, 0.21], [0.31, 0.69]]   true: [[0.8, 0.2], [0.3, 0.7]]
+learned emissions:   [[0.59, 0.31, 0.1], [0.11, 0.39, 0.5]]</code></pre>
+<p>From 5,000 labelled days, the counted estimates are within 0.01 of the true values. With unlabelled data, Baum–Welch finds the states only up to their naming (it doesn't know which is "Sunny") and can get stuck in local optima, so it's run from several starts.</p>
+
+<h2 id="evaluate">Why the sequence matters</h2>
+<p>How much does using the sequence help? Compare guessing each day's weather from that day's activity alone with Viterbi decoding of 2,000 new days. And the transition matrix alone tells us the long-run share of sunny days, its <strong>stationary distribution</strong>, found by raising $T$ to a high power (or as its leading eigenvector, as with PageRank in Lesson 34):</p>
+<pre><code>z_test, o_test = sample(2000)
+best_guess = np.argmax(E, axis=0)[o_test]                           # most likely state for each day alone
+acc_alone = (best_guess == z_test).mean()
+acc_vit = (np.array(viterbi(list(o_test))) == z_test).mean()
+print("each day on its own:", round(acc_alone, 3), "  Viterbi using the sequence:", round(acc_vit, 3))
+stationary = np.linalg.matrix_power(T, 100)[0]
+print("long-run share of sunny days:", round(stationary[0], 3), "  observed in the sample:", round((z_test == 0).mean(), 3))</code></pre>
+<p>Output:</p>
+<pre><code>each day on its own: 0.703   Viterbi using the sequence: 0.752
+long-run share of sunny days: 0.6   observed in the sample: 0.595</code></pre>
+<p>Viterbi is right 75.2% of the time, against 70.3% for day-by-day guesses; the gain grows when states are stickier. In the long run, 60% of days are sunny, matching the sample's 59.5%. HMMs were the standard in speech recognition and part-of-speech tagging for decades, and are still used for gene finding, activity recognition from sensors, regime detection in finance and machine health monitoring.</p>
+
+<h2 id="practice">Graphical models in practice</h2>
+<div class="table-scroll"><table class="tbl">
+<thead><tr><th>Model</th><th>Structure</th><th>Typical uses</th></tr></thead>
+<tbody>
+<tr><td>Naive Bayes</td><td>Class → each feature</td><td>Text classification, quick baselines</td></tr>
+<tr><td>Bayesian network</td><td>Any directed acyclic graph</td><td>Diagnosis, risk assessment, causal diagrams (Lesson 29)</td></tr>
+<tr><td>Hidden Markov model</td><td>Chain of hidden states, each with an observation</td><td>Speech, tagging, sensor and regime detection</td></tr>
+<tr><td>Markov random field / CRF</td><td>Undirected graph</td><td>Image segmentation, sequence labelling with rich features</td></tr>
+<tr><td>Kalman filter</td><td>Like an HMM, with continuous normal states</td><td>Tracking, navigation, smoothing noisy measurements</td></tr>
+</tbody></table></div>
+<p>Exact inference is easy for chains and trees, but hard for general graphs, where approximate methods such as sampling (Lesson 28's MCMC) or variational inference are used. Libraries such as <code>pgmpy</code> and <code>hmmlearn</code> implement these models; this lesson builds them from NumPy.</p>
+
+<h2 id="code">In Python: tracking a machine's hidden health</h2>
+<p>A machine is either healthy or worn; its sensor gives "normal" or "alarm" readings, sometimes wrongly. The forward algorithm, normalised at each step (<strong>filtering</strong>), gives the probability that it's worn after each reading, using all readings so far:</p>
+<pre><code>import numpy as np
+
+pi = np.array([0.95, 0.05])                    # healthy, worn
+T = np.array([[0.97, 0.03], [0.0, 1.0]])       # wear never repairs itself
+E = np.array([[0.9, 0.1], [0.3, 0.7]])         # P(normal, alarm | state)
+readings = [0, 0, 1, 0, 0, 1, 1, 0, 1, 1]      # 0 normal, 1 alarm
+belief = pi * E[:, readings[0]]; belief /= belief.sum()
+history = [belief[1]]
+for r in readings[1:]:
+    belief = (belief @ T) * E[:, r]; belief /= belief.sum()
+    history.append(belief[1])
+print("readings:        ", readings)
+print("P(worn) after each:", [round(float(p), 2) for p in history])
+print("first reading where P(worn) &gt; 0.5:", int(np.argmax(np.array(history) &gt; 0.5)) + 1)</code></pre>
+<p>Output:</p>
+<pre><code>readings:         [0, 0, 1, 0, 0, 1, 1, 0, 1, 1]
+P(worn) after each: [0.02, 0.02, 0.25, 0.11, 0.05, 0.38, 0.82, 0.61, 0.92, 0.99]
+first reading where P(worn) &gt; 0.5: 7</code></pre>
+<p>A single alarm (reading 3) raises the probability of wear only to 0.25, because the sensor sometimes gives false alarms, and the normal readings after it bring it back down. Two alarms in a row (readings 6 and 7) push it past 0.5; a normal reading lowers it a little, and further alarms take it to 0.99. Each step weighs the new reading against everything before it. This is the logic behind predictive maintenance alerts that don't fire on every blip.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li><strong>Graphical models</strong> factorise a joint distribution into local pieces, using a graph of direct influences.</li>
+<li><strong>Bayesian networks</strong> answer queries in any direction, and capture effects such as <strong>explaining away</strong>.</li>
+<li><strong>HMMs</strong> model hidden states with transition and emission probabilities.</li>
+<li>The <strong>forward algorithm</strong> gives sequence likelihoods; <strong>Viterbi</strong> finds the most likely hidden path.</li>
+<li>Parameters are learned by counting (labelled) or <strong>Baum–Welch</strong> (unlabelled).</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. In a Bayesian network, each node needs a probability table for…</p>
+<button data-opt="a">Every other variable</button><button data-opt="b">Its value given its parents</button><button data-opt="c">Its children</button>
+<div class="q-explain">The joint is the product of these local tables.</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. Wet grass raises the chance of rain, but learning the sprinkler was on lowers it again. This is…</p>
+<button data-opt="a">Overfitting</button><button data-opt="b">Confounding</button><button data-opt="c">Explaining away</button>
+<div class="q-explain">One cause explains the effect, so the other becomes less likely.</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. What does the Viterbi algorithm find?</p>
+<button data-opt="a">The single most likely sequence of hidden states</button><button data-opt="b">The probability of the observations</button><button data-opt="c">The transition matrix</button>
+<div class="q-explain">The forward algorithm gives the probability; Viterbi the best path.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. An HMM's transition matrix entry $T_{ij}$ is…</p>
+<button data-opt="a">P(observation j | state i)</button><button data-opt="b">P(next state j | current state i)</button><button data-opt="c">P(state i and j together)</button>
+<div class="q-explain">Emissions are the observation probabilities.</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. How are HMM parameters learned when hidden states aren't labelled?</p>
+<button data-opt="a">They can't be</button><button data-opt="b">By counting</button><button data-opt="c">With Baum–Welch (expectation–maximisation)</button>
+<div class="q-explain">It alternates between estimating states and re-estimating parameters.</div></div>
+</div>
