@@ -164,3 +164,32 @@ CHEAT = [
   ("Conv output size", "\\frac{W - F + 2P}{S} + 1", "", 19),
   ("Attention", "\\text{softmax}\\!\\left(\\frac{QK^\\top}{\\sqrt{d_k}}\\right)V", "", 19)]),
 ]
+
+# Formulas from Parts 6 and 7 (Lessons 22–35)
+CHEAT += [
+ ("Intermediate topics", [
+  ("Expected improvement", r"\mathrm{EI}(x) = \mathbb{E}\big[\max(0,\ f(x) - f^\ast)\big]", "Bayesian optimisation's acquisition function", 23),
+  ("Shapley value", r"\phi_j = \sum_{S \subseteq F\setminus\{j\}} \tfrac{|S|!\,(|F|-|S|-1)!}{|F|!}\big[v(S\cup\{j\}) - v(S)\big]", "Average marginal contribution of feature j", 24),
+  ("Balanced class weight", r"w_c = \frac{n}{k\,n_c}", "n rows, k classes, n_c rows in class c", 25),
+  ("Prior correction", r"\text{odds}_{\text{real}} = \frac{p}{1-p}\cdot\frac{\pi}{1-\pi}", "Undo balanced weights; π is the real positive rate", 25),
+  ("MASE", r"\mathrm{MASE} = \frac{\mathrm{MAE}_{\text{model}}}{\mathrm{MAE}_{\text{seasonal naive, train}}}", "Below 1 beats the seasonal naive forecast", 26),
+  ("Matrix factorisation", r"\hat r_{ui} = \mu + b_u + b_i + \mathbf{p}_u^\top \mathbf{q}_i", "Global mean, biases and latent factors", 27),
+  ("Precision@k", r"\mathrm{P@}k = \frac{|\text{top-}k \cap \text{relevant}|}{k}", "", 27),
+  ("Beta–binomial update", r"\mathrm{Beta}(a, b) \to \mathrm{Beta}(a + s,\ b + f)", "s successes, f failures", 28),
+  ("Bayesian linear regression", r"\Sigma = \big(\tfrac{1}{\sigma^2}X^\top X + \tfrac{1}{\tau^2}I\big)^{-1},\quad \mathbf{m} = \tfrac{1}{\sigma^2}\Sigma X^\top \mathbf{y}", "Posterior mean = ridge with λ = σ²/τ²", 28),
+ ]),
+ ("Advanced topics", [
+  ("Average treatment effect", r"\mathrm{ATE} = \mathbb{E}[Y(1) - Y(0)]", "", 29),
+  ("Inverse propensity weighting", r"\widehat{\mathrm{ATE}} = \frac{1}{n}\sum_i \Big[\frac{t_i y_i}{e(x_i)} - \frac{(1-t_i) y_i}{1-e(x_i)}\Big]", "e(x) = P(T = 1 | x)", 29),
+  ("Difference-in-differences", r"(\bar y_{B,\text{after}} - \bar y_{B,\text{before}}) - (\bar y_{A,\text{after}} - \bar y_{A,\text{before}})", "Assumes parallel trends", 29),
+  ("Population stability index", r"\mathrm{PSI} = \sum_{\text{bins}} (a - e)\ln\frac{a}{e}", "Above about 0.25: major drift", 30),
+  ("Bellman optimality", r"V(s) = \max_a \sum_{s'} P(s' \mid s, a)\big[R + \gamma V(s')\big]", "", 31),
+  ("Q-learning update", r"Q(s,a) \leftarrow Q(s,a) + \alpha\big[r + \gamma \max_{a'} Q(s',a') - Q(s,a)\big]", "", 31),
+  ("Kaplan–Meier", r"\hat S(t) = \prod_{t_k \le t}\Big(1 - \frac{d_k}{n_k}\Big)", "d_k events among n_k at risk", 33),
+  ("Cox model", r"h(t \mid x) = h_0(t)\,e^{\boldsymbol\beta^\top x}", "Hazard ratio e^β per unit of x", 33),
+  ("PageRank", r"r_j = \frac{1-d}{n} + d\sum_{i \to j}\frac{r_i}{\text{out}(i)}", "Damping d ≈ 0.85", 34),
+  ("Modularity", r"Q = \frac{1}{2m}\sum_{ij}\Big(A_{ij} - \frac{k_i k_j}{2m}\Big)[c_i = c_j]", "", 34),
+  ("Bayesian network", r"P(x_1,\dots,x_n) = \prod_i P(x_i \mid \text{parents}(x_i))", "", 35),
+  ("HMM forward algorithm", r"\alpha_{t+1}(j) = \Big(\sum_i \alpha_t(i)\,T_{ij}\Big)E_{j,x_{t+1}}", "Viterbi replaces the sum with a max", 35),
+ ]),
+]

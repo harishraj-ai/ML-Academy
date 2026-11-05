@@ -1,6 +1,6 @@
-# Output check — 2026-11-05 12:59 (UTC+0000)
+# Output check — 2026-11-05 13:51 (UTC+0000)
 
-Checked 44 notebooks (493 code cells) in 382 s. **Everything matches.**
+Checked 48 notebooks (545 code cells) in 373 s. **Everything matches.**
 
 ## Library versions
 
@@ -59,6 +59,10 @@ Checked 44 notebooks (493 code cells) in 382 s. **Everything matches.**
 | projects/diabetes-starter.ipynb | ok |
 | projects/digits-solution.ipynb | ok |
 | projects/digits-starter.ipynb | ok |
+| projects/forecast-solution.ipynb | ok |
+| projects/forecast-starter.ipynb | ok |
+| projects/retention-solution.ipynb | ok |
+| projects/retention-starter.ipynb | ok |
 | projects/tumours-solution.ipynb | ok |
 | projects/tumours-starter.ipynb | ok |
 | projects/wine-solution.ipynb | ok |

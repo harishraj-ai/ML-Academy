@@ -273,7 +273,7 @@ index = head("ML Academy — Learn Machine Learning from Zero", "A free, self-co
 <main id="main">
 <section class="hero"><div class="container"><div class="hero-grid">
 <div>
-<span class="badge">● Free · For complete beginners · No prior maths needed</span>
+<span class="badge">● Free · From complete beginner to advanced · No prior maths needed</span>
 <h1>Learn machine learning<br><span>from zero.</span></h1>
 <p class="lead">A complete, self-contained course. Every idea is explained in plain English first, then with step-by-step maths, worked examples you can follow by hand, interactive demos, Python code and a quiz. You won't need to look anywhere else.</p>
 <div class="hero-actions"><a class="btn btn-primary" href="{fname(1)}">Start Lesson 1 →</a><a class="btn" href="#path">See the learning path</a><a class="btn" href="lesson-00.html">Never coded? Start with Lesson 0</a></div>
@@ -312,14 +312,14 @@ index = head("ML Academy — Learn Machine Learning from Zero", "A free, self-co
 <section class="block" id="routes"><div class="container">
 <div class="eyebrow">Choose your route</div>
 <h2>Short on time? Pick a goal.</h2>
-<p class="sub">Every route is a subset of the 21 lessons in a sensible order. Skipped prerequisites are covered by the "Before you start" box at the top of each lesson.</p>
+<p class="sub">Every route is a subset of the {sum(1 for L in LESSONS if L[0] > 0)} lessons in a sensible order. Skipped prerequisites are covered by the "Before you start" box at the top of each lesson.</p>
 <div class="route-grid">{routes_html}</div>
 <p class="sub" style="margin-top:14px">Track everything you've done — lessons, quiz scores, exercises, tests, time and badges — on <a href="progress.html">your progress dashboard</a>.</p>
 </div></section>
 
 <section class="block" id="path"><div class="container">
 <div class="eyebrow">Learning path</div>
-<h2>21 lessons, in order.</h2>
+<h2>{sum(1 for L in LESSONS if L[0] > 0)} lessons, in order.</h2>
 <p class="sub">Each lesson builds on the ones before it. Mark lessons complete as you go — your progress is saved in this browser.</p>
 <div class="overall"><div class="overall-bar"><i></i></div><span class="overall-label"></span><a class="btn" href="map.html" style="margin-left:auto">See how the lessons connect →</a><a class="btn" href="guide.html">Which model should I use? →</a><a class="btn" href="compare.html">Side-by-side comparisons →</a></div>
 {parts_html}
@@ -335,7 +335,7 @@ pip install numpy pandas scikit-learn matplotlib jupyterlab
 jupyter lab</code></pre>
 <p class="sub">JupyterLab opens in your browser. Every lesson has a <strong>ready-made notebook</strong> with all its code (and the expected outputs): use the <em>Download Jupyter notebook</em> button at the top of a lesson, open the file in JupyterLab, and press Shift+Enter to run each cell. All of them are in the <code>notebooks</code> folder.</p>
 <p class="sub"><strong>Prefer paper?</strong> The <a href="workbook/ML-Academy-workbook.pdf">printable workbook (PDF, about 900 pages)</a> has every lesson with space to work the exercises by hand, and all answers at the back. Each lesson page also prints cleanly on its own.</p>
-<p class="sub"><strong>Prefer plain Python scripts?</strong> <a class="btn" href="downloads/ml-academy-code.zip" download>⬇ Download all the code (.zip)</a> — every lesson as a <code>.py</code> file, the coding challenges, the four projects (starter and solution), the dataset and a <code>pytest</code> test suite that checks every script still gives the published results. Unzip it anywhere and see its README.</p>
+<p class="sub"><strong>Prefer plain Python scripts?</strong> <a class="btn" href="downloads/ml-academy-code.zip" download>⬇ Download all the code (.zip)</a> — every lesson as a <code>.py</code> file, the coding challenges, the six projects (starter and solution), the dataset and a <code>pytest</code> test suite that checks every script still gives the published results. Unzip it anywhere and see its README.</p>
 </div></section>
 
 <section class="block" id="about"><div class="container">
@@ -604,7 +604,7 @@ for group, rows in CHEAT:
         cs += f'<tr><th>{e(name)}<a class="gl-link" href="{fname(n)}">L{n}</a></th><td>${tex}$' + (f'<div class="cheat-note">{e(note)}</div>' if note else '') + '</td></tr>'
     cs += '</table></section>'
 cs += '</div>'
-open(os.path.join(OUT, "cheatsheet.html"), "w").write(page_shell("Cheat sheet — ML Academy", "Every key formula from the course on one printable page.", "Reference", "Formula cheat sheet", "Every key formula from the 21 lessons on one page. Click a lesson tag (L6) to jump to the full explanation. Prints neatly on paper or to PDF.", cs, math=True))
+open(os.path.join(OUT, "cheatsheet.html"), "w").write(page_shell("Cheat sheet — ML Academy", "Every key formula from the course on one printable page.", "Reference", "Formula cheat sheet", "Every key formula from the course on one page, including Parts 6 and 7. Click a lesson tag (L6) to jump to the full explanation. Prints neatly on paper or to PDF.", cs, math=True))
 
 # ---------------- search index ----------------
 def plain(h):
@@ -759,10 +759,10 @@ open(os.path.join(OUT, "review.html"), "w").write(page_shell("Spaced review — 
 print("tests + review built,", len(QB), "questions in the bank")
 
 # ---------------- projects page ----------------
-pj = ('<p>Four guided projects on real datasets — one at the end of each part from Part 2 on. Each comes as two Jupyter notebooks: a <strong>starter</strong> where you write the key lines '
+pj = ('<p>Six guided projects — one at the end of each part from Part 2 on, using real datasets in Parts 2–5 and realistic simulated data in Parts 6 and 7 (so the true answer is known and you can check your methods against it). Each comes as two Jupyter notebooks: a <strong>starter</strong> where you write the key lines '
       '(marked <code># TODO</code>, with an automatic check after every step) and a complete <strong>solution</strong> with all outputs. '
-      'The datasets ship with scikit-learn, so nothing needs downloading.</p>')
-pj += '<div class="box tip"><div class="box-title">All the code in one download</div><p>Prefer plain Python scripts to notebooks? <a class="btn" href="downloads/ml-academy-code.zip" download>⬇ Download all the code (.zip)</a> — the four projects as starter and solution <code>.py</code> files, every lesson\'s code, the coding challenges and a <code>pytest</code> suite that checks everything runs and gives the published results.</p></div>'
+      'Nothing needs downloading: the real datasets ship with scikit-learn, and the simulated ones are generated in the notebook.</p>')
+pj += '<div class="box tip"><div class="box-title">All the code in one download</div><p>Prefer plain Python scripts to notebooks? <a class="btn" href="downloads/ml-academy-code.zip" download>⬇ Download all the code (.zip)</a> — the six projects as starter and solution <code>.py</code> files, every lesson\'s code, the coding challenges and a <code>pytest</code> suite that checks everything runs and gives the published results.</p></div>'
 pj += '<nav class="cmp-chips" aria-label="Projects">' + "".join(f'<a href="#{P["id"]}">{e(P["title"])}</a>' for P in PROJECTS) + '</nav>'
 for P in PROJECTS:
     pl, pt, _ = PARTS[P["part"]]
@@ -778,8 +778,8 @@ pj += ('<section class="sources"><h2>Dataset sources</h2><ol>'
        '<li>Efron, Hastie, Johnstone &amp; Tibshirani (2004), "Least Angle Regression", <em>Annals of Statistics</em> — diabetes data. ' + ext("https://scikit-learn.org/stable/datasets/toy_dataset.html#diabetes-dataset", "scikit-learn: diabetes dataset") + '</li>'
        '<li>Street, Wolberg &amp; Mangasarian (1993), Wisconsin Diagnostic Breast Cancer. ' + ext("https://scikit-learn.org/stable/datasets/toy_dataset.html#breast-cancer-wisconsin-diagnostic-dataset", "scikit-learn: breast cancer dataset") + '</li>'
        '<li>Forina et al., wine recognition data (UCI). ' + ext("https://scikit-learn.org/stable/datasets/toy_dataset.html#wine-recognition-dataset", "scikit-learn: wine dataset") + '</li>'
-       '<li>Alpaydin &amp; Kaynak, optical recognition of handwritten digits (UCI). ' + ext("https://scikit-learn.org/stable/datasets/toy_dataset.html#optical-recognition-of-handwritten-digits-dataset", "scikit-learn: digits dataset") + '</li></ol></section>')
-open(os.path.join(OUT, "projects.html"), "w").write(page_shell("Projects — ML Academy", "Four guided machine learning projects on real datasets, with starter and solution notebooks.", "Practice", "Mini-projects", "Put each part of the course to work on a real dataset, step by step, with automatic checks.", pj))
+       '<li>Alpaydin &amp; Kaynak, optical recognition of handwritten digits (UCI). ' + ext("https://scikit-learn.org/stable/datasets/toy_dataset.html#optical-recognition-of-handwritten-digits-dataset", "scikit-learn: digits dataset") + '</li><li>The forecasting and retention projects use data simulated in their first step, with documented settings, so every result can be compared with the known truth.</li></ol></section>')
+open(os.path.join(OUT, "projects.html"), "w").write(page_shell("Projects — ML Academy", "Six guided machine learning projects, with starter and solution notebooks.", "Practice", "Mini-projects", "Put each part of the course to work on a real dataset, step by step, with automatic checks.", pj))
 print("projects page built")
 
 # ---------------- notebook download helpers (work on file:// too) ----------------

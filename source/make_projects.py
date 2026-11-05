@@ -70,7 +70,7 @@ for P in PROJECTS:
         intro += ("Work through the steps in order. Lines marked `# TODO` are yours to write; each step ends with a check that prints ✅ when you're right "
                   "(and a hint when you're not). Cells that use a step's result will show errors until that step is done — that's expected. The solution notebook is in the same folder."
                   if kind == "starter" else "This notebook contains the full solution with outputs. Try the starter notebook first!")
-        intro += "\n\nRequirements: `pip install numpy pandas scikit-learn matplotlib` — the dataset ships with scikit-learn, so no download is needed."
+        intro += "\n\nRequirements: `pip install numpy pandas scikit-learn matplotlib scipy` — " + ("the data is simulated in the first step, so no download is needed." if P.get("simulated") else "the dataset ships with scikit-learn, so no download is needed.")
         nb.cells.append(new_markdown_cell(intro))
         nb.cells.append(new_code_cell(CHECK_FN))
         for k, ((title, md, code, checks), w) in enumerate(zip(P["steps"], wants)):
@@ -99,6 +99,9 @@ for P in PROJECTS:
 
 # numbers for the website (taken from the executed solutions)
 d, t, wn, dg = RESULTS["diabetes"], RESULTS["tumours"], RESULTS["wine"], RESULTS["digits"]
+fc, rt = RESULTS["forecast"], RESULTS["retention"]
+import numpy as np
+def fc_r(v): return f"{v:+.3f}"
 SUMMARY = {
  "diabetes": [("Baseline MAE (predict the average)", f"{d['baseline_mae']:.1f}"), ("BMI only", f"MAE {d['bmi_mae']:.1f} · R² {d['bmi_r2']:.2f}"),
               ("All ten features", f"MAE {d['full_mae']:.1f} · R² {d['full_r2']:.2f}"), ("Ridge (α by CV)", f"α = {d['ridge'][-1].alpha_:g} · MAE {d['ridge_mae']:.1f}")],
@@ -106,6 +109,10 @@ SUMMARY = {
              ("Threshold 0.1", f"recall {t['recall_low']:.2f} — no malignant tumour missed"), ("Most important feature", t['importances'].index[0])],
  "wine": [("PC1 + PC2 explain", f"{100 * (wn['ratio'][0] + wn['ratio'][1]):.0f}% of the variance"), ("Best k by silhouette", str(wn['best_k'])),
           ("Agreement with the real cultivars", f"ARI {wn['ari']:.2f}")],
+ "forecast": [("Seasonal naive MAE (test)", f"{fc['naive_mae']:.1f}"), ("Ridge on lag features", f"MAE {fc['model_mae']:.1f} · MASE {fc['mase']:.2f}"),
+              ("Backtest (5 windows)", f"average MAE {fc['backtest_mae']:.1f}"), ("Anomaly detector (robust z > 4)", f"precision {fc['precision']:.2f} · recall {fc['recall']:.2f}")],
+ "retention": [("Naive churn difference", f"{fc_r(rt['naive_diff'])}"), ("Still subscribed at 12 months", f"no coupon {rt['s12'][0]:.3f} · coupon {rt['s12'][1]:.3f}"),
+               ("Coupon hazard ratio", f"{float(np.exp(rt['naive_fit'].x[0])):.2f} unadjusted · {rt['hr'][0]:.2f} adjusted (true 0.7)"), ("Concordance index", f"{rt['c_index']:.3f}")],
  "digits": [("Logistic regression", f"{100 * dg['baseline_acc']:.1f}%"), ("Neural network (64 hidden)", f"{100 * dg['mlp_acc']:.1f}%"),
             ("SVM (RBF)", f"{100 * dg['svm_acc']:.1f}%"), ("Most common mistake", f"{dg['true_d']} read as {dg['pred_d']}")],
 }

@@ -49,6 +49,42 @@
    "ARI 0.90"
   ]
  ],
+ "forecast": [
+  [
+   "Seasonal naive MAE (test)",
+   "40.7"
+  ],
+  [
+   "Ridge on lag features",
+   "MAE 29.0 \u00b7 MASE 0.98"
+  ],
+  [
+   "Backtest (5 windows)",
+   "average MAE 21.5"
+  ],
+  [
+   "Anomaly detector (robust z > 4)",
+   "precision 1.00 \u00b7 recall 1.00"
+  ]
+ ],
+ "retention": [
+  [
+   "Naive churn difference",
+   "-0.260"
+  ],
+  [
+   "Still subscribed at 12 months",
+   "no coupon 0.582 \u00b7 coupon 0.841"
+  ],
+  [
+   "Coupon hazard ratio",
+   "0.33 unadjusted \u00b7 0.62 adjusted (true 0.7)"
+  ],
+  [
+   "Concordance index",
+   "0.691"
+  ]
+ ],
  "digits": [
   [
    "Logistic regression",

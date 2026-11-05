@@ -67,7 +67,7 @@
         });
         svg.querySelectorAll(".m-edge").forEach(function (p) { var f = +p.getAttribute("data-from"), t = +p.getAttribute("data-to");
           p.classList.toggle("on-route", !!r && r.lessons.indexOf(f) !== -1 && r.lessons.indexOf(t) !== -1); });
-        if (!r) { panel.innerHTML = '<p>Showing all 21 lessons. Pick a route above to highlight it.</p>'; return; }
+        if (!r) { panel.innerHTML = '<p>Showing all lessons. Pick a route above to highlight it.</p>'; return; }
         var done = load("mla-done", []).map(Number), nDone = r.lessons.filter(function (l) { return done.indexOf(l) !== -1; }).length, mine = load("mla-route", "") === r.id;
         panel.innerHTML = '<h2>' + esc(r.name) + '</h2><p>' + esc(r.blurb) + '</p><p class="route-meta">' + r.lessons.length + ' lessons · about ' + Math.round(r.mins / 60) + ' hours · ' + nDone + ' done</p>' +
           '<ol class="route-list">' + r.lessons.map(function (l) { var L = D.lessons[l - 1]; return '<li' + (done.indexOf(l) !== -1 ? ' class="done"' : '') + '><a href="' + url(l) + '">Lesson ' + l + ': ' + esc(L.t) + '</a> <span>~' + L.mins + ' min</span></li>'; }).join("") + '</ol>' +
