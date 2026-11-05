@@ -234,5 +234,9 @@ SEE_ALSO = {6: ["linear-vs-logistic"], 8: ["linear-vs-logistic", "naive-bayes-vs
             12: ["naive-bayes-vs-logistic"], 14: ["bagging-vs-boosting", "classical-vs-deep"], 16: ["kmeans-vs-dbscan"], 17: ["pca-vs-tsne"],
             18: ["classical-vs-deep"], 19: ["classical-vs-deep"]}
 
+import compare2 as _c2
+COMPARE += _c2.COMPARE2; FIGS.update(_c2.FIGS); CAPS.update(_c2.CAPS)
+for _k, _v in _c2.SEE_ALSO2.items(): SEE_ALSO[_k] = SEE_ALSO.get(_k, []) + _v
+
 if __name__ == "__main__":
     print(FACTS); print(CAPS)

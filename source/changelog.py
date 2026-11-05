@@ -3,6 +3,8 @@ RELEASES = [
  ("3.3", "5 November 2026", [
    "Two new <a href=\"projects.html\">projects</a> with starter and solution notebooks: <em>Forecasting sales and catching anomalies</em> (Part 6) and <em>Did the coupon work, and who stays?</em> (Part 7), using simulated data so every answer can be checked against the truth.",
    "The <a href=\"cheatsheet.html\">formula cheat sheet</a> now covers Parts 6 and 7 (21 new formulas), <a href=\"confused.html\">commonly confused terms</a> has 16 new pairs, and the <a href=\"guide.html\">Which model?</a> guide now covers forecasting, anomalies, recommendations, survival, causal effects, sequential decisions and learning with few labels.",
+   "Six new <a href=\"compare.html\">side-by-side comparisons</a> for Parts 6 and 7, five with charts computed from real models: randomised vs observational estimates, data vs concept drift, Q-learning vs SARSA, Kaplan–Meier vs ignoring censoring, semi-supervised vs active learning, and collaborative vs content-based recommendation.",
+   "The review and progress pages now count all 35 lessons and 7 part tests.",
    "The home page shows the full course: 35 lessons in 7 parts, from complete beginner to advanced."]),
  ("3.2", "5 November 2026", [
    "New <strong>Part 7: Advanced topics</strong>, seven full lessons: <a href=\"lesson-29.html\">29 causal inference</a>, <a href=\"lesson-30.html\">30 MLOps: deploying &amp; monitoring models</a>, <a href=\"lesson-31.html\">31 reinforcement learning basics</a>, <a href=\"lesson-32.html\">32 semi-supervised &amp; active learning</a>, <a href=\"lesson-33.html\">33 survival analysis</a>, <a href=\"lesson-34.html\">34 graph data &amp; network analysis</a> and <a href=\"lesson-35.html\">35 graphical models &amp; hidden Markov models</a>.",

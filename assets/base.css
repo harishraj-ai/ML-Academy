@@ -875,3 +875,4 @@ h2#deeper::after { content: "Intermediate"; display: inline-block; vertical-alig
 :root[data-theme="light"] h2#deeper::after { color: #5b21b6; border-color: #6d28d9; }
 .prose h3[id^="deeper-"] { scroll-margin-top: 80px; }
 .prose p code, .prose li code, .prose td code { overflow-wrap: anywhere; }
+.table-scroll[tabindex] { overflow-x: auto; } .table-scroll[tabindex] > .tbl { display: table; }

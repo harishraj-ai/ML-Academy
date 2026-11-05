@@ -69,10 +69,11 @@
         h += st.due.length ? '<button type="button" class="btn btn-primary rv-start">Start review (' + Math.min(st.due.length, 20) + " question" + (st.due.length === 1 ? "" : "s") + ")</button>"
           : '<p class="rv-empty">' + (st.ids.length ? "Nothing is due right now — come back " + when(st.next) + "." : "Your review deck is empty.") + "</p>";
         h += '<details class="rv-add"' + (st.ids.length ? "" : " open") + '><summary>Add questions from lessons</summary><p>Questions are added automatically when you answer a lesson quiz, take an end-of-part test, or mark a lesson as complete. You can also add a lesson\'s quiz here:</p><div class="rv-lessons">';
-        for (var n = 1; n <= 21; n++) {
+        var nums = Object.keys(B).filter(function (id) { return id[0] === "L"; }).map(function (id) { return B[id].n; }).filter(function (v, i, a) { return v > 0 && a.indexOf(v) === i; }).sort(function (a, b) { return a - b; });
+        nums.forEach(function (n) {
           var ids = Object.keys(B).filter(function (id) { return B[id].n === n && id[0] === "L"; }), have = ids.filter(function (id) { return st.S[id]; }).length;
           h += '<label><input type="checkbox" value="' + n + '"' + (have === ids.length ? " checked disabled" : "") + "> Lesson " + n + "</label>";
-        }
+        });
         h += '</div><button type="button" class="btn rv-addbtn">Add selected</button></details>';
         if (st.ids.length) h += '<p><button type="button" class="rv-reset">Reset all review data</button></p>';
         R.innerHTML = h;

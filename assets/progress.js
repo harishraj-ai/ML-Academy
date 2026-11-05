@@ -67,7 +67,7 @@
         });
         svg.querySelectorAll(".m-edge").forEach(function (p) { var f = +p.getAttribute("data-from"), t = +p.getAttribute("data-to");
           p.classList.toggle("on-route", !!r && r.lessons.indexOf(f) !== -1 && r.lessons.indexOf(t) !== -1); });
-        if (!r) { panel.innerHTML = '<p>Showing all 21 lessons. Pick a route above to highlight it.</p>'; return; }
+        if (!r) { panel.innerHTML = '<p>Showing all lessons. Pick a route above to highlight it.</p>'; return; }
         var done = load("mla-done", []).map(Number), nDone = r.lessons.filter(function (l) { return done.indexOf(l) !== -1; }).length, mine = load("mla-route", "") === r.id;
         panel.innerHTML = '<h2>' + esc(r.name) + '</h2><p>' + esc(r.blurb) + '</p><p class="route-meta">' + r.lessons.length + ' lessons · about ' + Math.round(r.mins / 60) + ' hours · ' + nDone + ' done</p>' +
           '<ol class="route-list">' + r.lessons.map(function (l) { var L = D.lessons[l - 1]; return '<li' + (done.indexOf(l) !== -1 ? ' class="done"' : '') + '><a href="' + url(l) + '">Lesson ' + l + ': ' + esc(L.t) + '</a> <span>~' + L.mins + ' min</span></li>'; }).join("") + '</ol>' +
@@ -99,11 +99,11 @@
         var r = D.routes.filter(function (x) { return x.id === load("mla-route", ""); })[0] || D.routes[D.routes.length - 1];
         var next = r.lessons.filter(function (l) { return done.indexOf(l) === -1; })[0];
         var h = '<div class="pg-stats">' +
-          '<div><b>' + done.length + '<small>/21</small></b><span>lessons completed</span></div>' +
+          '<div><b>' + done.filter(function (n) { return n > 0; }).length + '<small>/' + D.lessons.filter(function (L) { return L.n > 0; }).length + '</small></b><span>lessons completed</span></div>' +
           '<div><b>' + fmtTime(totTime) + '</b><span>time on lessons</span></div>' +
           '<div><b>' + (qAll ? Math.round(100 * qOk / qAll) + '%' : '—') + '</b><span>quiz answers right first time (' + qOk + '/' + qAll + ')</span></div>' +
           '<div><b>' + exOk + '<small>/' + exAll + '</small></b><span>exercises checked correct</span></div>' +
-          '<div><b>' + Object.keys(TS).length + '<small>/5</small></b><span>part tests taken</span></div>' +
+          '<div><b>' + Object.keys(TS).length + '<small>/' + D.parts.length + '</small></b><span>part tests taken</span></div>' +
           '<div><b>' + mastered + '</b><span>review questions mastered · ' + due + ' due</span></div></div>';
         h += '<div class="pg-next">' + (next ? '<span>Next up on <b>' + esc(r.name) + '</b>:</span> <a class="btn btn-primary" href="' + url(next) + '">Lesson ' + next + ': ' + esc(D.lessons[next - 1].t) + ' →</a>' : '<span>You\'ve finished <b>' + esc(r.name) + '</b>.</span> <a href="map.html">Choose another route</a>') +
           (due ? ' <a class="btn" href="review.html">Review ' + due + ' due question' + (due > 1 ? 's' : '') + '</a>' : '') + '</div>';

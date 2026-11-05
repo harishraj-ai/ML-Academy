@@ -704,7 +704,7 @@ for cid, ct, core, (an, bn), rows, ca, cb, ls in COMPARE:
     cmp += f'<section class="cmp" id="{cid}"><h2>{e(ct)}</h2><p class="core">{core}</p>'
     if cid in CMP_FIGS:
         cmp += f'<figure class="fig">{CMP_FIGS[cid]}<figcaption>{e(CMP_CAPS[cid])}</figcaption></figure>'
-    cmp += f'<div class="table-scroll"><table class="tbl cmp-tbl"><thead><tr><td></td><th>{e(an)}</th><th>{e(bn)}</th></tr></thead><tbody>'
+    cmp += f'<div class="table-scroll" tabindex="0" role="region" aria-label="{e(ct)}: comparison table"><table class="tbl cmp-tbl"><thead><tr><td></td><th>{e(an)}</th><th>{e(bn)}</th></tr></thead><tbody>'
     cmp += "".join(f'<tr><td>{a}</td><td>{b}</td><td>{c}</td></tr>' for a, b, c in rows) + '</tbody></table></div>'
     cmp += f'<div class="cmp-choose"><div><b>Choose {e(an.split(" (")[0])} when…</b>{ca}</div><div><b>Choose {e(bn.split(" (")[0])} when…</b>{cb}</div></div>'
     cmp += '<p class="cmp-lessons">Learn more: ' + " · ".join(f'<a href="{fname(l)}">Lesson {l}: {e(LESSONS[l-1][2])}</a>' for l in ls) + '</p></section>'
@@ -953,9 +953,9 @@ ch += '<div class="table-scroll"><table class="tbl"><thead><tr><th>Package</th><
 ch += ('<p>Newer versions usually give the same results, but defaults and random-number details occasionally change. If your numbers differ slightly from a lesson, compare these versions with yours '
        '(<code>import sklearn; print(sklearn.__version__)</code>).</p>')
 ch += ('<h2 id="checks">Automated output checks</h2>' + _chk +
-       '<p>The course folder includes <code>tools/check_outputs.py</code>. It re-runs all 22 lesson notebooks and 8 project notebooks in a temporary copy, compares every printed output with the published one (allowing for tiny rounding differences), checks that lesson outputs still match what the lesson page shows, and writes <code>tools/check_report.md</code>. '
+       '<p>The course folder includes <code>tools/check_outputs.py</code>. It re-runs all ' + str(len(LESSONS) + 1) + ' lesson notebooks (including Lesson 0) and ' + str(2 * len(PROJECTS)) + ' project notebooks in a temporary copy, compares every printed output with the published one (allowing for tiny rounding differences), checks that lesson outputs still match what the lesson page shows, and writes <code>tools/check_report.md</code>. '
        'It also compares your library versions with the ones above. Nothing in the course is changed.</p>'
-       '<pre><code>cd ML\npython tools/check_outputs.py            # everything, about 2 minutes\npython tools/check_outputs.py --only 6 8   # just Lessons 6 and 8</code></pre>'
+       '<pre><code>cd ML\npython tools/check_outputs.py            # everything, about 6 minutes\npython tools/check_outputs.py --only 6 8   # just Lessons 6 and 8</code></pre>'
        '<p>Run it after upgrading scikit-learn, NumPy or pandas. It needs <code>numpy pandas scikit-learn matplotlib nbformat nbclient ipykernel</code>.</p>')
 ch += '<h2 id="history">What changed and when</h2>' + "".join(f'<section class="rel"><h3 id="v{e(v)}">Version {e(v)} <span class="rel-date">{e(d)}</span></h3><ul>' + "".join(f"<li>{x}</li>" for x in items) + '</ul></section>' for v, d, items in CHANGELOG.RELEASES)
 ch += '<h2 id="known">Known gaps</h2><ul>' + "".join(f"<li>{x}</li>" for x in CHANGELOG.NOTES) + '</ul>'
