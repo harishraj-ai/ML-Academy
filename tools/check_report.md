@@ -1,6 +1,6 @@
-# Output check — 2026-11-01 20:03 (UTC+0000)
+# Output check — 2026-11-05 10:48 (UTC+0000)
 
-Checked 30 notebooks (249 code cells) in 103 s. **Everything matches.**
+Checked 37 notebooks (409 code cells) in 406 s. **Everything matches.**
 
 ## Library versions
 
@@ -41,6 +41,13 @@ Checked 30 notebooks (249 code cells) in 103 s. **Everything matches.**
 | lesson-19.ipynb | ok |
 | lesson-20.ipynb | ok |
 | lesson-21.ipynb | ok |
+| lesson-22.ipynb | ok |
+| lesson-23.ipynb | ok |
+| lesson-24.ipynb | ok |
+| lesson-25.ipynb | ok |
+| lesson-26.ipynb | ok |
+| lesson-27.ipynb | ok |
+| lesson-28.ipynb | ok |
 | projects/diabetes-solution.ipynb | ok |
 | projects/diabetes-starter.ipynb | ok |
 | projects/digits-solution.ipynb | ok |

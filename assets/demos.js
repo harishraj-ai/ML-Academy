@@ -1197,11 +1197,101 @@
     draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
   }
 
+  // ---------------- Demo: baseline forecasts (Lesson 26) ----------------
+  function forecastDemo(el) {
+    var S = shell(el, "forecast the last 4 weeks with simple baselines", 0.5);
+    var seed = 11; function rng() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+    var wk = [0.9, 0.95, 1.0, 1.0, 1.1, 1.35, 1.25], y = [];
+    for (var t = 0; t < 112; t++) y.push((200 + 0.6 * t) * wk[t % 7] * (0.92 + 0.16 * rng()));
+    var start = 84, method = "seasonal", noise = 1;
+    var methods = [["naive", "Yesterday"], ["seasonal", "Same day last week"], ["mean", "28-day average"], ["smean", "Average of last 4 same weekdays"]];
+    var g = document.createElement("div"); g.setAttribute("role", "group"); g.setAttribute("aria-label", "Forecasting method");
+    methods.forEach(function (m) { var b = button(g, m[1], function () { method = m[0]; draw(); }); b.dataset.m = m[0]; });
+    S.controls.appendChild(g);
+    function fc(t) {
+      if (method === "naive") return y[t - 1];
+      if (method === "seasonal") return y[t - 7];
+      if (method === "mean") { var s = 0; for (var k = 1; k <= 28; k++) s += y[t - k]; return s / 28; }
+      return (y[t - 7] + y[t - 14] + y[t - 21] + y[t - 28]) / 4;
+    }
+    function draw() {
+      g.querySelectorAll("button").forEach(function (b) { var on = b.dataset.m === method; b.setAttribute("aria-pressed", on ? "true" : "false"); b.style.fontWeight = on ? "700" : ""; });
+      var c = colors(), W = S.state.W, H = S.state.H, ctx = S.ctx, A = axes(W, H, 0, 112, 100, 420, 34);
+      drawGrid(ctx, A, W, H, c, 14, 100, "day", "sales");
+      ctx.fillStyle = c.grid; ctx.globalAlpha = 0.35; ctx.fillRect(A.x(start), A.y(420), A.x(112) - A.x(start), A.y(100) - A.y(420)); ctx.globalAlpha = 1;
+      ctx.strokeStyle = c.ink; ctx.lineWidth = 1.5; ctx.beginPath(); y.forEach(function (v, t) { t ? ctx.lineTo(A.x(t), A.y(v)) : ctx.moveTo(A.x(t), A.y(v)); }); ctx.stroke();
+      var err = 0; ctx.strokeStyle = c.warn; ctx.lineWidth = 2.5; ctx.beginPath();
+      for (var t = start; t < 112; t++) { var f = fc(t); err += Math.abs(y[t] - f); t === start ? ctx.moveTo(A.x(t), A.y(f)) : ctx.lineTo(A.x(t), A.y(f)); }
+      ctx.stroke();
+      ctx.fillStyle = c.text; ctx.font = "11px JetBrains Mono, monospace"; ctx.fillText("test period →", A.x(start) + 4, A.y(410));
+      S.readout.innerHTML = "<span>method <b>" + methods.filter(function (m) { return m[0] === method; })[0][1] + "</b></span><span>mean absolute error over the last 28 days <b>" + (err / 28).toFixed(1) + "</b></span><span>black: actual · orange: forecast made each day from data up to the day before</span>";
+    }
+    draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
+  }
+
+  // ---------------- Demo: user-based collaborative filtering (Lesson 27) ----------------
+  function recommendDemo(el) {
+    el.innerHTML = "";
+    var head = document.createElement("div"); head.className = "demo-head"; head.textContent = "Interactive · rate a few films, get recommendations from similar users";
+    var wrap = document.createElement("div"); wrap.style.cssText = "padding:16px;overflow-x:auto";
+    var readout = document.createElement("div"); readout.className = "demo-readout";
+    el.appendChild(head); el.appendChild(wrap); el.appendChild(readout);
+    var films = ["Space War", "Star Trek-ish", "Robot City", "Love in Paris", "Wedding Day", "Ha Ha Ha", "Crime Lab", "Haunted"];
+    var others = { "Asha": [5, 4, 5, 1, 2, 2, 3, 1], "Ben": [4, 5, 4, 2, 1, 3, 4, 2], "Chen": [1, 2, 1, 5, 4, 4, 2, 3], "Divya": [2, 1, 2, 4, 5, 5, 1, 2], "Eli": [3, 3, 2, 2, 3, 2, 5, 5], "Farah": [5, 5, 4, 1, 1, 2, 5, 4] };
+    var me = [5, 0, 4, 0, 0, 0, 0, 0];   // 0 = not rated
+    var cell = "padding:5px 7px;border:1px solid var(--border);font-size:.8rem;font-family:var(--font-mono);text-align:center";
+    function sim(a, b) { var num = 0, na = 0, nb = 0, ma = 0, mb = 0, n = 0;
+      a.forEach(function (v, i) { if (v) { ma += v; mb += b[i]; n++; } }); if (!n) return 0; ma /= n; mb /= n;
+      a.forEach(function (v, i) { if (v) { num += (v - ma) * (b[i] - mb); na += (v - ma) * (v - ma); nb += (b[i] - mb) * (b[i] - mb); } });
+      return na && nb ? num / Math.sqrt(na * nb) : 0; }
+    function draw() {
+      var sims = {}; Object.keys(others).forEach(function (k) { sims[k] = sim(me, others[k]); });
+      var pred = films.map(function (f, i) { if (me[i]) return null; var num = 0, den = 0;
+        Object.keys(others).forEach(function (k) { var s = sims[k]; if (s > 0) { var r = others[k], m = r.reduce(function (x, y) { return x + y; }, 0) / r.length; num += s * (r[i] - m); den += s; } });
+        var mine = me.filter(Boolean), mm = mine.length ? mine.reduce(function (x, y) { return x + y; }, 0) / mine.length : 3; return den ? mm + num / den : mm; });
+      var h = "<table style='border-collapse:collapse'><tr><th style='" + cell + "'>Person</th>" + films.map(function (f) { return "<th style='" + cell + "'>" + f + "</th>"; }).join("") + "<th style='" + cell + "'>similarity to you</th></tr>";
+      h += "<tr><th style='" + cell + ";color:var(--accent)'>You</th>" + films.map(function (f, i) { return "<td style='" + cell + "'><select data-i='" + i + "' aria-label='Your rating of " + f + "' style='background:var(--surface);color:var(--text);border:1px solid var(--border)'>" + [0, 1, 2, 3, 4, 5].map(function (v) { return "<option value='" + v + "'" + (me[i] === v ? " selected" : "") + ">" + (v || "–") + "</option>"; }).join("") + "</select></td>"; }).join("") + "<td style='" + cell + "'></td></tr>";
+      Object.keys(others).forEach(function (k) { h += "<tr><th style='" + cell + "'>" + k + "</th>" + others[k].map(function (v) { return "<td style='" + cell + "'>" + v + "</td>"; }).join("") + "<td style='" + cell + ";color:" + (sims[k] > 0 ? "var(--accent)" : "var(--muted)") + "'>" + sims[k].toFixed(2) + "</td></tr>"; });
+      h += "<tr><th style='" + cell + "'>predicted for you</th>" + pred.map(function (p) { return "<td style='" + cell + ";font-weight:700;color:var(--warn)'>" + (p === null ? "" : p.toFixed(1)) + "</td>"; }).join("") + "<td style='" + cell + "'></td></tr></table>";
+      wrap.innerHTML = h;
+      wrap.querySelectorAll("select").forEach(function (sel) { sel.addEventListener("change", function () { me[+sel.dataset.i] = +sel.value; draw(); }); });
+      var best = pred.map(function (p, i) { return [p, i]; }).filter(function (x) { return x[0] !== null; }).sort(function (a, b) { return b[0] - a[0]; }).slice(0, 2);
+      readout.innerHTML = "<span>top recommendations: <b>" + best.map(function (x) { return films[x[1]]; }).join("</b>, <b>") + "</b></span><span>uses only users with positive similarity (correlation of ratings on the films you rated)</span>";
+    }
+    draw();
+  }
+
+  // ---------------- Demo: Bayesian updating of a Beta posterior (Lesson 28) ----------------
+  function betaDemo(el) {
+    var S = shell(el, "update a belief about a conversion rate, one visitor at a time", 0.5);
+    var prior = 2, succ = 0, fail = 0;
+    function lgamma(z) { var g = 7, c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+      if (z < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * z)) - lgamma(1 - z); z -= 1; var x = c[0]; for (var i = 1; i < g + 2; i++) x += c[i] / (z + i); var t = z + g + 0.5; return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x); }
+    function pdf(x, a, b) { return Math.exp((a - 1) * Math.log(x) + (b - 1) * Math.log(1 - x) + lgamma(a + b) - lgamma(a) - lgamma(b)); }
+    slider(S.controls, "Prior strength (imaginary visitors)", 2, 60, 1, prior, function (v) { return v + " (centred on 10%)"; }, function (v) { prior = v; draw(); });
+    button(S.controls, "+1 converts", function () { succ++; draw(); });
+    button(S.controls, "+1 doesn't", function () { fail++; draw(); });
+    button(S.controls, "+100 visitors (8% convert)", function () { succ += 8; fail += 92; draw(); });
+    button(S.controls, "Reset", function () { succ = 0; fail = 0; draw(); });
+    function draw() {
+      var c = colors(), W = S.state.W, H = S.state.H, ctx = S.ctx;
+      var a0 = 0.1 * prior, b0 = 0.9 * prior, a = a0 + succ, b = b0 + fail;
+      var xs = [], ys = [], yp = [], mx = 0;
+      for (var i = 1; i < 300; i++) { var x = i / 300 * 0.5; xs.push(x); var v = pdf(x, a, b), w = pdf(x, a0, b0); ys.push(v); yp.push(w); mx = Math.max(mx, v, w); }
+      var A = axes(W, H, 0, 0.5, 0, mx * 1.1, 34);
+      drawGrid(ctx, A, W, H, c, 0.1, Math.max(1, Math.round(mx / 4)), "conversion rate", "belief");
+      [[yp, c.text, 1.5], [ys, c.accent, 3]].forEach(function (d) { ctx.strokeStyle = d[1]; ctx.lineWidth = d[2]; ctx.beginPath(); xs.forEach(function (x, i) { i ? ctx.lineTo(A.x(x), A.y(d[0][i])) : ctx.moveTo(A.x(x), A.y(d[0][i])); }); ctx.stroke(); });
+      var mean = a / (a + b), sd = Math.sqrt(a * b / ((a + b) * (a + b) * (a + b + 1)));
+      S.readout.innerHTML = "<span>data <b>" + succ + "</b> of <b>" + (succ + fail) + "</b> converted</span><span>posterior Beta(" + a.toFixed(1) + ", " + b.toFixed(1) + ")</span><span>mean <b>" + (100 * mean).toFixed(1) + "%</b> ± <b>" + (100 * sd).toFixed(1) + "</b></span><span>grey: prior · green: posterior</span>";
+    }
+    draw(); onResize(function () { S.resize(); draw(); }); onTheme(draw);
+  }
+
   var REGISTRY = { "fit-line": fitLine, "dot-product": dotProduct, "tangent": tangent, "bayes": bayes, "normal": normal,
     "overfit": overfit, "least-squares": leastSquares, "gd-contour": gdContour, "logistic": logistic,
     "threshold": thresholdDemo, "ridge": ridgeDemo, "knn": knnDemo, "naive-bayes": nbDemo,
     "tree": treeDemo, "boosting": boostingDemo, "svm": svmDemo, "kmeans": kmeansDemo,
-    "pca": pcaDemo, "nn": nnDemo, "conv": convDemo, "prep": prepDemo, "fairness": fairnessDemo, "join": joinDemo, "search": searchDemo, "shapley": shapleyDemo, "anomaly": anomalyDemo };
+    "pca": pcaDemo, "nn": nnDemo, "conv": convDemo, "prep": prepDemo, "fairness": fairnessDemo, "join": joinDemo, "search": searchDemo, "shapley": shapleyDemo, "anomaly": anomalyDemo, "forecast": forecastDemo, "recommend": recommendDemo, "beta": betaDemo };
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll(".demo[data-demo]").forEach(function (el) {
       var fn = REGISTRY[el.getAttribute("data-demo")];
