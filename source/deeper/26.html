@@ -1,0 +1,16 @@
+<h2 id="deeper">Going deeper: choosing lags and honest prediction intervals</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>Two practical skills: reading the autocorrelation of a series to decide which lags to use, and turning held-out forecast errors into prediction intervals, then checking whether they really cover what they claim.</p>
+<p>You'll need: this lesson, correlation from Lesson 3, and quantiles from Lesson 2.</p></div>
+
+<h3 id="deeper-acf">Autocorrelation: which lags matter?</h3>
+<p>The <strong>autocorrelation</strong> at lag $k$ is the correlation between the series and itself shifted by $k$ steps. Compute it on the <em>changes</em> (or after detrending), because a trend makes every lag look correlated. Peaks show the seasonal period, and so which lags to give a model:</p>
+<!--cell 1-->
+<p>On this daily series, the changes are strongly correlated at lags 7, 14 and 21 (about 0.6) and barely at lags 1 to 6: the series is dominated by its weekly cycle, so 7-day multiples are the lags to use. The negative value at lag 2 is a typical side effect of differencing. Plotting the autocorrelation for lags up to two seasons (the <code>plot_acf</code> function in statsmodels) is a standard first look at any new series.</p>
+
+<h3 id="deeper-intervals">Prediction intervals from held-out errors</h3>
+<p>A point forecast says nothing about how wrong it might be. A simple, model-agnostic way to get an interval: forecast a held-out calibration period, take the 5th and 95th percentiles of the errors, and add them to future forecasts. This is the idea behind split <strong>conformal prediction</strong>. Then check the <strong>coverage</strong> on a later test period:</p>
+<!--cell 2-->
+<p>The interval was built to cover 90%, but on the test period it covers 85.6%. The reason is the trend: sales, and so the size of the errors, keep growing, so errors from an earlier period understate later ones. Fixes are to model the log of the series (so errors are relative), to use only recent errors, or to recompute the interval at each backtest step. Always report the coverage you actually achieve, by horizon, not just the nominal level.</p>
+<!--interview-->
+<!--quiz-->

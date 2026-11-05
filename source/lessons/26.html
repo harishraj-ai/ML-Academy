@@ -1,0 +1,210 @@
+<h2 id="why">Why time series are different</h2>
+<p>How many umbrellas will the shop sell next week? How much electricity will the city need tomorrow evening? How many patients will arrive at A&amp;E on Saturday night? These are <strong>forecasting</strong> problems: the data is a sequence of measurements over time, and we predict future values from past ones.</p>
+<p>Time changes the rules you've learned. Rows aren't independent (today looks like yesterday), the future can differ from the past (trends, holidays, a pandemic), and a random train/test split is badly wrong because it lets the model train on the future (Lesson 5's "Going deeper" showed a shuffled split reporting $R^2 = 0.96$ for a model that couldn't forecast at all). This lesson covers the toolkit: components, baselines, lag features, time-based validation, error metrics for forecasts, and forecasting several days ahead.</p>
+<div class="box intuition"><div class="box-title">The core idea</div><p>Turn forecasting into ordinary supervised learning by building features only from the past (lags, rolling averages, calendar fields), always validate by training on the past and testing on the future, and always compare with simple baselines such as "same day last week", which are surprisingly hard to beat.</p></div>
+
+<h2 id="components">Trend, seasonality and noise</h2>
+<p>Most series combine three parts:</p>
+<ul>
+<li><strong>Trend</strong>: the long-term direction (a growing shop).</li>
+<li><strong>Seasonality</strong>: patterns that repeat with a fixed period: day of week, month of year, hour of day.</li>
+<li><strong>Noise</strong>: what's left, the unpredictable part.</li>
+</ul>
+<p>They can combine additively ($y = \text{trend} + \text{season} + \text{noise}$) or multiplicatively ($y = \text{trend} \times \text{season} \times \text{noise}$), where the seasonal swings grow as the level grows, which is typical of sales. Here is three years of simulated daily sales for a growing shop:</p>
+<pre><code>import numpy as np
+import pandas as pd
+
+# Three years of simulated daily sales for a shop: trend + weekly pattern + yearly season + noise
+rng = np.random.default_rng(0)
+days = pd.date_range("2023-01-01", periods=3 * 365, freq="D")
+t = np.arange(len(days))
+weekly = np.array([0.9, 0.95, 1.0, 1.0, 1.1, 1.35, 1.25])[days.dayofweek]       # Mon … Sun
+yearly = 1 + 0.2 * np.sin(2 * np.pi * (days.dayofyear - 80) / 365)
+sales = (200 + 0.15 * t) * weekly * yearly * rng.lognormal(0, 0.08, len(t))
+s = pd.Series(sales.round(1), index=days, name="sales")
+print(s.head(7).to_string())
+print("average sales by weekday (Mon … Sun):", s.groupby(s.index.dayofweek).mean().round(0).tolist())
+print("average sales by year:", s.groupby(s.index.year).mean().round(0).tolist())</code></pre>
+<p>Output:</p>
+<pre><code>2023-01-01    203.1
+2023-01-02    143.5
+2023-01-03    161.4
+2023-01-04    163.1
+2023-01-05    155.2
+2023-01-06    183.8
+2023-01-07    243.8
+Freq: D
+average sales by weekday (Mon … Sun): [254.0, 267.0, 282.0, 281.0, 308.0, 383.0, 349.0]
+average sales by year: [245.0, 304.0, 361.0]</code></pre>
+<p>The weekday averages show a strong weekly pattern (Saturday sells about 383, against about 254 on Monday), and the yearly averages a rising trend (245, then 304, then 361). A model must capture both. Taking logs turns a multiplicative series into an additive one, which suits linear models (Lesson 6's "Going deeper").</p>
+
+<h2 id="baselines">Baselines first</h2>
+<p>Before any model, compute simple forecasts. They set the bar and often turn out to be competitive:</p>
+<ul>
+<li><strong>Naive</strong>: tomorrow equals today.</li>
+<li><strong>Seasonal naive</strong>: tomorrow equals the same day last week (or last year).</li>
+<li><strong>Moving average</strong>: tomorrow equals the average of the last $k$ days.</li>
+</ul>
+<pre><code># Forecast the last 8 weeks with simple baselines, one day ahead each day
+test = s[-56:]
+naive = s.shift(1)[-56:]                         # tomorrow = today
+seasonal = s.shift(7)[-56:]                      # tomorrow = same weekday last week
+moving = s.shift(1).rolling(28).mean()[-56:]     # tomorrow = average of the last 4 weeks
+mae = lambda f: np.mean(np.abs(test - f))
+for name, f in [("naive (yesterday)", naive), ("seasonal naive (last week)", seasonal), ("28-day average", moving)]:
+    print(f"{name:27}: MAE {mae(f):6.1f}")</code></pre>
+<p>Output:</p>
+<pre><code>naive (yesterday)          : MAE   50.0
+seasonal naive (last week) : MAE   32.6
+28-day average             : MAE   45.3</code></pre>
+<p>Each forecast is made one day ahead, using only data up to the previous day, for the last 8 weeks. The seasonal naive forecast wins clearly (MAE 32.6), because it captures the weekly pattern for free. "Yesterday" ignores the weekly cycle (50.0), and the 28-day average smooths it away (45.3). Any model you build must beat 32.6 to be worth its complexity.</p>
+
+<h2 id="demo">Try it: four baselines</h2>
+<p>Switch between the four simple forecasts and compare their errors over the last 4 weeks. Notice how the weekly peaks are missed by the methods that ignore the weekday.</p>
+<div class="demo" data-demo="forecast"></div>
+
+<h2 id="features">Turning a series into features</h2>
+<p>To use the models you already know, build one row per day with features that only look backwards:</p>
+<ul>
+<li><strong>Lags</strong>: the value 1, 7, 14 and 28 days earlier.</li>
+<li><strong>Rolling statistics</strong>: the mean (or max, or standard deviation) of the previous 7 or 28 days. Shift before rolling, so the window excludes the day being predicted.</li>
+<li><strong>Calendar</strong>: day of week (one-hot), month, holidays, and smooth yearly position as $\sin$ and $\cos$ of the day of year, so that 31 December and 1 January are close.</li>
+<li><strong>Known future inputs</strong>: things known in advance, such as planned promotions or the weather forecast.</li>
+</ul>
+<pre><code>from sklearn.linear_model import Ridge
+from sklearn.ensemble import HistGradientBoostingRegressor
+
+# Features that only use the past: lags, rolling means and calendar fields
+df = pd.DataFrame({"y": s})
+for lag in [1, 7, 14, 28]:
+    df[f"lag_{lag}"] = s.shift(lag)
+df["roll_7"] = s.shift(1).rolling(7).mean()
+df["roll_28"] = s.shift(1).rolling(28).mean()
+df["dow"] = df.index.dayofweek
+df["doy_sin"], df["doy_cos"] = np.sin(2 * np.pi * df.index.dayofyear / 365), np.cos(2 * np.pi * df.index.dayofyear / 365)
+df = df.dropna()
+Xf = pd.get_dummies(df.drop(columns="y"), columns=["dow"], dtype=float)
+start = s.index[-56]                                                    # the last 56 days are the test period
+train, test_idx = Xf.index &lt; start, Xf.index &gt;= start
+yt = df.y[train].to_numpy()
+scale = np.mean(np.abs(yt[7:] - yt[:-7]))                               # seasonal-naive MAE on training data, for MASE
+for name, m in [("ridge on lag features", Ridge(1.0)), ("gradient boosting", HistGradientBoostingRegressor(random_state=0))]:
+    pred = m.fit(Xf[train], df.y[train]).predict(Xf[test_idx])
+    err = np.mean(np.abs(df.y[test_idx] - pred))
+    print(f"{name:22}: MAE {err:6.1f}   MASE {err / scale:.2f}")</code></pre>
+<p>Output:</p>
+<pre><code>ridge on lag features : MAE   26.2   MASE 0.98
+gradient boosting     : MAE   28.9   MASE 1.08</code></pre>
+<div class="box example"><div class="box-title">Worked example — MASE, the scaled error</div>
+<p>MAE is in the data's units, so "MAE 26" means nothing on its own. The <strong>mean absolute scaled error</strong> divides by the error of the seasonal naive forecast on the training data:</p>
+<p>$$\text{MASE} = \frac{\text{MAE of the model}}{\text{MAE of seasonal naive on training data}}$$</p>
+<p>Here the seasonal naive MAE on the training data is about 26.75. Ridge's test MAE is 26.2, so MASE $= 26.2/26.75 \approx 0.98$: just under 1, so a little better than the baseline. Gradient boosting's MAE of 28.9 gives MASE $1.08$: <em>worse</em> than the baseline. A MASE below 1 means the model earns its keep; it works for any series and avoids MAPE's problems with values near zero.</p></div>
+<p>Ridge on lag features reaches an MAE of 26.2 on the 8-week test period, beating the seasonal naive's 32.6 on the same days. Gradient boosting does slightly worse (28.9): tree models can't extrapolate the rising trend beyond the values seen in training (Lesson 13's "Going deeper"), a common surprise with growing series. Fixes include modelling the change from last week instead of the level, or detrending first.</p>
+
+<h2 id="validation">Validating forecasts: backtesting</h2>
+<p>One test period can be lucky. <strong>Backtesting</strong> (rolling-origin evaluation) repeats "train on everything up to a date, forecast the next block" for several dates in a row. Scikit-learn's <code>TimeSeriesSplit</code> does this:</p>
+<pre><code>from sklearn.model_selection import TimeSeriesSplit
+
+# Backtesting: repeat "train on the past, test on the next 8 weeks" several times
+maes = []
+for tr, te in TimeSeriesSplit(n_splits=5, test_size=56).split(Xf):
+    pred = Ridge(1.0).fit(Xf.iloc[tr], df.y.iloc[tr]).predict(Xf.iloc[te])
+    maes.append(np.mean(np.abs(df.y.iloc[te] - pred)))
+print("MAE in each backtest window:", np.round(maes, 1))
+print("average:", round(np.mean(maes), 1))</code></pre>
+<p>Output:</p>
+<pre><code>MAE in each backtest window: [21.9 28.3 28.6 19.8 26.2]
+average: 25.0</code></pre>
+<p>Across five consecutive 8-week windows, the error ranges from 19.8 to 28.6: real variation from period to period that a single test window would hide. Report the average (25.0) and the spread. Two more rules: leave a <strong>gap</strong> between training and test if your features need recent data that won't be available in time, and re-run the backtest whenever you change a feature.</p>
+
+<h2 id="multistep">Forecasting several steps ahead</h2>
+<p>Businesses usually need more than tomorrow: a 14-day plan, a 12-month budget. Two strategies:</p>
+<ul>
+<li><strong>Recursive</strong>: predict tomorrow, feed that prediction back in as a lag, predict the next day, and so on. One model, but errors can compound.</li>
+<li><strong>Direct</strong>: train a separate model for each horizon ("7 days ahead" uses only features known 7 days earlier). More models, but no compounding.</li>
+</ul>
+<pre><code># Forecasting 14 days ahead recursively: each prediction becomes the next day's lag
+history = s[s.index &lt; start].copy()
+model = Ridge(1.0).fit(Xf[train], df.y[train])
+cols = Xf.columns
+for step in range(14):
+    day = history.index[-1] + pd.Timedelta(days=1)
+    row = {f"lag_{l}": history.iloc[-l] for l in [1, 7, 14, 28]}
+    row.update(roll_7=history.iloc[-7:].mean(), roll_28=history.iloc[-28:].mean(),
+               doy_sin=np.sin(2 * np.pi * day.dayofyear / 365), doy_cos=np.cos(2 * np.pi * day.dayofyear / 365))
+    row.update({f"dow_{d}": float(day.dayofweek == d) for d in range(7)})
+    history.loc[day] = model.predict(pd.DataFrame([row])[cols])[0]
+err = np.abs(history[-14:] - s[history.index[-14:]])
+print("absolute error, days 1–7 ahead: ", round(err[:7].mean(), 1))
+print("absolute error, days 8–14 ahead:", round(err[7:].mean(), 1))</code></pre>
+<p>Output:</p>
+<pre><code>absolute error, days 1–7 ahead:  28.1
+absolute error, days 8–14 ahead: 24.8</code></pre>
+<p>Forecasting recursively from the start of the test period, the error is 28.1 for days 1–7 and 24.8 for days 8–14. On this smooth, strongly seasonal series it doesn't grow, because the 7-day lag mostly comes from real data and the pattern repeats. With shocks or weaker seasonality, recursive errors usually grow with the horizon, so always report accuracy <em>by horizon</em>.</p>
+
+<h2 id="models">The wider toolkit</h2>
+<div class="table-scroll"><table class="tbl">
+<thead><tr><th>Approach</th><th>Good for</th></tr></thead>
+<tbody>
+<tr><td>Seasonal naive, moving averages</td><td>Baselines; surprisingly strong on stable series</td></tr>
+<tr><td>Exponential smoothing (Holt–Winters, ETS)</td><td>Single series with trend and seasonality; fast and robust</td></tr>
+<tr><td>ARIMA / SARIMA</td><td>Single series with autocorrelation; classical statistics with prediction intervals</td></tr>
+<tr><td>Regression or gradient boosting on lag features</td><td>Many related series (thousands of products), extra inputs such as prices and promotions</td></tr>
+<tr><td>Deep learning (sequence models, transformers)</td><td>Very many long series; usually needs lots of data to beat the above</td></tr>
+</tbody></table></div>
+<p>The <code>statsmodels</code> library provides exponential smoothing and ARIMA; this lesson uses only scikit-learn and pandas. In forecasting competitions, simple methods and gradient boosting on well-engineered features have been very hard to beat (the M-competitions).</p>
+
+<h2 id="code">In Python: a compact forecasting pipeline</h2>
+<p>A reusable function that builds past-only features, trains, and scores against the seasonal naive baseline on a time-ordered test period:</p>
+<pre><code>import numpy as np
+import pandas as pd
+from sklearn.linear_model import Ridge
+
+rng = np.random.default_rng(1)
+idx = pd.date_range("2024-01-01", periods=730, freq="D")
+y = pd.Series((100 + 0.05 * np.arange(730)) * np.array([0.9, 1, 1, 1, 1.1, 1.3, 1.2])[idx.dayofweek]
+              * rng.lognormal(0, 0.1, 730), index=idx)
+
+def make_features(y):
+    X = pd.DataFrame({f"lag_{l}": y.shift(l) for l in [1, 7, 14]}, index=y.index)
+    X["roll_7"] = y.shift(1).rolling(7).mean()
+    return X.join(pd.get_dummies(pd.Series(y.index.dayofweek, index=y.index), prefix="dow", dtype=float))
+
+X = make_features(y).dropna(); target = y[X.index]
+cut = X.index[-60]                                        # the last 60 days are the test period
+model = Ridge(1.0).fit(X[X.index &lt; cut], target[target.index &lt; cut])
+pred = model.predict(X[X.index &gt;= cut])
+actual, base = target[target.index &gt;= cut], y.shift(7)[target.index[target.index &gt;= cut]]
+print("model MAE:", round(np.mean(np.abs(actual - pred)), 2), "  seasonal naive MAE:", round(np.mean(np.abs(actual - base)), 2))</code></pre>
+<p>Output:</p>
+<pre><code>model MAE: 14.52   seasonal naive MAE: 20.01</code></pre>
+<p>On this second simulated series, the lag-feature model beats the seasonal naive baseline on the 60-day test period. The same structure (past-only features, a time cut-off, a baseline) scales to thousands of series, with an extra "series id" feature or one model per group.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Time series have <strong>trend</strong>, <strong>seasonality</strong> and <strong>noise</strong>; rows are not independent.</li>
+<li>Always compute <strong>baselines</strong> (naive, seasonal naive, moving average); seasonal naive is often hard to beat.</li>
+<li>Build features <strong>only from the past</strong>: lags, shifted rolling statistics, calendar fields and known future inputs.</li>
+<li>Validate with <strong>time-ordered splits and backtesting</strong>, never shuffled folds.</li>
+<li>Report <strong>MAE</strong> and the scale-free <strong>MASE</strong> (below 1 beats seasonal naive), and accuracy by horizon.</li>
+<li>Tree models can't extrapolate trends; model changes or detrend first.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. For daily sales with a strong weekly pattern, the "seasonal naive" forecast for next Saturday is…</p>
+<button data-opt="a">Next Friday's actual sales</button><button data-opt="b">Last Saturday's sales</button><button data-opt="c">The average of all days</button>
+<div class="q-explain">It repeats the value from one season (one week) earlier.</div></div>
+<div class="q" data-correct="c"><p class="q-text">2. Why is a shuffled k-fold split wrong for forecasting?</p>
+<button data-opt="a">It's too slow</button><button data-opt="b">It uses too little data</button><button data-opt="c">It trains on days after the ones it tests, which leaks the future</button>
+<div class="q-explain">Neighbouring days are similar, so the model "remembers" nearby values it won't have in real use.</div></div>
+<div class="q" data-correct="a"><p class="q-text">3. A model has MASE 1.3. What does that mean?</p>
+<button data-opt="a">Its error is 30% worse than the seasonal naive forecast's</button><button data-opt="b">It's 30% accurate</button><button data-opt="c">It beats the baseline by 30%</button>
+<div class="q-explain">MASE divides by the seasonal naive error; above 1 means worse than the baseline.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. Which feature leaks when predicting day $d$?</p>
+<button data-opt="a">Sales on day $d - 7$</button><button data-opt="b">A 7-day rolling mean that includes day $d$</button><button data-opt="c">The day of the week of $d$</button>
+<div class="q-explain">Shift the series before rolling, so the window ends at day $d - 1$.</div></div>
+<div class="q" data-correct="c"><p class="q-text">5. Sales grow steadily every year. Why might a random forest on the raw sales level forecast poorly?</p>
+<button data-opt="a">Forests can't use lags</button><button data-opt="b">Forests need scaled features</button><button data-opt="c">Trees can't predict values above the range seen in training</button>
+<div class="q-explain">A tree's prediction is an average of training targets, so it can't follow a trend beyond them. Model the change, or detrend.</div></div>
+</div>

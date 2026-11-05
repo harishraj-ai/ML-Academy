@@ -1,0 +1,4 @@
+sweep 1  test RMSE 1.635
+sweep 2  test RMSE 1.456
+sweep 4  test RMSE 0.964
+sweep 8  test RMSE 0.762

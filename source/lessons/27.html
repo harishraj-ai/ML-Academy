@@ -1,0 +1,203 @@
+<h2 id="why">What recommender systems do</h2>
+<p>Every streaming service, online shop and social feed decides, for each person, which few items out of millions to show next. That's a <strong>recommender system</strong>, and it's one of the most commercially important uses of ML: a large share of what people watch and buy online comes from recommendations.</p>
+<p>The data is usually a huge, mostly empty table of <strong>users × items</strong>. Most users have interacted with a tiny fraction of the items, and the task is to fill in the blanks: which unseen items would each user like? This lesson builds the main approaches from scratch: popularity baselines, content-based filtering, collaborative filtering (neighbours) and matrix factorisation, then covers how to evaluate rankings and the practical traps of cold start and feedback loops.</p>
+<div class="box intuition"><div class="box-title">The core idea</div><p>People who agreed in the past tend to agree in the future. <strong>Collaborative filtering</strong> exploits this without knowing anything about the items themselves; <strong>matrix factorisation</strong> makes it scale by describing every user and item with a few hidden "taste" numbers learned from the ratings.</p></div>
+
+<h2 id="data">Explicit and implicit feedback</h2>
+<ul>
+<li><strong>Explicit feedback</strong>: users tell you what they think (star ratings, thumbs up/down). Clear but scarce.</li>
+<li><strong>Implicit feedback</strong>: what users do (clicks, plays, purchases, watch time). Plentiful but noisy, and with no negatives: an unclicked item may be disliked, or simply never seen.</li>
+</ul>
+<p>Most real systems run on implicit feedback. We'll use simulated star ratings so we can measure accuracy precisely: 300 users and 60 films, built from 3 hidden tastes per user and film, with each user having rated about 15% of the films.</p>
+<pre><code>import numpy as np
+import pandas as pd
+
+# 300 users, 60 films. Each user and film has 3 hidden "tastes"; users rate about 15% of films
+rng = np.random.default_rng(0)
+n_users, n_items, k = 300, 60, 3
+U, V = rng.normal(size=(n_users, k)), rng.normal(size=(n_items, k))
+popularity = rng.normal(0, 0.5, n_items)
+true = 3.2 + U @ V.T * 0.6 + popularity + rng.normal(0, 0.4, (n_users, n_items))
+R = np.clip(np.round(true), 1, 5)
+mask = rng.random((n_users, n_items)) &lt; 0.15
+ratings = pd.DataFrame([(u, i, R[u, i]) for u, i in zip(*np.nonzero(mask))], columns=["user", "item", "rating"])
+print(ratings.head(4).to_string(index=False))
+print("ratings:", len(ratings), " share of the matrix filled:", round(mask.mean(), 3))</code></pre>
+<p>Output:</p>
+<pre><code> user  item  rating
+    0     0     3.0
+    0     2     2.0
+    0    10     4.0
+    0    21     4.0
+ratings: 2747  share of the matrix filled: 0.153</code></pre>
+<p>2,747 ratings fill just 15.3% of the 18,000 cells. Real systems are far sparser: often well under 1%.</p>
+
+<h2 id="baselines">Baselines: averages and biases</h2>
+<p>We hold out one rating per user to test on and measure the <strong>root mean squared error</strong> (RMSE) of the predicted ratings. The simplest predictors use averages:</p>
+<pre><code># Hold out one rating per user (for evaluation) and train on the rest
+test = ratings.groupby("user").sample(1, random_state=0)
+train = ratings.drop(test.index)
+mu = train.rating.mean()
+item_mean = train.groupby("item").rating.mean()
+user_bias = (train.rating - mu).groupby(train.user).mean()
+rmse = lambda p: np.sqrt(np.mean((test.rating.to_numpy() - p) ** 2))
+print("global mean      RMSE:", round(rmse(np.full(len(test), mu)), 3))
+print("item average     RMSE:", round(rmse(test.item.map(item_mean).fillna(mu).to_numpy()), 3))
+print("item + user bias RMSE:", round(rmse((test.item.map(item_mean).fillna(mu) + test.user.map(user_bias).fillna(0)).to_numpy()), 3))</code></pre>
+<p>Output:</p>
+<pre><code>global mean      RMSE: 1.077
+item average     RMSE: 1.024
+item + user bias RMSE: 1.057</code></pre>
+<p>Predicting the global average gives RMSE 1.077; each film's own average does better (1.024), because some films are simply better liked. Naively adding a "user bias" (how much each user rates above average) makes things <em>worse</em> here (1.057): with only about 9 ratings per user, that bias is noisy, and it double-counts the film effect (a user who happened to rate good films looks generous). Biases must be learned <em>jointly</em> and with regularization, which is exactly what matrix factorisation below does.</p>
+
+<h2 id="cf">Collaborative filtering: neighbours</h2>
+<p><strong>User-based</strong> collaborative filtering predicts your rating of a film from the ratings of users similar to you. <strong>Item-based</strong> filtering predicts it from your ratings of films similar to that film, where "similar films" are ones the same users rated alike. Similarity is usually cosine or Pearson correlation computed on <em>centred</em> ratings (each user's ratings minus their own average), so a harsh rater and a generous rater with the same tastes look alike:</p>
+<p>$$\hat{r}_{ui} = \bar{r}_u + \frac{\sum_{j \in N(i)} \text{sim}(i, j)\,(r_{uj} - \bar{r}_u)}{\sum_{j \in N(i)} |\text{sim}(i, j)|}$$</p>
+<pre><code># Item-item collaborative filtering: films are similar if the same users rate them alike
+M = np.full((n_users, n_items), np.nan)
+M[train.user, train.item] = train.rating
+centred = M - np.nanmean(M, axis=1, keepdims=True)            # remove each user's personal scale
+C = np.nan_to_num(centred)
+norms = np.linalg.norm(C, axis=0) + 1e-9
+S = (C.T @ C) / np.outer(norms, norms)                         # cosine similarity between films
+np.fill_diagonal(S, 0)
+
+def predict_item_item(u, i, k=10):
+    rated = np.flatnonzero(~np.isnan(M[u]))
+    top = rated[np.argsort(S[i, rated])[::-1][:k]]
+    w = S[i, top]
+    base = np.nanmean(M[u])
+    return base + (w @ centred[u, top]) / (np.abs(w).sum() + 1e-9) if len(top) else mu
+
+p_ii = np.array([predict_item_item(u, i) for u, i in zip(test.user, test.item)])
+print("item-item CF     RMSE:", round(rmse(p_ii), 3))</code></pre>
+<p>Output:</p>
+<pre><code>item-item CF     RMSE: 1.012</code></pre>
+<p>Item-item collaborative filtering reaches RMSE 1.012: a little better than the baselines. With so few ratings per film (about 46), similarities between films are noisy; neighbour methods shine with much denser data. Item-based CF has been widely used in practice ("customers who bought this also bought…") because item similarities are stable and can be computed in advance.</p>
+
+<h2 id="demo">Try it: recommendations from similar users</h2>
+<p>Rate a few films in the "You" row. The demo computes how similar your ratings are to each other user's, and predicts your rating of the films you haven't rated from the users who resemble you. Try rating the sci-fi films high and the romances low, then the reverse.</p>
+<div class="demo" data-demo="recommend"></div>
+
+<h2 id="mf">Matrix factorisation</h2>
+<p>Instead of comparing users directly, <strong>matrix factorisation</strong> gives every user a vector $\mathbf{p}_u$ and every item a vector $\mathbf{q}_i$ of $k$ hidden factors, plus a bias each, and predicts</p>
+<p>$$\hat{r}_{ui} = \mu + b_u + b_i + \mathbf{p}_u\cdot\mathbf{q}_i$$</p>
+<p>The factors are learned by minimising squared error on the <em>known</em> ratings, with L2 regularization (Lesson 10) to stop the many parameters from overfitting:</p>
+<p>$$\min \sum_{(u,i)\ \text{known}} \big(r_{ui} - \hat{r}_{ui}\big)^2 + \lambda\big(\lVert\mathbf{p}_u\rVert^2 + \lVert\mathbf{q}_i\rVert^2 + b_u^2 + b_i^2\big)$$</p>
+<p>It's the low-rank idea from the SVD (Lesson 2's "Going deeper"), adapted to a matrix with missing entries. The factors often end up meaning something ("action vs romance", "mainstream vs art-house") even though nobody labelled them. Below it's trained with stochastic gradient descent (Lesson 7), one rating at a time:</p>
+<pre><code># Matrix factorisation with SGD: learn a vector for every user and film so that rating ≈ mu + b_u + b_i + p_u · q_i
+def factorise(train, k=3, epochs=40, lr=0.02, reg=0.05, seed=0):
+    g = np.random.default_rng(seed)
+    P, Q = g.normal(0, 0.1, (n_users, k)), g.normal(0, 0.1, (n_items, k))
+    bu, bi = np.zeros(n_users), np.zeros(n_items)
+    data = train[["user", "item", "rating"]].to_numpy()
+    for ep in range(epochs):
+        for u, i, r in data[g.permutation(len(data))]:
+            u, i = int(u), int(i)
+            e = r - (mu + bu[u] + bi[i] + P[u] @ Q[i])
+            bu[u] += lr * (e - reg * bu[u]); bi[i] += lr * (e - reg * bi[i])
+            P[u], Q[i] = P[u] + lr * (e * Q[i] - reg * P[u]), Q[i] + lr * (e * P[u] - reg * Q[i])
+    return P, Q, bu, bi
+
+P, Q, bu, bi = factorise(train)
+p_mf = mu + bu[test.user] + bi[test.item] + np.sum(P[test.user] * Q[test.item], axis=1)
+print("matrix factorisation RMSE:", round(rmse(p_mf), 3))</code></pre>
+<p>Output:</p>
+<pre><code>matrix factorisation RMSE: 0.715</code></pre>
+<div class="box example"><div class="box-title">Worked example — one SGD update</div>
+<p>Suppose $\mu = 3.5$, $b_u = 0.2$, $b_i = -0.1$, $\mathbf{p}_u = (0.5, 0.1)$, $\mathbf{q}_i = (0.4, -0.2)$, and the true rating is $r = 4$.</p>
+<p><strong>Prediction:</strong> $3.5 + 0.2 - 0.1 + (0.5 \times 0.4 + 0.1 \times (-0.2)) = 3.6 + 0.18 = 3.78$. <strong>Error:</strong> $e = 4 - 3.78 = 0.22$.</p>
+<p><strong>Update</strong> with learning rate $\eta = 0.1$ and $\lambda = 0$: $b_u \leftarrow 0.2 + 0.1 \times 0.22 = 0.222$; $\mathbf{p}_u \leftarrow \mathbf{p}_u + \eta e\,\mathbf{q}_i = (0.5 + 0.0088,\ 0.1 - 0.0044) = (0.5088, 0.0956)$. The user's vector moves slightly towards the film's, so their predicted rating rises.</p></div>
+<p>Matrix factorisation cuts the RMSE to 0.715, far better than every method above, because the 3 learned factors match the hidden structure of the data. On real data the number of factors is a hyperparameter (often 20–200), tuned with the validation methods of Lesson 23. Libraries use <strong>alternating least squares</strong> (ALS: fix the items and solve for users exactly, then swap), which parallelises well; for implicit feedback, weighted ALS treats every unclicked item as a weak negative.</p>
+
+<h2 id="evaluation">Evaluating recommendations: rankings, not ratings</h2>
+<p>Users see a short list, not predicted stars. What matters is whether the top few items are good, so ranking metrics are used:</p>
+<ul>
+<li><strong>Precision@k</strong>: the share of the top $k$ recommendations that are relevant.</li>
+<li><strong>Recall@k</strong> and <strong>hit rate@k</strong>: the share of relevant items (or of users with at least one) that appear in the top $k$.</li>
+<li><strong>NDCG</strong> and <strong>MAP</strong>: also reward putting relevant items higher in the list.</li>
+</ul>
+<p>Because our data is simulated, we know every user's true rating for every film, so we can check the top 10 unseen films we'd recommend each user:</p>
+<pre><code># Ranking quality: of the 10 unseen films we recommend, how many would the user really like (true rating 4 or 5)?
+# (We can check this only because the data is simulated and we know every true rating.)
+liked = R &gt;= 4
+def precision_at_10(score_fn):
+    hits = []
+    for u in range(n_users):
+        scores = score_fn(u).astype(float).copy()
+        scores[mask[u]] = -np.inf                                   # don't recommend films they've rated
+        top = np.argsort(scores)[::-1][:10]
+        hits.append(liked[u, top].mean())
+    return np.mean(hits)
+
+pop = train.groupby("item").rating.mean().reindex(range(n_items), fill_value=mu).to_numpy()
+rand = np.random.default_rng(1)
+print("precision@10, random films:          ", round(precision_at_10(lambda u: rand.random(n_items)), 3))
+print("precision@10, highest-rated films:   ", round(precision_at_10(lambda u: pop), 3))
+print("precision@10, matrix factorisation:  ", round(precision_at_10(lambda u: bi + Q @ P[u]), 3))</code></pre>
+<p>Output:</p>
+<pre><code>precision@10, random films:           0.447
+precision@10, highest-rated films:    0.671
+precision@10, matrix factorisation:   0.912</code></pre>
+<p>Random films are liked 44.7% of the time (many films are decent). Recommending the highest-rated films to everyone, a popularity baseline, raises that to 67.1%. Matrix factorisation's <em>personalised</em> top 10 is liked 91.2% of the time. On real data you can't see true ratings for unseen items, so offline evaluation hides recent interactions (split by time, Lesson 5), and the final test is an online A/B test (Lesson 4's "Going deeper") on clicks, watch time or purchases.</p>
+
+<h2 id="practice">Cold start, content and feedback loops</h2>
+<ul>
+<li><strong>Cold start.</strong> A new user or a new item has no interactions, so collaborative methods can't place it. Fall back on popularity, ask new users a few questions, or use <strong>content-based</strong> features: an item's genre, text description (TF-IDF or embeddings, Lessons 12 and 19), price; a user's stated preferences. Hybrid systems combine both.</li>
+<li><strong>Two-stage systems.</strong> At scale, a fast <em>retrieval</em> stage picks a few hundred candidates (nearest neighbours of a user embedding, Lesson 11's "Going deeper"), then a <em>ranking</em> model (often gradient boosting or a neural network with many features) orders them.</li>
+<li><strong>Feedback loops and popularity bias.</strong> Users can only click what they're shown, so the system's own choices shape its future training data. Popular items get more exposure and look even more popular. Mix in some exploration (Lesson 28's Thompson sampling) and measure diversity and novelty, not just accuracy.</li>
+<li><strong>What to optimise.</strong> Clicks reward clickbait. Long-term satisfaction, return visits and explicit "not interested" signals are better guides.</li>
+</ul>
+
+<h2 id="code">In Python: content-based recommendations</h2>
+<p>When there are no interactions yet, item descriptions alone can drive recommendations. Here, Chennai Homes listings are recommended by the similarity of their descriptions (TF-IDF and cosine similarity), plus a small bonus for the same area:</p>
+<pre><code>import numpy as np
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+df = pd.read_csv("houses.csv")   # download it from Lesson 1
+T = TfidfVectorizer().fit_transform(df["description"])
+sim = cosine_similarity(T) + 0.2 * (df["area"].to_numpy()[:, None] == df["area"].to_numpy()[None, :])
+np.fill_diagonal(sim, -1)                         # never recommend the house itself
+viewed = 5                                         # a buyer looked at house id 5
+row = df.index[df.id == viewed][0]
+top = np.argsort(sim[row])[::-1][:3]
+print("viewed:", df.description[row])
+print(df.loc[top, ["id", "area", "description"]].to_string(index=False))</code></pre>
+<p>Output:</p>
+<pre><code>viewed: new spacious villa with garden
+ id      area                    description
+ 12    Suburb new spacious villa near school
+  8 Outskirts    new large villa with garden
+  6    Suburb     old villa needs renovation</code></pre>
+<p>A buyer who viewed house 5 ("new spacious villa with garden") is shown other new, spacious villas and houses with gardens first. This needs no ratings at all, so it works from the very first day, and it's easy to explain ("because you viewed…"). It can't discover surprising tastes, which is what collaborative methods add once interactions build up.</p>
+
+<h2 id="summary">Key takeaways</h2>
+<div class="box takeaways"><ul>
+<li>Recommenders fill in a huge, sparse <strong>user × item</strong> matrix; most data is <strong>implicit</strong> feedback with no true negatives.</li>
+<li>Start with <strong>popularity and bias baselines</strong>, which are strong and simple.</li>
+<li><strong>Collaborative filtering</strong> uses similar users or items, on centred ratings; it needs no item information.</li>
+<li><strong>Matrix factorisation</strong> learns low-dimensional user and item vectors with regularization; trained by SGD or ALS.</li>
+<li>Evaluate with <strong>ranking metrics</strong> (precision@k, recall@k, NDCG), time-based splits and, finally, online A/B tests.</li>
+<li>Handle <strong>cold start</strong> with content features, and watch for <strong>feedback loops</strong> and popularity bias.</li>
+</ul></div>
+
+<h2 id="quiz">Check your understanding</h2>
+<div class="quiz">
+<div class="q" data-correct="b"><p class="q-text">1. A user never clicked an item. In implicit feedback, that means…</p>
+<button data-opt="a">They dislike it</button><button data-opt="b">Either they dislike it or they never saw it</button><button data-opt="c">They like it</button>
+<div class="q-explain">Missing interactions mix "not interested" with "not shown", which is the central difficulty of implicit data.</div></div>
+<div class="q" data-correct="a"><p class="q-text">2. Why are ratings centred (minus each user's average) before computing similarity?</p>
+<button data-opt="a">So a harsh and a generous rater with the same tastes look alike</button><button data-opt="b">To make the matrix denser</button><button data-opt="c">To remove missing values</button>
+<div class="q-explain">Centring removes each user's personal rating scale.</div></div>
+<div class="q" data-correct="c"><p class="q-text">3. In matrix factorisation, a predicted rating is…</p>
+<button data-opt="a">The item's average</button><button data-opt="b">The nearest user's rating</button><button data-opt="c">The global mean plus user and item biases plus the dot product of their factor vectors</button>
+<div class="q-explain">$\hat{r}_{ui} = \mu + b_u + b_i + \mathbf{p}_u\cdot\mathbf{q}_i$.</div></div>
+<div class="q" data-correct="b"><p class="q-text">4. A brand-new film has no ratings. Which method can still recommend it?</p>
+<button data-opt="a">Item-item collaborative filtering</button><button data-opt="b">Content-based filtering using its genre and description</button><button data-opt="c">Matrix factorisation</button>
+<div class="q-explain">Collaborative methods need interactions; content features solve cold start.</div></div>
+<div class="q" data-correct="a"><p class="q-text">5. Of the 10 films recommended to a user, 7 are relevant. What is precision@10?</p>
+<button data-opt="a">0.7</button><button data-opt="b">7</button><button data-opt="c">It depends on how many relevant films exist</button>
+<div class="q-explain">Precision@k is relevant items in the top k divided by k. (Recall@k would depend on the total number relevant.)</div></div>
+</div>

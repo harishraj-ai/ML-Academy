@@ -1,0 +1,16 @@
+<h2 id="deeper">Going deeper: alternating least squares and popularity bias</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>Two topics behind production recommenders: <strong>alternating least squares</strong>, the other standard way to train matrix factorisation, and how to measure whether a recommender only pushes what's already popular.</p>
+<p>You'll need: this lesson, ridge regression from Lesson 10, and matrix products from Lesson 17.</p></div>
+
+<h3 id="deeper-als">Alternating least squares</h3>
+<p>Matrix factorisation's loss is hard to minimise for $P$ and $Q$ together, but if you fix the item factors $Q$, finding each user's vector is just a small ridge regression with a closed-form answer, $\mathbf{p}_u = (Q_u^\top Q_u + \lambda I)^{-1} Q_u^\top \mathbf{r}_u$, using only the items user $u$ rated. Then fix $P$ and solve for every item the same way. <strong>Alternating least squares</strong> (ALS) repeats these two steps:</p>
+<!--cell 1-->
+<p>With 3 true factors and 20% of the ratings observed, the test RMSE falls from 1.635 after one sweep to 0.762 after eight. Every user's (and every item's) update is independent, so ALS parallelises very well, which is why Spark's recommender uses it. It also adapts neatly to implicit feedback, where every unobserved pair counts as a weak zero: the weighted version of Hu, Koren and Volinsky.</p>
+
+<h3 id="deeper-popularity">Measuring popularity bias</h3>
+<p>Accuracy metrics reward recommending popular items, because popular items are most likely to appear in anyone's held-out set. Two simple health checks: <strong>catalogue coverage</strong> (the share of items ever recommended to anyone) and the <strong>average popularity</strong> of recommended items:</p>
+<!--cell 2-->
+<p>Recommending the most popular items reaches only 30% of the catalogue, and their average popularity (38.7 users) is well above the catalogue's 29.2. Matrix factorisation recommends 85% of the items, with popularity (30.4) close to average. Track these alongside precision@k: a change that raises precision slightly but halves coverage can make the product worse for users and for the people who supply the items.</p>
+<!--interview-->
+<!--quiz-->

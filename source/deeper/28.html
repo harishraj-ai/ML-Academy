@@ -1,0 +1,16 @@
+<h2 id="deeper">Going deeper: prior sensitivity and checking MCMC</h2>
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>Two habits of careful Bayesian work: checking how much the prior changes the answer, and checking that an MCMC sampler has really explored the posterior before trusting its samples.</p>
+<p>You'll need: this lesson and variance from Lesson 2.</p></div>
+
+<h3 id="deeper-prior">How much does the prior matter?</h3>
+<p>Here three analysts give a conversion rate different priors: flat Beta(1, 1); sceptical Beta(10, 190), centred on 5%; and optimistic Beta(30, 170), centred on 15%. All see the same 6% conversion rate, with growing numbers of visitors:</p>
+<!--cell 1-->
+<p>With 50 visitors, the posterior means range from 5.2% to 13.2%: the priors dominate. With 500 they range from 5.7% to 8.6%, and with 5,000 they all agree within a third of a percentage point. A Beta($a$, $b$) prior acts like $a + b$ earlier visitors, so the optimistic prior is worth 200 of them. A <strong>sensitivity analysis</strong> like this belongs in any Bayesian report: if reasonable priors disagree, the data can't settle the question yet.</p>
+
+<h3 id="deeper-rhat">Has the sampler converged?</h3>
+<p>An MCMC chain starts somewhere arbitrary and needs time to reach the posterior; if its steps are too small it may never get there. The standard check is to run several chains from very different starting points and compare them with the <strong>$\hat{R}$</strong> ("R-hat") statistic, which compares the spread between chains with the spread within them. Values near 1 mean the chains agree; above about 1.01 means keep sampling or fix the sampler. This version of the lesson's model uses a Cauchy likelihood with scale 1 and a wide normal prior:</p>
+<!--cell 2-->
+<p>With a step size of 0.5, four chains starting at −10, 0, 10 and 20 all settle at about 2.9, and $\hat{R}$ is 1.0. With a step size of 0.005 each chain barely moves from where it started, and $\hat{R}$ is enormous. Each chain alone would look perfectly smooth, which is why one chain is never enough. Stan and PyMC report $\hat{R}$ and the effective sample size automatically; check both before using the samples.</p>
+<!--interview-->
+<!--quiz-->

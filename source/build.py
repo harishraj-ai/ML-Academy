@@ -289,10 +289,10 @@ index = head("ML Academy — Learn Machine Learning from Zero", "A free, self-co
 <span class="t-ok">✓ and you'll understand every symbol</span></pre></div>
 </div>
 <div class="stats">
-<div class="stat"><b>21</b><span>Lessons in 5 parts</span></div>
+<div class="stat"><b>{sum(1 for L in LESSONS if L[0] > 0)}</b><span>Lessons in {len(PARTS)} parts</span></div>
 <div class="stat"><b>~{round(total_min/60)} h</b><span>Total study time</span></div>
 <div class="stat"><b>0</b><span>Prerequisites beyond basic algebra</span></div>
-<div class="stat"><b>{n_ready}/21</b><span>Lessons available now</span></div>
+<div class="stat"><b>{n_ready}/{sum(1 for L in LESSONS if L[0] > 0)}</b><span>Lessons available now</span></div>
 </div></div></section>
 
 <section class="block" id="how"><div class="container">
@@ -333,7 +333,7 @@ source ml-env/bin/activate        # on Windows: ml-env\\Scripts\\activate
 pip install numpy pandas scikit-learn matplotlib jupyterlab
 jupyter lab</code></pre>
 <p class="sub">JupyterLab opens in your browser. Every lesson has a <strong>ready-made notebook</strong> with all its code (and the expected outputs): use the <em>Download Jupyter notebook</em> button at the top of a lesson, open the file in JupyterLab, and press Shift+Enter to run each cell. All of them are in the <code>notebooks</code> folder.</p>
-<p class="sub"><strong>Prefer paper?</strong> The <a href="workbook/ML-Academy-workbook.pdf">printable workbook (PDF, about 590 pages)</a> has every lesson with space to work the exercises by hand, and all answers at the back. Each lesson page also prints cleanly on its own.</p>
+<p class="sub"><strong>Prefer paper?</strong> The <a href="workbook/ML-Academy-workbook.pdf">printable workbook (PDF, about 750 pages)</a> has every lesson with space to work the exercises by hand, and all answers at the back. Each lesson page also prints cleanly on its own.</p>
 <p class="sub"><strong>Prefer plain Python scripts?</strong> <a class="btn" href="downloads/ml-academy-code.zip" download>⬇ Download all the code (.zip)</a> — every lesson as a <code>.py</code> file, the coding challenges, the four projects (starter and solution), the dataset and a <code>pytest</code> test suite that checks every script still gives the published results. Unzip it anywhere and see its README.</p>
 </div></section>
 
@@ -750,7 +750,7 @@ qextra = '<script defer src="assets/qbank.js"></script><script>window.MLA_PARTS=
 tinner = ('<div class="box tip"><div class="box-title">How the tests work</div><p>Each part ends with a 15-question test mixing all of its lessons. The questions are new — not the ones from the lesson quizzes — and the answer order is shuffled every time. '
           'After you submit you get your score, an explanation for every question, and links to the exact sections to re-read. Your best score is saved in this browser.</p></div>'
           '<div id="tests-app" aria-live="polite"><noscript><p>The tests need JavaScript.</p></noscript></div>')
-open(os.path.join(OUT, "tests.html"), "w").write(page_shell("End-of-part tests — ML Academy", "A 15-question mixed test for each of the five parts of the course, with explanations and links to weak areas.", "Practice", "End-of-part tests", "Five mixed tests, one per part. Find out what has stuck and what to revisit.", tinner, math=True, extra=qextra))
+open(os.path.join(OUT, "tests.html"), "w").write(page_shell("End-of-part tests — ML Academy", "A 15-question mixed test for each of the six parts of the course, with explanations and links to weak areas.", "Practice", "End-of-part tests", "Six mixed tests, one per part. Find out what has stuck and what to revisit.", tinner, math=True, extra=qextra))
 rinner = ('<div class="box tip"><div class="box-title">Why spaced review?</div><p>We forget most new material within days unless we recall it again — and recalling it just as it starts to fade makes it stick much longer. '
           'This page brings back quiz questions at growing intervals: questions you answer correctly return less and less often; ones you miss come back the next day. '
           'Everything is saved in this browser only.</p></div><div id="review-app" aria-live="polite"><noscript><p>Spaced review needs JavaScript.</p></noscript></div>')
