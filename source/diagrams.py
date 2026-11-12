@@ -213,3 +213,148 @@ D[20] = ("pipelines", svg(640, 230,
     box(305, 130, 90, 40, "impute", "b3") + box(405, 130, 90, 40, "one-hot", "b3") + '<text x="400" y="190" class="t c s">categorical columns</text>' +
     arr(510, 115, 540, 115) + box(545, 90, 85, 50, "model", "b4")),
     "The final project's pipeline. Fitting it learns every step from the training data only; the same object then turns raw rows into predictions.")
+
+# ---- Lessons 21 to 35 ----
+def T(x, y, s, cls="t c s"): return f'<text x="{x}" y="{y}" class="{cls}">{s}</text>'
+def curve(d, cls="ln"): return f'<path d="{d}" class="{cls}" marker-end="url(#ah)"/>'
+
+# 21 — where bias enters
+D[21] = ("sources", svg(700, 200,
+    box(10, 40, 110, 50, "The world", "b", "history, access") + arr(120, 65, 145, 65) +
+    box(150, 40, 120, 50, "Data collected", "b2", "who is in it?") + arr(270, 65, 295, 65) +
+    box(300, 40, 110, 50, "Labels", "b2", "who decided?") + arr(410, 65, 435, 65) +
+    box(440, 40, 110, 50, "Model", "b2", "learns the patterns") + arr(550, 65, 575, 65) +
+    box(580, 40, 110, 50, "Decisions", "b3", "who is affected") +
+    curve("M635 90 V150 H65 V95") + T(350, 172, "feedback loop: today's decisions become tomorrow's data") +
+    T(350, 22, "bias can enter at every step, not only in the model")),
+    "Where unfairness comes from. Each stage can add or amplify it, and decisions feed back into the data the next model learns from.")
+
+# 22 — a join
+D[22] = ("joins", svg(700, 210,
+    T(95, 22, "customers", "t c h") + box(20, 32, 150, 30, "id · city") + box(20, 66, 150, 26, "1 · Chennai", "b2") + box(20, 96, 150, 26, "2 · Madurai", "b2") +
+    T(290, 22, "orders", "t c h") + box(210, 32, 160, 30, "customer_id · amount") + box(210, 66, 160, 26, "1 · 500", "b3") + box(210, 96, 160, 26, "1 · 250", "b3") + box(210, 126, 160, 26, "2 · 900", "b3") +
+    arr(380, 95, 440, 95) + T(410, 85, "JOIN ON id") +
+    T(570, 22, "result: one row per order", "t c h") + box(450, 32, 240, 30, "id · city · amount") + box(450, 66, 240, 26, "1 · Chennai · 500", "b2") + box(450, 96, 240, 26, "1 · Chennai · 250", "b2") + box(450, 126, 240, 26, "2 · Madurai · 900", "b2") +
+    T(350, 190, "a customer with two orders appears twice: check row counts after every join")),
+    "An inner join matches rows on a key. One-to-many joins multiply rows, which is the commonest way a join silently changes your data.")
+
+# 23 — grid vs random search
+def pts(ox, coords, cls): return ''.join(f'<circle cx="{ox+x}" cy="{30+y}" r="6" class="{cls}"/>' for x, y in coords)
+D[23] = ("random", svg(660, 240,
+    '<rect x="40" y="30" width="240" height="160" class="b"/><rect x="380" y="30" width="240" height="160" class="b"/>' +
+    pts(40, [(40, 30), (120, 30), (200, 30), (40, 80), (120, 80), (200, 80), (40, 130), (120, 130), (200, 130)], "wc0") +
+    pts(380, [(22, 120), (58, 40), (85, 145), (110, 70), (138, 25), (160, 110), (186, 60), (205, 150), (230, 95)], "wc2") +
+    T(160, 210, "grid search: 9 runs, only 3 values of each knob") + T(500, 210, "random search: 9 runs, 9 values of each knob") +
+    T(160, 20, "learning rate →") + T(500, 20, "learning rate →")),
+    "Grid against random search with the same budget. When only one knob really matters, random search tries many more of its values.")
+
+# 24 — permutation importance
+D[24] = ("permutation", svg(680, 200,
+    box(10, 60, 130, 60, "Test data", "b", "columns A, B, C") + arr(140, 90, 175, 90) + box(180, 60, 120, 60, "Model", "b2", "score 0.90") +
+    T(240, 40, "1. score as it is") +
+    box(360, 60, 140, 60, "Shuffle column B", "b3", "break its link to y") + arr(500, 90, 535, 90) + box(540, 60, 130, 60, "Model", "b2", "score 0.71") +
+    T(430, 40, "2. shuffle one column, score again") +
+    T(340, 160, "importance of B = 0.90 − 0.71 = 0.19 (repeat and average)", "t c a")),
+    "Permutation importance: shuffle one feature, see how much the score drops. The numbers here are an example; the lesson computes them on real data.")
+
+# 25 — SMOTE
+D[25] = ("smote", svg(600, 230,
+    ''.join(f'<circle cx="{x}" cy="{y}" r="5" class="wn"/>' for x, y in [(60,50),(100,80),(150,40),(200,70),(90,150),(250,40),(300,90),(330,50),(380,70),(420,40),(460,90),(500,60),(140,190),(520,170),(470,185),(60,185)]) +
+    ''.join(f'<circle cx="{x}" cy="{y}" r="7" class="wc3"/>' for x, y in [(220,160),(300,175),(260,130)]) +
+    '<line x1="220" y1="160" x2="300" y2="175" class="dash"/>' + '<circle cx="268" cy="169" r="7" class="wq"/>' +
+    T(300, 215, "new synthetic point: a random spot on the line between two minority neighbours") + T(300, 18, "grey = majority class · red = minority class")),
+    "SMOTE makes new minority examples by interpolating between a minority point and one of its nearest minority neighbours, instead of copying points.")
+
+# 26 — time-series validation
+def fold(y, tr, te, lab):
+    return f'<rect x="60" y="{y}" width="{tr}" height="22" class="b2"/><rect x="{60+tr}" y="{y}" width="{te}" height="22" class="b3"/>' + T(30, y + 15, lab)
+D[26] = ("validation", svg(640, 200,
+    fold(30, 220, 60, "1") + fold(62, 280, 60, "2") + fold(94, 340, 60, "3") + fold(126, 400, 60, "4") +
+    arr(60, 172, 600, 172) + T(330, 192, "time →") +
+    '<rect x="520" y="10" width="14" height="12" class="b2"/>' + T(560, 20, "train") + '<rect x="580" y="10" width="14" height="12" class="b3"/>' + T(612, 20, "test")),
+    "Expanding-window validation: always train on the past and test on the next block, never shuffle. Each fold moves forward in time.")
+
+# 27 — matrix factorisation
+def grid(x, y, r, c, w, cls, marks=()):
+    s = ''
+    for i in range(r):
+        for j in range(c):
+            s += f'<rect x="{x+j*w}" y="{y+i*w}" width="{w}" height="{w}" class="{cls}"/>'
+            if (i, j) in marks: s += f'<text x="{x+j*w+w/2}" y="{y+i*w+w/2+4}" class="t c s">?</text>'
+    return s
+D[27] = ("mf", svg(640, 220,
+    grid(20, 40, 5, 6, 26, "b3", {(0, 2), (1, 4), (2, 0), (2, 5), (3, 3), (4, 1), (4, 4)}) + T(98, 30, "ratings R (users × items)") + T(98, 190, "? = not rated yet") +
+    '<text x="200" y="110" class="t c h">≈</text>' +
+    grid(240, 40, 5, 2, 26, "b2") + T(266, 30, "U (users × k)") +
+    '<text x="320" y="110" class="t c h">×</text>' +
+    grid(350, 79, 2, 6, 26, "b2") + T(428, 70, "Vᵀ (k × items)") +
+    T(470, 190, "predicted rating = user vector · item vector")),
+    "Matrix factorisation: learn a short vector for every user and item so that their dot products match the known ratings; the same dot products fill in the blanks.")
+
+# 28 — Bayesian updating
+D[28] = ("recap", svg(660, 190,
+    box(10, 60, 120, 60, "Prior", "b", "belief before data") + T(160, 95, "×", "t c h") +
+    box(190, 60, 130, 60, "Likelihood", "b3", "fit of each value to the data") + arr(320, 90, 365, 90) +
+    box(370, 60, 140, 60, "Posterior", "b2", "updated belief") + arr(510, 90, 545, 90) + box(550, 60, 100, 60, "Decide", "b4", "with uncertainty") +
+    curve("M440 120 V160 H70 V125") + T(255, 178, "today's posterior is tomorrow's prior")),
+    "Bayes' rule as a loop: prior × likelihood gives the posterior (after normalising), which carries both the estimate and its uncertainty into the next decision.")
+
+# 29 — confounder
+D[29] = ("adjust", svg(560, 220,
+    node(280, 50, "Z") + T(280, 18, "confounder (e.g. age)") +
+    node(110, 170, "T") + T(110, 212, "treatment") + node(450, 170, "Y") + T(450, 212, "outcome") +
+    arr(262, 66, 128, 152) + arr(298, 66, 432, 152) + arr(136, 170, 422, 170, "ln3") +
+    T(280, 160, "causal effect we want", "t c a")),
+    "A confounder Z affects both the treatment and the outcome, so a raw comparison mixes their effects. Adjusting for Z (or randomising T) blocks that back-door path.")
+
+# 30 — MLOps lifecycle
+D[30] = ("lifecycle", svg(700, 230,
+    box(10, 30, 110, 50, "Data", "b") + arr(120, 55, 145, 55) + box(150, 30, 110, 50, "Train", "b2") + arr(260, 55, 285, 55) +
+    box(290, 30, 120, 50, "Validate", "b2", "tests, gates") + arr(410, 55, 435, 55) + box(440, 30, 110, 50, "Package", "b2", "versioned") + arr(550, 55, 575, 55) +
+    box(580, 30, 110, 50, "Serve", "b3", "API / batch") + arr(635, 80, 635, 125) +
+    box(540, 130, 150, 50, "Monitor", "b4", "drift, errors, metrics") + curve("M540 155 H70 V85") +
+    T(300, 145, "retrain when the data or the world changes") + T(300, 210, "every arrow is automated and logged: which data, code and model made each prediction")),
+    "The model lifecycle. Deployment is not the end: monitoring watches for drift and triggers retraining, and versioning lets you trace and roll back.")
+
+# 31 — the RL loop
+D[31] = ("mdp", svg(620, 200,
+    box(30, 70, 170, 70, "Agent", "b2", "policy π(a | s)") + box(420, 70, 170, 70, "Environment", "b3", "states, rewards") +
+    curve("M200 92 H418", "ln3") + T(310, 80, "action a") + curve("M420 120 H202") + T(310, 140, "reward r, next state s′") +
+    T(310, 185, "goal: maximise the discounted return r₀ + γr₁ + γ²r₂ + …")),
+    "A Markov decision process: the agent acts, the environment returns a reward and the next state, and learning means finding the policy with the highest expected return.")
+
+# 32 — active learning loop
+D[32] = ("active", svg(680, 210,
+    box(10, 40, 130, 50, "Labelled pool", "b2", "small") + arr(140, 65, 175, 65) + box(180, 40, 110, 50, "Train", "b2") + arr(290, 65, 325, 65) +
+    box(330, 40, 150, 50, "Score unlabelled", "b", "how unsure is the model?") + arr(480, 65, 515, 65) + box(520, 40, 150, 50, "Pick the most unsure", "b3", "send to a person") +
+    curve("M595 90 V160 H75 V95") + T(340, 182, "a person labels them, they join the pool, repeat")),
+    "Active learning: instead of labelling at random, ask a person to label the examples the current model is least sure about, so each label teaches more.")
+
+# 33 — censoring
+def life(y, end, ev, lab):
+    m = f'<text x="{end}" y="{y+5}" class="t c w">×</text>' if ev else f'<circle cx="{end}" cy="{y}" r="6" class="ring2"/>'
+    return f'<line x1="{60}" y1="{y}" x2="{end}" y2="{y}" class="la"/>' + m + T(30, y + 4, lab)
+D[33] = ("censoring", svg(640, 230,
+    life(40, 300, True, "A") + life(75, 480, False, "B") + life(110, 220, True, "C") + life(145, 560, False, "D") + life(180, 390, True, "E") +
+    '<line x1="560" y1="20" x2="560" y2="195" class="dash"/>' + T(560, 15, "study ends") + T(320, 220, "× = event seen · ○ = censored (left or study ended): we only know it lasted at least this long")),
+    "Censoring: for B and D we never see the event, only that they survived at least until they left. Survival methods use that partial information instead of dropping it.")
+
+# 34 — graph and adjacency matrix
+D[34] = ("represent", svg(640, 220,
+    '<line x1="80" y1="60" x2="200" y2="60" class="ln"/><line x1="80" y1="60" x2="140" y2="170" class="ln"/><line x1="200" y1="60" x2="140" y2="170" class="ln"/><line x1="200" y1="60" x2="300" y2="120" class="ln"/>' +
+    node(80, 60, "A") + node(200, 60, "B") + node(140, 170, "C") + node(300, 120, "D") +
+    T(190, 210, "4 nodes, 4 edges") +
+    ''.join(T(430 + j * 40, 40, l, "t c h") for j, l in enumerate("ABCD")) + ''.join(T(395, 72 + i * 36, l, "t c h") for i, l in enumerate("ABCD")) +
+    ''.join(f'<rect x="{412+j*40}" y="{50+i*36}" width="36" height="32" class="{"b2" if v else "b"}"/><text x="{430+j*40}" y="{71+i*36}" class="t c">{v}</text>'
+            for i, row in enumerate([[0,1,1,0],[1,0,1,1],[1,1,0,0],[0,1,0,0]]) for j, v in enumerate(row)) +
+    T(490, 210, "adjacency matrix: 1 where two nodes are linked")),
+    "The same graph two ways: as a picture and as an adjacency matrix. Row sums are the degrees (B has 3 links), the simplest centrality.")
+
+# 35 — HMM
+D[35] = ("hmm", svg(640, 220,
+    ''.join(node(90 + 150 * i, 70, f"z{'₁₂₃₄'[i]}", "b2") for i in range(4)) +
+    ''.join(arr(114 + 150 * i, 70, 216 + 150 * i, 70) for i in range(3)) +
+    ''.join(arr(90 + 150 * i, 94, 90 + 150 * i, 140) for i in range(4)) +
+    ''.join(node(90 + 150 * i, 165, f"x{'₁₂₃₄'[i]}", "b3") for i in range(4)) +
+    T(320, 25, "hidden states (e.g. weather) follow transition probabilities") + T(320, 212, "observations (e.g. umbrella) depend only on the current hidden state")),
+    "A hidden Markov model: a chain of hidden states, each emitting one observation. The forward algorithm and Viterbi work along this chain.")
