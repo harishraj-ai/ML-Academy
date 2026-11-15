@@ -204,17 +204,12 @@ MAE per fold: [14.4  8.9 14.5 20. ]  mean: 14.4</code></pre></div><div class="bo
 <table class="tbl"><thead><tr><th>Question</th><th>Tool</th></tr></thead><tbody><tr><td>Is my tuned model's score too optimistic?</td><td><strong>Nested cross-validation</strong></td></tr><tr><td>My rows are ordered in time or grouped by customer</td><td><strong>Time and group splits</strong></td></tr><tr><td>Would collecting more data help?</td><td><strong>Learning curves</strong></td></tr><tr><td>Does new data still look like training data?</td><td><strong>Adversarial validation</strong></td></tr></tbody></table>
 <p>You'll need: k-fold cross-validation and data leakage from this lesson. New words are explained as they come.</p></div>
 <div class="box def"><div class="box-title">New words for this section</div><ul><li><strong>Fold</strong>: one slice of the data used for validation in cross-validation.</li><li><strong>Hyperparameter / setting</strong>: a choice you make before training, like C or the number of trees.</li><li><strong>Independent rows</strong>: knowing one row tells you nothing about another.</li><li><strong>Distribution shift</strong>: new data that looks different from the training data.</li><li><strong>AUC</strong>: 0.5 = guessing, 1 = perfect separation.</li></ul></div>
-
-
 <h3 id="deeper-nested">Tuning inflates scores: nested cross-validation</h3>
 <div class="box intuition"><div class="box-title">Picture it</div><p>Twenty students take the same practice test and you hire the top scorer. Part of their score was luck, so they'll probably do a little worse on the real exam. Picking the best of many settings has the same effect on validation scores.</p></div>
 <figure class="fig"><svg role="img" aria-label="Sketch: in each outer fold, the training part runs its own inner cross-validation to choose the setting, and the held-out test part scores the result." xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 130"><rect x="10" y="20" width="540" height="40" rx="8" class="b"/><text x="20" y="45" class="t">outer fold:</text><rect x="100" y="27" width="330" height="26" rx="5" class="b2"/><text x="265" y="45" class="t c s">training part → inner CV picks the setting</text><rect x="440" y="27" width="100" height="26" rx="5" class="b3"/><text x="490" y="45" class="t c s">test part</text><text x="280" y="90" class="t c">The test part never takes part in choosing the setting,</text><text x="280" y="110" class="t c">so its score is honest. Repeat for every outer fold and average.</text></svg><figcaption>Nested cross-validation: choose inside, score outside.</figcaption></figure>
-<p>When you try many settings and keep the one with the best cross-validated score, that best score is <strong>optimistic</strong>. Some settings win partly by luck on these particular folds, the same way the best of 20 coin-flippers looks skilled. Lesson 4's "Going deeper" called this multiple testing. The honest fix is <strong>nested cross-validation</strong>:</p>
-<ul>
-<li>An <strong>inner</strong> loop chooses the settings, using only the training part of each outer fold.</li>
-<li>An <strong>outer</strong> loop scores the whole procedure ("tune, then fit") on data the tuning never saw.</li>
-</ul>
-<p>Below, a support-vector classifier (Lesson 15) is tuned over 25 combinations of settings on a small, noisy dataset:</p>
+<p>When you try many settings and keep the one with the best CV score, that score is <strong>optimistic</strong>: some settings win partly by luck on these particular folds (Lesson 4's Going deeper called this multiple testing). The honest fix is <strong>nested cross-validation</strong>:</p>
+<ul><li>An <strong>inner</strong> loop chooses the settings, using only the training part of each outer fold.</li><li>An <strong>outer</strong> loop scores the whole recipe ("tune, then fit") on data the tuning never saw.</li></ul>
+<p>A support-vector classifier (Lesson 15) is tuned over 25 combinations on a small, noisy dataset:</p>
 <pre><code>import numpy as np
 from sklearn.datasets import make_classification
 from sklearn.model_selection import GridSearchCV, cross_val_score, KFold
@@ -229,19 +224,14 @@ search = GridSearchCV(SVC(), grid, cv=inner).fit(X, y)
 print("best score inside the search (optimistic):", round(search.best_score_, 3))
 nested = cross_val_score(GridSearchCV(SVC(), grid, cv=inner), X, y, cv=outer)
 print("nested cross-validation (honest):        ", round(nested.mean(), 3))</code></pre><p>Output:</p><pre><code>best score inside the search (optimistic): 0.633
-nested cross-validation (honest):         0.608</code></pre>
-<p>The search reports 0.633, but the nested estimate is 0.608. The gap grows with the number of settings you try and shrinks with more data. Nested CV is the right way to <em>report</em> a tuned model's performance. To build the final model, you still run the ordinary search on all the data. Nested CV tells you how well that recipe is likely to do.</p>
-
+nested cross-validation (honest):         0.608</code></pre><p>Nested CV is the right way to <em>report</em> a tuned model's score. To build the final model you still run the ordinary search on all the data; nested CV tells you how well that recipe is likely to do.</p>
 <div class="box example"><div class="box-title">Worked example — reading the gap</div><ol><li>Best score inside the search: 0.633 (best of 25 tries, so lucky).</li><li>Nested estimate: 0.608 (honest).</li><li>The 0.025 gap is the luck. It grows with more settings tried, shrinks with more data.</li></ol></div>
 <h3 id="deeper-dependent">When rows aren't independent: time and groups</h3>
 <div class="box intuition"><div class="box-title">Picture it</div><p>Predicting tomorrow's weather with a shuffled split is like being shown Monday and Wednesday and asked to guess Tuesday: easy. Real use is guessing next week from the past, which is much harder.</p></div>
 <figure class="fig"><svg role="img" aria-label="Sketch: a shuffled split mixes training and validation days; a time-ordered split trains on the past and validates on the later days." xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 110"><text x="10" y="30" class="t">shuffled:</text><g><rect x="100" y="15" width="40" height="22" class="b2"/><rect x="140" y="15" width="40" height="22" class="b3"/><rect x="180" y="15" width="40" height="22" class="b2"/><rect x="220" y="15" width="40" height="22" class="b2"/><rect x="260" y="15" width="40" height="22" class="b3"/><rect x="300" y="15" width="40" height="22" class="b2"/><rect x="340" y="15" width="40" height="22" class="b3"/><rect x="380" y="15" width="40" height="22" class="b2"/></g><text x="430" y="31" class="t s">peeks at the future</text><text x="10" y="80" class="t">time-ordered:</text><rect x="100" y="65" width="240" height="22" class="b2"/><rect x="340" y="65" width="80" height="22" class="b3"/><text x="430" y="81" class="t s">past → future</text></svg><figcaption>Green = train, amber = validate.</figcaption></figure>
 <p>Ordinary k-fold assumes each row is an independent draw. Two very common cases break that:</p>
-<ul>
-<li><strong>Time series.</strong> Neighbouring days look alike. A shuffled split puts Tuesday in training and Wednesday in validation, so the model just "remembers" the nearby level, which it won't be able to do for next month.</li>
-<li><strong>Groups.</strong> Several rows per customer, patient or house. If one customer's rows land on both sides of the split, the model learns that person rather than the pattern.</li>
-</ul>
-<p>Here's a daily sales series that drifts slowly over time, scored both ways with a random forest (Lesson 14):</p>
+<ul><li><strong>Time series.</strong> Neighbouring days look alike. A shuffled split puts Tuesday in training and Wednesday in validation, so the model just "remembers" the nearby level, which it can't do for next month.</li><li><strong>Groups.</strong> Several rows per customer, patient or house. If one customer's rows land on both sides, the model learns that person, not the pattern.</li></ul>
+<p>A daily sales series that drifts slowly, scored both ways with a random forest (Lesson 14):</p>
 <pre><code>from sklearn.model_selection import TimeSeriesSplit
 from sklearn.ensemble import RandomForestRegressor
 
@@ -257,13 +247,11 @@ shuffled = cross_val_score(model, Xt, yt, cv=KFold(5, shuffle=True, random_state
 forward = cross_val_score(model, Xt, yt, cv=TimeSeriesSplit(5), scoring="r2")
 print("shuffled k-fold R²:   ", round(shuffled.mean(), 3))
 print("time-ordered split R²:", round(forward.mean(), 3))</code></pre><p>Output:</p><pre><code>shuffled k-fold R²:    0.957
-time-ordered split R²: -0.609</code></pre>
-<p>Shuffled k-fold says $R^2 = 0.957$: superb. A <strong>time-ordered split</strong> (<code>TimeSeriesSplit</code>, which always trains on the past and validates on the future) says $-0.609$: worse than predicting the average. The random forest can't extrapolate a drifting trend at all, and the shuffled split hid that completely. For grouped data, the same idea is <code>GroupKFold</code>: all of one group's rows go to the same side of the split. For time series with groups, combine them. A useful rule: <strong>split the way the model will be used</strong>.</p>
-
+time-ordered split R²: -0.609</code></pre><p>The random forest can't extrapolate a drifting trend at all, and the shuffled split hid that completely. For grouped data use <code>GroupKFold</code> (all of one group on the same side); for time series with groups, combine them. Rule: <strong>split the way the model will be used</strong>.</p>
 <div class="box example"><div class="box-title">Worked example — reading the result</div><ol><li>Shuffled k-fold: $R^2=0.957$, looks superb.</li><li>Time-ordered split: $R^2=-0.609$, worse than predicting the average.</li><li>Same model, same data. Only the split changed: it should match how the model will be used.</li></ol></div>
 <h3 id="deeper-learning-curves">Learning curves: would more data help?</h3>
 <div class="box intuition"><div class="box-title">Picture it</div><p>Before buying more ingredients, check whether the recipe is the problem. A learning curve shows whether more data still improves the model or whether it has stopped improving.</p></div>
-<p>Collecting data is expensive, so it's worth checking first whether it would help. A <strong>learning curve</strong> trains on growing subsets of the data and plots training and validation scores against training-set size:</p>
+<p>A <strong>learning curve</strong> trains on growing subsets of the data and plots training and validation scores against training-set size:</p>
 <pre><code>from sklearn.model_selection import learning_curve
 from sklearn.datasets import load_breast_cancer
 from sklearn.linear_model import LogisticRegression
@@ -278,24 +266,15 @@ for s, a, b in zip(sizes, tr.mean(axis=1), va.mean(axis=1)):
   45 training examples: train accuracy 0.991   validation accuracy 0.968
  113 training examples: train accuracy 0.995   validation accuracy 0.968
  227 training examples: train accuracy 0.989   validation accuracy 0.970
- 455 training examples: train accuracy 0.989   validation accuracy 0.981</code></pre>
-<p>How to read it:</p>
-<ul>
-<li><strong>Big gap, validation still rising</strong> (high variance): more data is likely to help. Here, validation accuracy climbs from 0.916 with 22 examples to 0.981 with 455, and the gap to training (0.989) is now small.</li>
-<li><strong>Both curves low and close together</strong> (high bias): more data won't help much. You need a more flexible model or better features.</li>
-<li><strong>Both flat and close, both high</strong>: you're near the limit for this model and these features.</li>
-</ul>
-<p>This is the bias–variance trade-off (Lesson 10) made visible. It answers a question that cross-validation alone can't.</p>
-
+ 455 training examples: train accuracy 0.989   validation accuracy 0.981</code></pre><p>How to read it:</p>
+<ul><li><strong>Big gap, validation still rising</strong> (high variance): more data will probably help. Here validation climbs from 0.916 with 22 examples to 0.981 with 455, and the gap to training (0.989) is now small.</li><li><strong>Both low and close together</strong> (high bias): more data won't help much. You need a more flexible model or better features.</li><li><strong>Both high, flat and close</strong>: you're near the limit for this model and these features.</li></ul>
+<figure class="fig"><svg role="img" aria-label="Sketch: two learning curves. Left: training score high and validation score rising towards it, so more data helps. Right: both curves low and close together, so more data will not help." xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 150"><line x1="40" y1="130" x2="260" y2="130" class="ax"/><path d="M50 20 Q 150 30 250 45" class="la" fill="none"/><path d="M50 120 Q 150 80 250 60" class="lw" fill="none"/><text x="150" y="146" class="t c s">gap closing: more data helps</text><line x1="300" y1="130" x2="520" y2="130" class="ax"/><path d="M310 70 Q 410 85 510 90" class="la" fill="none"/><path d="M310 115 Q 410 100 510 95" class="lw" fill="none"/><text x="410" y="146" class="t c s">both low: change the model</text><text x="60" y="15" class="t a">train</text><text x="60" y="112" class="t w">validation</text></svg><figcaption>Reading a learning curve.</figcaption></figure>
+<p>This is the bias–variance trade-off (Lesson 10) made visible, and it answers a question cross-validation alone can't.</p>
 <h3 id="deeper-shift">When the world changes: distribution shift</h3>
 <div class="box intuition"><div class="box-title">Picture it</div><p>Train a model on summer shoppers and use it in December. Adversarial validation asks a simple question: can a model tell the old rows from the new ones? If yes, they're different.</p></div>
-<p>All validation assumes future data comes from the same distribution as your training data. In practice it often drifts:</p>
-<ul>
-<li><strong>Covariate shift</strong>: the inputs change, but the relationship stays (a new city with bigger homes).</li>
-<li><strong>Label shift</strong>: the class balance changes (fraud rises during a holiday season).</li>
-<li><strong>Concept drift</strong>: the relationship itself changes (after a rule change, the same features mean something else).</li>
-</ul>
-<p>A neat trick to detect the first kind is <strong>adversarial validation</strong>. Label training rows 0 and new rows 1, and train a classifier to tell them apart. If it can't (AUC near 0.5), the two look alike. If it can, the shift is real, and its feature importances show <em>where</em> it is.</p>
+<p>All validation assumes future data looks like training data. In practice it drifts:</p>
+<ul><li><strong>Covariate shift</strong>: the inputs change, the relationship stays (a new city with bigger homes).</li><li><strong>Label shift</strong>: the class balance changes (fraud rises during the holidays).</li><li><strong>Concept drift</strong>: the relationship itself changes (after a rule change, the same features mean something else).</li></ul>
+<p>To detect the first kind, use <strong>adversarial validation</strong>: label training rows 0 and new rows 1, and train a classifier to tell them apart. AUC near 0.5 → they look alike. Clearly above → the shift is real, and feature importances show <em>where</em>.</p>
 <pre><code>from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import cross_val_predict, StratifiedKFold
 from sklearn.ensemble import RandomForestClassifier
@@ -313,9 +292,7 @@ for name, prod in [("no shift", prod_same), ("feature 0 drifted", prod_shift)]:
     p = cross_val_predict(clf, Xa, ya, cv=cv, method="predict_proba")[:, 1]
     imp = clf.fit(Xa, ya).feature_importances_
     print(f"{name:18}: AUC {roc_auc_score(ya, p):.3f}   feature importances {imp.round(2)}")</code></pre><p>Output:</p><pre><code>no shift          : AUC 0.540   feature importances [0.34 0.34 0.32]
-feature 0 drifted : AUC 0.695   feature importances [0.59 0.21 0.2 ]</code></pre>
-<p>With no shift, the AUC is 0.540, close to chance, and the importances are evenly spread. When feature 0 drifts by 0.8 standard deviations, the AUC jumps to 0.695 and feature 0's importance rises to 0.59, pointing straight at the culprit. In production, teams monitor this kind of drift continuously and retrain when it appears (Lesson 20).</p>
-
+feature 0 drifted : AUC 0.695   feature importances [0.59 0.21 0.2 ]</code></pre><p>In production, teams monitor drift continuously and retrain when it appears (Lesson 30).</p>
 <div class="box example"><div class="box-title">Worked example — reading adversarial validation</div><ol><li>No shift: AUC 0.540, about guessing → the data looks alike.</li><li>Feature 0 drifts: AUC 0.695 → the data really changed.</li><li>Feature 0's importance 0.59 → that is where the change is.</li></ol></div>
 <h3 id="deeper-checklist">A validation checklist</h3>
 <table class="tbl">

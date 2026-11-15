@@ -218,11 +218,9 @@ print({c: round(float(v), 3) for c, v in zip(cols, m3.coef_)}, round(m3.intercep
 <table class="tbl"><thead><tr><th>Question</th><th>Tool</th></tr></thead><tbody><tr><td>When can I trust the weights?</td><td><strong>The four assumptions (LINE)</strong></td></tr><tr><td>Why squared error at all?</td><td><strong>Maximum likelihood, Gauss–Markov</strong></td></tr><tr><td>Is this weight real or chance?</td><td><strong>Standard errors, p-values, intervals</strong></td></tr><tr><td>Why do some weights have huge uncertainty?</td><td><strong>Multicollinearity and VIF</strong></td></tr><tr><td>Did adding features really help?</td><td><strong>Adjusted $R^2$ and cross-validation</strong></td></tr><tr><td>What if errors grow with the prediction?</td><td><strong>Log transform</strong></td></tr><tr><td>Is one point bending the line?</td><td><strong>Leverage, Cook's distance, Huber</strong></td></tr><tr><td>How do I use categories?</td><td><strong>Dummy variables</strong></td></tr></tbody></table>
 <p>You'll need: standard deviation and the normal distribution (Lesson 4) and the normal equation from section 8. New words are explained as they come.</p></div>
 <div class="box def"><div class="box-title">New words for this section</div><ul><li><strong>Residual</strong>: actual value minus prediction: the model's miss for that row.</li><li><strong>Standard error (SE)</strong>: how much a weight would wobble if you collected a new sample.</li><li><strong>t-statistic</strong>: weight ÷ SE: how many wobbles away from zero the weight is.</li><li><strong>Confidence interval</strong>: a range of plausible values for the true weight.</li><li><strong>Multicollinearity</strong>: features that move together, so their effects are hard to separate.</li><li><strong>Leverage</strong>: how far a point's inputs are from the rest; far points pull the line strongly.</li></ul></div>
-
-
 <h3 id="deeper-assumptions">The four assumptions, and what each one buys you</h3>
 <div class="box intuition"><div class="box-title">Picture it</div><p>A line always fits; the question is whether its numbers can be trusted. The four assumptions are like a car's safety check: the car may still drive if one fails, but you shouldn't trust the speedometer.</p></div>
-<p>Least squares always gives you <em>a</em> line. Whether you can trust the line's weights, standard errors and p-values depends on four assumptions about the errors $\varepsilon_i = y_i - (\mathbf{w}\cdot\mathbf{x}_i + b)$. An easy way to remember them is <strong>LINE</strong>:</p>
+<p>Least squares always gives you <em>a</em> line. Whether you can trust its weights, standard errors and p-values depends on four assumptions about the errors $\varepsilon_i = y_i - (\mathbf{w}\cdot\mathbf{x}_i + b)$, remembered as <strong>LINE</strong>:</p>
 <table class="tbl">
 <thead><tr><th>Assumption</th><th>In plain words</th><th>How to check</th><th>If it fails</th></tr></thead>
 <tbody>
@@ -231,26 +229,21 @@ print({c: round(float(v), 3) for c, v in zip(cols, m3.coef_)}, round(m3.intercep
 <tr><td><strong>N</strong>ormality</td><td>Errors follow a bell curve.</td><td>Histogram of residuals.</td><td>Matters only for exact p-values in <em>small</em> datasets; with a few hundred points it hardly matters.</td></tr>
 <tr><td><strong>E</strong>qual spread</td><td>Errors are about as big for large predictions as for small ones (statisticians call this <em>homoscedasticity</em>).</td><td>Residuals fan out as predictions grow.</td><td>Weights are still fine on average, but standard errors are wrong. Fixes below.</td></tr>
 </tbody></table>
-<p>Notice what is <em>not</em> on the list: the features don't need to be normally distributed, and neither does $y$ itself. Only the errors matter. And if all you want is good predictions on new data, checked on a test set, none of these is strictly required. They matter when you start saying things like "bmi has a real effect".</p>
-
+<p>Notice what is <em>not</em> on the list: the features and $y$ itself don't need to be bell-shaped; only the errors matter. And if all you want is good predictions, checked on a test set, none of these is strictly required. They matter when you start saying "bmi has a real effect".</p>
 <h3 id="deeper-why-ls">Why squared error? Two classic answers</h3>
 <div class="box intuition"><div class="box-title">Picture it</div><p>If errors follow a bell curve, the most believable line is the one with the smallest total squared miss. Squared error isn't an arbitrary choice; it falls out of the bell curve.</p></div>
-<p><strong>1. It is the maximum-likelihood answer for bell-curve noise.</strong> Suppose $y_i = \mathbf{w}\cdot\mathbf{x}_i + b + \varepsilon_i$ with $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$. The probability (likelihood) of seeing all the data is a product of normal densities. Taking the log turns the product into a sum:</p>
+<p><strong>1. It's the maximum-likelihood answer for bell-curve noise.</strong> If $y_i = \mathbf{w}\cdot\mathbf{x}_i + b + \varepsilon_i$ with $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$, the log of the probability of all the data is</p>
 <p>$$\log L = -\frac{n}{2}\log(2\pi\sigma^2) - \frac{1}{2\sigma^2}\sum_{i=1}^{n}\big(y_i - \hat{y}_i\big)^2$$</p>
-<p>The first term doesn't depend on the weights, so making $\log L$ as large as possible is exactly the same as making $\sum (y_i-\hat{y}_i)^2$ as small as possible. Least squares <em>is</em> maximum likelihood under normal noise. (With Laplace noise, which has heavier tails than the bell curve, the same argument gives absolute error instead, which leads to median regression. Lesson 8 uses the same reasoning to derive log loss.)</p>
-<p><strong>2. The Gauss–Markov theorem.</strong> If the errors have mean zero, are uncorrelated and have equal spread (the I and E above; normality is not needed), then among all estimators that are <em>linear in $y$ and unbiased</em>, least squares has the smallest variance. It is the "best linear unbiased estimator", or <strong>BLUE</strong>. The fine print matters: a <em>biased</em> estimator can do better overall. Ridge regression (Lesson 10) accepts a little bias for a big drop in variance, and often predicts better.</p>
-
+<p>The first part doesn't involve the weights, so making $\log L$ as large as possible is the same as making $\sum (y_i-\hat{y}_i)^2$ as small as possible: least squares <em>is</em> maximum likelihood under normal noise. (With heavier-tailed Laplace noise you get absolute error instead, i.e. median regression.)</p>
+<p><strong>2. The Gauss–Markov theorem.</strong> If errors have mean zero, are uncorrelated and have equal spread (normality not needed), then among all estimators that are <em>linear in $y$ and unbiased</em>, least squares has the smallest variance: it is "BLUE". The fine print matters: a <em>biased</em> estimator can do better overall, which is what ridge (Lesson 10) does.</p>
 <h3 id="deeper-inference">How sure are we about each weight? Standard errors, p-values and intervals</h3>
 <div class="box intuition"><div class="box-title">Picture it</div><p>Ask ten different samples of patients and you'd get ten slightly different weights. The standard error says how much they would typically differ; a weight many standard errors from zero is very unlikely to be luck.</p></div>
-<p>Fit the same model on a different sample of patients and you'd get slightly different weights. The <strong>standard error</strong> (SE) of a weight measures how much it would typically wobble from sample to sample. For least squares there's an exact formula:</p>
+<p>Fit the same model on a different sample and the weights wobble. The <strong>standard error</strong> (SE) measures how much. For least squares there's an exact formula:</p>
 <p>$$\operatorname{Var}(\hat{\mathbf{w}}) = \sigma^2\,(X^\top X)^{-1}, \qquad \hat{\sigma}^2 = \frac{\text{SS}_{\text{res}}}{n - d - 1}$$</p>
-<p>Here $X$ includes the column of ones, $d$ is the number of features, and we divide by $n-d-1$ (not $n$) because $d+1$ weights were fitted from the same data. Each weight's SE is the square root of the matching diagonal entry. From the SE you get three standard results:</p>
-<ul>
-<li>The <strong>t-statistic</strong> $t = \hat{w}/\text{SE}$: how many standard errors the weight is from zero.</li>
-<li>The <strong>p-value</strong>: if the feature truly had no effect (its weight is really $0$), the chance of getting a $|t|$ at least this big by luck. It comes from a $t$-distribution with $n-d-1$ degrees of freedom.</li>
-<li>A <strong>95% confidence interval</strong> $\hat{w} \pm t^{*}\,\text{SE}$, where $t^{*} \approx 1.97$ here (it approaches $1.96$ for large $n$).</li>
-</ul>
-<p>Here it is from scratch on the diabetes data from section 11 (442 patients, 10 features). Statistics packages print the same table: with the <code>statsmodels</code> library it's <code>sm.OLS(y, sm.add_constant(X)).fit().summary()</code>.</p>
+<p>In words: the noise level times "how little information the features give about each weight". We divide by $n-d-1$ because $d+1$ weights were fitted from the same data. Each weight's SE is the square root of the matching diagonal entry. From it:</p>
+<ul><li><strong>t-statistic</strong> $t=\hat w/\text{SE}$: how many wobbles the weight is from zero.</li><li><strong>p-value</strong>: if the feature truly had no effect, the chance of a $|t|$ this big by luck.</li><li><strong>95% interval</strong> $\hat{w} \pm t^{*}\,\text{SE}$, with $t^*\approx1.97$ here (about 1.96 for large $n$).</li></ul>
+<div class="box example"><div class="box-title">Worked example — bmi's row by hand</div><ol><li>Weight about 520 with SE about 66.6.</li><li>$t\approx520/66.6\approx7.81$: almost eight wobbles from zero.</li><li>Interval $\approx520\pm1.97\times66.6$: about 389 to 651, nowhere near 0.</li></ol></div>
+<p>From scratch on the diabetes data (442 patients, 10 features); <code>statsmodels</code> prints the same table with <code>sm.OLS(y, sm.add_constant(X)).fit().summary()</code>:</p>
 <pre><code>import numpy as np
 from scipy import stats
 from sklearn.datasets import load_diabetes
@@ -285,21 +278,14 @@ s2       476.7  339.0   1.41  0.160   [ -189.6,  1143.1]
 s3       101.0  212.5   0.48  0.635   [ -316.7,   518.8]
 s4       177.1  161.5   1.10  0.273   [ -140.3,   494.4]
 s5       751.3  171.9   4.37  0.000   [  413.4,  1089.1]
-s6        67.6   66.0   1.02  0.306   [  -62.1,   197.3]</code></pre>
-<p>How to read it: <strong>bmi</strong> is 7.81 standard errors from zero, with an interval from 389 to 651 that is nowhere near zero, so its effect is clearly real. <strong>age</strong> has $p = 0.867$: its weight of $-10$ is tiny compared with its uncertainty, and the interval runs from $-127$ to $+107$, so the data can't even tell the direction. <strong>s1</strong> is the interesting one: a large weight ($-792$) and yet $p = 0.058$, because its SE (416.7) is more than six times bigger than those of age, sex, bmi and bp. The next subsection explains why.</p>
-<div class="box warn"><div class="box-title">Three things a p-value does not mean</div><ul>
-<li>$p = 0.058$ is not "a 5.8% chance the feature is useless". It's the chance of data this extreme <em>if</em> the feature were useless.</li>
-<li>A large p-value does not prove there's no effect. Often there just isn't enough data, or the feature overlaps with another one.</li>
-<li>A tiny p-value does not mean the effect is large, useful or causal. With a million rows, trivial effects get $p &lt; 0.001$. Look at the size of the weight and the interval too.</li>
-</ul></div>
-
+s6        67.6   66.0   1.02  0.306   [  -62.1,   197.3]</code></pre><div class="box warn"><div class="box-title">Three things a p-value does not mean</div><ul><li>$p = 0.058$ is not "a 5.8% chance the feature is useless". It's the chance of data this extreme <em>if</em> it were useless.</li><li>A large p-value doesn't prove no effect: often there just isn't enough data, or the feature overlaps another.</li><li>A tiny p-value doesn't mean a large, useful or causal effect. With a million rows, trivial effects get $p&lt;0.001$.</li></ul></div>
 <div class="box example"><div class="box-title">Worked example — reading three rows</div><ol><li>bmi: $t=7.81$, interval 389 to 651. Far from zero → a real effect.</li><li>age: weight −10, interval −127 to +107. Crosses zero → can't even tell the direction.</li><li>s1: big weight −792 but $p=0.058$, because its SE (416.7) is huge. Next subsection explains why.</li></ol></div>
 <h3 id="deeper-vif">When features overlap: multicollinearity and the VIF</h3>
 <div class="box intuition"><div class="box-title">Picture it</div><p>Two friends always arrive at parties together. If the party gets louder, you can't tell which one caused it. s1 and s2 (two cholesterol measures) are like that: the model knows their joint effect, not each one's.</p></div>
-<p>In the diabetes data, <strong>s1</strong> (total cholesterol) and <strong>s2</strong> (LDL, the main part of total cholesterol) move together: their correlation is about 0.9. The model can predict well using either one, so it struggles to decide how to split the credit between them. Small changes in the data swing the weight from one to the other, and that shows up as huge standard errors.</p>
-<p>The <strong>variance inflation factor</strong> measures this for each feature $j$. Predict feature $j$ from all the other features, note that regression's $R_j^2$, and compute</p>
+<p>s1 (total cholesterol) and s2 (LDL, most of total cholesterol) move together: correlation about 0.9. The model predicts well using either, so it can't decide how to split the credit; small changes swing it from one to the other, which shows up as huge standard errors.</p>
+<p>The <strong>variance inflation factor</strong> for feature $j$: predict it from all the other features, note that $R_j^2$, and compute</p>
 <p>$$\text{VIF}_j = \frac{1}{1 - R_j^2}$$</p>
-<p>If the other features explain none of feature $j$, $R_j^2 = 0$ and $\text{VIF} = 1$ (no inflation). If they explain 90% of it, $\text{VIF} = 10$. The name comes from what it does: the <em>variance</em> of $\hat{w}_j$ is multiplied by the VIF, so its SE is multiplied by $\sqrt{\text{VIF}}$. A common rule of thumb is to investigate anything above 5–10.</p>
+<p>The weight's variance is multiplied by the VIF, so its SE by $\sqrt{\text{VIF}}$. Investigate anything above 5–10.</p>
 <pre><code>from sklearn.linear_model import LinearRegression
 
 # VIF of feature j = 1 / (1 - R²) when feature j is predicted from all the other features
@@ -327,16 +313,14 @@ s6   VIF   1.5
 s1 with s2:    weight -792.2  SE 416.7
 s1 without s2: weight -228.5  SE 114.0
 R² with s2:    0.5177
-R² without s2: 0.5155</code></pre>
-<p>s1's VIF of 59.2 means its standard error is $\sqrt{59.2} \approx 7.7$ times larger than it would be if s1 were unrelated to the other features. Drop s2 and s1's SE falls from 416.7 to 114.0. Yet the model's $R^2$ barely moves: 0.5177 with s2, 0.5155 without.</p>
-<div class="box tip"><div class="box-title">The key distinction</div><p>Multicollinearity hurts <strong>interpretation</strong>, not <strong>prediction</strong>. If you only need accurate predictions, correlated features are mostly harmless. If you need to say what each feature does, deal with it: drop or merge overlapping features, collect more varied data, or use ridge regression (Lesson 10), which shares the credit smoothly instead of swinging it.</p></div>
-
+R² without s2: 0.5155</code></pre><div class="box tip"><div class="box-title">The key distinction</div><p>Multicollinearity hurts <strong>interpretation</strong>, not <strong>prediction</strong>. For predictions only, correlated features are mostly harmless. To say what each feature does, drop or merge overlapping features, collect more varied data, or use ridge (Lesson 10), which shares credit smoothly.</p></div>
 <div class="box example"><div class="box-title">Worked example — VIF by hand</div><ol><li>Predict s1 from the other features: suppose $R^2=0.9$. VIF $=1/(1-0.9)=10$.</li><li>If $R^2=0.98$: VIF $=1/0.02=50$.</li><li>s1's actual VIF is 59.2, so its SE is $\sqrt{59.2}\approx7.7$× larger than it would be alone.</li><li>Drop s2: SE falls from 416.7 to 114.0, while $R^2$ barely moves (0.5177 → 0.5155).</li></ol></div>
 <h3 id="deeper-adjusted">Adjusted $R^2$, and why cross-validation is better still</h3>
 <div class="box intuition"><div class="box-title">Picture it</div><p>Adding a column of random noise is like adding a student who guesses answers to a study group. Training $R^2$ always says the group got "better"; adjusted $R^2$ and cross-validation see through it.</p></div>
-<p>Training $R^2$ can never go down when you add a feature, even a column of pure random noise. The least-squares fit can always set the new weight to zero, and usually it finds a tiny bit of accidental pattern to exploit. <strong>Adjusted $R^2$</strong> adds a penalty for each feature:</p>
+<p>Training $R^2$ can never fall when you add a feature, even pure noise: least squares can always find a little accidental pattern. <strong>Adjusted $R^2$</strong> charges for each feature:</p>
 <p>$$R^2_{\text{adj}} = 1 - (1 - R^2)\,\frac{n - 1}{n - d - 1}$$</p>
-<p>Each extra feature makes $\frac{n-1}{n-d-1}$ bigger, so a feature has to improve $R^2$ by more than chance alone would to raise adjusted $R^2$. Watch what happens when we add columns of random noise to the diabetes features:</p>
+<div class="box example"><div class="box-title">Worked example — the charge in numbers ($n=442$)</div><ol><li>10 features, $R^2=0.518$: $1-0.482\times441/431\approx0.507$.</li><li>Suppose 30 features gave $R^2=0.560$: $1-0.440\times441/411\approx0.528$.</li><li>A feature must beat chance to raise adjusted $R^2$.</li></ol></div>
+<p>Adding columns of random noise to the diabetes features:</p>
 <pre><code>from sklearn.model_selection import cross_val_score
 
 n = len(y)
@@ -352,13 +336,11 @@ for extra in [0, 10, 50, 100]:
          0     0.518        0.507         0.482
         10     0.530        0.508         0.469
         50     0.582        0.516         0.398
-       100     0.633        0.511         0.277</code></pre>
-<p>Training $R^2$ climbs from 0.518 to 0.633 on pure noise. Adjusted $R^2$ stays roughly flat around 0.51, correctly reporting that nothing was gained. The cross-validated $R^2$ tells the whole truth: performance on unseen patients actually <em>falls</em>, from 0.482 to 0.277, because the model is fitting noise. Adjusted $R^2$ is a quick check from the training data alone; in ML practice, cross-validation (Lesson 9) is the more reliable test.</p>
-
+       100     0.633        0.511         0.277</code></pre><p>How to read it: training $R^2$ climbs from 0.518 to 0.633 on pure noise; adjusted $R^2$ stays around 0.51; and cross-validated $R^2$ tells the whole truth, <em>falling</em> from 0.482 to 0.277. In ML practice, cross-validation (Lesson 9) is the more reliable test.</p>
 <h3 id="deeper-spread">When errors fan out: unequal spread and the log transform</h3>
 <div class="box intuition"><div class="box-title">Picture it</div><p>A guess of a junior's salary might be off by ₹1 lakh; a senior's by ₹5 lakh. Errors that grow with size are natural for money. Taking the log turns "± 25%" into one constant error size.</p></div>
 <figure class="fig"><svg role="img" aria-label="Sketch: residuals of raw salary spread wider as predictions grow; residuals of log salary stay in an even band." xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 150"><line x1="30" y1="75" x2="250" y2="75" class="ax"/><circle cx="50" cy="70" r="3" class="fa"/><circle cx="60" cy="80" r="3" class="fa"/><circle cx="90" cy="65" r="3" class="fa"/><circle cx="110" cy="88" r="3" class="fa"/><circle cx="150" cy="50" r="3" class="fa"/><circle cx="170" cy="100" r="3" class="fa"/><circle cx="210" cy="30" r="3" class="fa"/><circle cx="230" cy="125" r="3" class="fa"/><path d="M40 72 L240 25 M40 78 L240 128" class="dash"/><text x="140" y="145" class="t c s">raw salary: errors fan out</text><line x1="290" y1="75" x2="510" y2="75" class="ax"/><circle cx="310" cy="68" r="3" class="fa"/><circle cx="330" cy="83" r="3" class="fa"/><circle cx="360" cy="65" r="3" class="fa"/><circle cx="390" cy="85" r="3" class="fa"/><circle cx="420" cy="66" r="3" class="fa"/><circle cx="450" cy="84" r="3" class="fa"/><circle cx="480" cy="67" r="3" class="fa"/><circle cx="500" cy="82" r="3" class="fa"/><text x="400" y="145" class="t c s">log(salary): even band</text></svg><figcaption>Residuals before and after the log.</figcaption></figure>
-<p>Many money-like targets (salaries, prices, sales) vary in proportion to their size. A ₹4-lakh junior salary might be off by ₹1–2 lakh; a ₹20-lakh senior salary might be off by ₹5 lakh. The residuals fan out, breaking the "equal spread" assumption. Here's simulated salary data built that way:</p>
+<p>Money-like targets (salaries, prices, sales) vary in proportion to their size, so residuals fan out and break the "equal spread" assumption. Simulated salary data built that way:</p>
 <pre><code># Salaries whose spread grows with experience (simulated, in lakh per year)
 rng = np.random.default_rng(2)
 years = rng.uniform(0, 30, size=300)
@@ -378,23 +360,18 @@ print(f"log salary: spread {a:.3f} (junior) vs {b:.3f} (senior)")
 k = m_log.coef_[0]
 print(f"weight {k:.4f} -&gt; each extra year multiplies salary by {np.exp(k):.3f}")</code></pre><p>Output:</p><pre><code>raw salary: spread 1.53 (junior) vs 5.20 (senior)
 log salary: spread 0.220 (junior) vs 0.249 (senior)
-weight 0.0591 -&gt; each extra year multiplies salary by 1.061</code></pre>
-<p>On the raw scale the residuals of senior staff are 3.4 times more spread out than those of juniors. After taking $\log(\text{salary})$, the spread is nearly equal. The log turns "plus or minus 25%" into a constant "plus or minus 0.25".</p>
-<p><strong>Reading the weights of a log model.</strong> If $\log y = w x + b$, then increasing $x$ by 1 multiplies $y$ by $e^{w}$. Here $e^{0.0591} = 1.061$: each extra year of experience is linked to a salary about <strong>6.1% higher</strong>. For small $w$, $e^w \approx 1 + w$, so you can read $100w$ as a percentage straight away.</p>
-<p>Two practical notes. First, converting predictions back with $e^{\hat{y}}$ gives roughly the <em>median</em>, which slightly underestimates the average. Second, if you can't transform the target, the other standard fixes are <strong>robust standard errors</strong> (in statsmodels, <code>fit(cov_type="HC3")</code>), which keep the weights but correct their SEs, and <strong>weighted least squares</strong>, which gives noisier points less weight.</p>
-
+weight 0.0591 -&gt; each extra year multiplies salary by 1.061</code></pre><p>How to read it: on the raw scale, senior residuals are 3.4 times more spread out than junior ones; after taking $\log(\text{salary})$ they're nearly equal. The log turns "±25%" into a constant "±0.25".</p>
+<p><strong>Reading a log model's weights.</strong> If $\log y = w x + b$, raising $x$ by 1 multiplies $y$ by $e^{w}$.</p>
+<p>Two practical notes: converting predictions back with $e^{\hat y}$ gives roughly the <em>median</em>, slightly under the average. If you can't transform the target, use <strong>robust standard errors</strong> (statsmodels <code>fit(cov_type="HC3")</code>) or <strong>weighted least squares</strong>.</p>
 <div class="box example"><div class="box-title">Worked example — reading a log weight</div><ol><li>Weight for experience: $w=0.0591$.</li><li>$e^{0.0591}\approx1.061$, so each extra year means about <strong>6.1% higher</strong> salary.</li><li>Shortcut for small $w$: $100w\approx$ the percentage, here 5.9%.</li></ol></div>
 <h3 id="deeper-influence">Points that bend the line: leverage, Cook's distance and robust regression</h3>
 <div class="box intuition"><div class="box-title">Picture it</div><p>A see-saw: a child sitting far from the middle moves it much more than one near the centre. A point far out on the $x$ axis (high leverage) can tilt the whole line, especially if it's also off the line.</p></div>
 <figure class="fig"><svg role="img" aria-label="Sketch: points follow a steep upward trend, but a single point far to the right and below drags the fitted line almost flat." xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 160"><line x1="20" y1="140" x2="500" y2="140" class="ax"/><circle cx="50" cy="120" r="3" class="fa"/><circle cx="70" cy="110" r="3" class="fa"/><circle cx="90" cy="104" r="3" class="fa"/><circle cx="110" cy="95" r="3" class="fa"/><circle cx="130" cy="86" r="3" class="fa"/><circle cx="150" cy="78" r="3" class="fa"/><circle cx="170" cy="70" r="3" class="fa"/><line x1="40" y1="124" x2="460" y2="-40" class="la"/><circle cx="450" cy="120" r="6" class="fa2"/><line x1="40" y1="112" x2="460" y2="110" class="lw2"/><text x="300" y="30" class="t a">true trend (slope ≈ 2)</text><text x="270" y="100" class="t w">pulled line (slope 0.75)</text><text x="430" y="152" class="t s">one far point</text></svg><figcaption>One high-leverage point bends the line.</figcaption></figure>
-<p>Not every unusual point is dangerous. Two different things can make a point stand out:</p>
-<ul>
-<li><strong>Outlier</strong>: its $y$ is far from the line (a large residual).</li>
-<li><strong>High leverage</strong>: its $x$ is far from the other $x$ values, so the line has to pass close to it. Leverage $h_{ii}$ is the $i$-th diagonal entry of the <em>hat matrix</em> $H = X(X^\top X)^{-1}X^\top$, the matrix that turns $\mathbf{y}$ into predictions: $\hat{\mathbf{y}} = H\mathbf{y}$. The leverages always average $(d+1)/n$.</li>
-</ul>
-<p>A point is <strong>influential</strong> when it is both: far out in $x$ <em>and</em> off the line. <strong>Cook's distance</strong> combines the two into one number, which measures how much all the predictions would move if that point were deleted:</p>
+<p>Two different things make a point stand out:</p>
+<ul><li><strong>Outlier</strong>: its $y$ is far from the line (large residual).</li><li><strong>High leverage</strong>: its $x$ is far from the others, so the line must pass close to it. Leverage $h_{ii}$ is the $i$-th diagonal entry of the hat matrix $H = X(X^\top X)^{-1}X^\top$ (the matrix that turns $\mathbf{y}$ into predictions); leverages average $(d+1)/n$.</li></ul>
+<p>A point is <strong>influential</strong> when it's both. <strong>Cook's distance</strong> combines them: how much all predictions would move if that point were deleted:</p>
 <p>$$D_i = \frac{e_i^2}{(d+1)\,\hat{\sigma}^2}\cdot\frac{h_{ii}}{(1-h_{ii})^2}$$</p>
-<p>Common rules of thumb flag $D_i &gt; 1$, or $D_i &gt; 4/n$ for a more sensitive check. In the example below, 20 points follow $y = 2x + 5$ closely, and one extra point sits far to the right, well below the line:</p>
+<p>In words: (how far off the line) × (how far out in $x$). Flag $D_i&gt;1$, or $D_i&gt;4/n$ for a sensitive check. 20 points follow $y = 2x + 5$ closely; one extra point sits far right, well below:</p>
 <pre><code>from sklearn.linear_model import HuberRegressor
 
 rng = np.random.default_rng(1)
@@ -418,14 +395,12 @@ print("Cook's D: largest other", round(cooks[:-1].max(), 3), "| unusual point", 
 slope, least squares without the point: 1.93
 slope, Huber with the point:            1.85
 leverage: median 0.065 | unusual point 0.576
-Cook's D: largest other 0.099 | unusual point 12.73</code></pre>
-<p>That single point drags the slope from 1.93 down to 0.75. Its leverage (0.576) is nearly nine times the median, and its Cook's distance (12.73) is far beyond 1, while no other point exceeds 0.1. The diagnostics find it straight away.</p>
-<p>What to do with a flagged point: first check it's not a data-entry mistake (a typo in units is the classic cause). If it's genuine, report results with and without it. Or use <strong>robust regression</strong>. The <strong>Huber loss</strong> treats small residuals with squared error and large ones with absolute error, so a single wild point can't dominate. Huber's slope (1.85) stays close to the true 2 even with the point included. Scikit-learn's <code>HuberRegressor</code> switches from squared to absolute error at 1.35 times its estimate of the noise scale by default.</p>
-
+Cook's D: largest other 0.099 | unusual point 12.73</code></pre><p>What to do: first check for a data-entry mistake (wrong units are the classic). If genuine, report with and without it, or use <strong>robust regression</strong>: the <strong>Huber loss</strong> treats small residuals with squared error and large ones with absolute error, so one wild point can't dominate (<code>HuberRegressor</code>).</p>
 <div class="box example"><div class="box-title">Worked example — what the diagnostics say</div><ol><li>With the far point: slope 0.75 instead of about 2.</li><li>Its leverage 0.576 is about 9× the median.</li><li>Cook's distance 12.73, far above 1; all other points below 0.1.</li><li>Huber regression keeps the slope at 1.85, close to the truth.</li></ol></div>
 <h3 id="deeper-dummies">Categorical features and the dummy-variable trap</h3>
 <div class="box intuition"><div class="box-title">Picture it</div><p>If every house is exactly one of Central, Suburb or Outskirts, then knowing two of the yes/no columns tells you the third. Keeping all three plus the bias term says the same thing twice.</p></div>
-<p>To use a category such as the area of a Chennai home (Central, Suburb or Outskirts), you turn it into 0/1 <strong>dummy</strong> columns (one-hot encoding, Lesson 20). But with a bias term, you must leave <strong>one</strong> category out. Every row has exactly one of the three dummies equal to 1, so the three dummy columns always add up to the column of ones. One column is then an exact combination of the others, $X^\top X$ can't be inverted, and there's no unique answer. This is the <strong>dummy-variable trap</strong>.</p>
+<p>A category such as a Chennai home's area (Central, Suburb, Outskirts) becomes 0/1 <strong>dummy</strong> columns (one-hot encoding, Lesson 20). With a bias term you must leave <strong>one</strong> out: every row has exactly one dummy equal to 1, so the three columns always add up to the column of ones, $X^\top X$ can't be inverted, and there's no unique answer.</p>
+<div class="box example"><div class="box-title">Worked example — why the three dummies are redundant</div><ol><li>Central row: (1, 0, 0). Suburb: (0, 1, 0). Outskirts: (0, 0, 1).</li><li>Each row sums to 1, exactly the bias column.</li><li>So Central = 1 − Suburb − Outskirts: one column says nothing new.</li></ol></div>
 <pre><code>import pandas as pd
 
 df = pd.read_csv("houses.csv")
@@ -441,10 +416,7 @@ print(f"{'bias':15}{m.intercept_:7.2f}")</code></pre><p>Output:</p><pre><code>co
 size_m2           0.61
 area_Outskirts  -41.13
 area_Suburb     -14.79
-bias             22.98</code></pre>
-<p>With all three dummies there are 5 columns but only 4 independent ones (the rank), so the normal equation has no unique solution. Dropping one category with <code>drop_first=True</code> fixes it. The dropped category, Central, becomes the <strong>baseline</strong>, and every dummy weight is a difference from it. For homes of the same size, the model says an Outskirts home sells for about 41.1 lakh less than a Central one, and a Suburb home about 14.8 lakh less. (Only 12 houses, so treat these as an illustration, not a market report.)</p>
-<p>Scikit-learn's <code>LinearRegression</code> won't crash if you keep all the dummies, because it uses a solver that copes with dependent columns. But the weights are then not unique and can't be interpreted. With ridge or lasso the penalty makes the answer unique, so keeping all categories is normal practice there.</p>
-
+bias             22.98</code></pre><p>How to read it: with all three dummies, 5 columns but rank 4. Dropping one with <code>drop_first=True</code> fixes it; the dropped category becomes the <strong>baseline</strong>. (Only 12 houses, so treat the numbers as an illustration.) Scikit-learn's <code>LinearRegression</code> won't crash with all dummies, but the weights aren't unique; with ridge or lasso the penalty makes them unique, so keeping all categories is normal there.</p>
 <div class="box example"><div class="box-title">Worked example — reading dummy weights</div><ol><li>Drop Central: it becomes the baseline (weight 0).</li><li>Outskirts weight −41.1 → about ₹41.1 lakh less than a Central home of the same size.</li><li>Suburb weight −14.8 → about ₹14.8 lakh less.</li></ol></div>
 <h3 id="deeper-checklist">A checklist before you report a linear model</h3>
 <table class="tbl">
