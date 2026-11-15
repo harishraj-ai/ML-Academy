@@ -1,0 +1,106 @@
+<article class="hn" id="n21">
+<div class="hn-tag">Part 5 · Lesson 21</div>
+<h2>Ethics &amp; fairness in ML</h2>
+
+<h3><span class="n">1</span>Why it's an ML problem</h3>
+<p>A bank replaces loan officers with a model trained on ten years of their decisions: <b>88% accurate</b>, fast, consistent. Fair? Accuracy can't tell you. If past officers turned down qualified applicants from one neighbourhood, the model learned to do the same, <mark>automatically, at scale, and with an air of objectivity</mark>.</p>
+<p>Data records the world as it was, unfairness included. A model doesn't need to see ethnicity or gender to discriminate: <b>proxies</b> like postcode, first name or an employment gap do the job.</p>
+
+<h3><span class="n">2</span>Kinds of harm</h3>
+<ul>
+<li><b>Allocation</b>: a loan, interview or referral withheld from some groups more than others.</li>
+<li><b>Quality of service</b>: the system works worse for some people (face or speech recognition).</li>
+<li><b>Representation</b>: outputs reinforce stereotypes or erase groups.</li>
+<li><b>Privacy and autonomy</b>: profiling, re-identification, manipulation with data people never agreed to share.</li>
+</ul>
+
+<h3><span class="n">3</span>Where bias comes from</h3>
+<svg class="sk" viewBox="0 0 620 120" aria-label="Sketch: a chain from the world to data, labels, model and decisions, with an arrow from decisions back to the world.">
+ <text x="10" y="50">the world</text><path class="k" d="M95 45 H125"/><text x="130" y="50">data collected</text><path class="k" d="M255 45 H285"/><text x="290" y="50">labels</text><path class="k" d="M345 45 H375"/><text x="380" y="50">model</text><path class="k" d="M435 45 H465"/><text x="470" y="50">decisions</text>
+ <path class="r" d="M510 60 C510 110 50 110 50 62"/><text x="160" y="112">feedback loop: today's decisions become tomorrow's data</text>
+</svg>
+<ul>
+<li><b>Historical</b>: the world was unequal, so even a perfect record teaches it.</li>
+<li><b>Representation (sampling)</b>: under-represented groups get a less accurate model.</li>
+<li><b>Measurement / label</b>: the label is a proxy (healthcare <i>cost</i> standing in for health <i>need</i> under-served Black patients).</li>
+<li><b>Aggregation</b>: one model for everyone ignores real group differences.</li>
+<li><b>Evaluation</b>: test data that doesn't represent everyone.</li>
+<li><b>Feedback loops</b>: decisions shape the next round of data.</li>
+</ul>
+
+<h3><span class="n">4</span>Measuring fairness: compare groups</h3>
+<p>Compute the confusion matrix <b>per group</b>, then compare:</p>
+<ul>
+<li><b>Selection rate</b> $\frac{TP+FP}{\text{all}}$ equal → <b>demographic parity</b>.</li>
+<li><b>TPR</b> $\frac{TP}{TP+FN}$ equal → <b>equal opportunity</b> (qualified people approved equally).</li>
+<li><b>TPR and FPR</b> equal → <b>equalised odds</b>.</li>
+<li><b>Precision</b> $\frac{TP}{TP+FP}$ equal → <b>predictive parity</b>.</li>
+</ul>
+<div class="eg"><b>Example: the four-fifths rule</b><br>Group A approved 0.50, group B 0.30 → demographic-parity ratio $0.30/0.50=$ <b>0.6</b>, below 0.8 → flagged for possible adverse impact.</div>
+
+<h3><span class="n">5</span>The two-thresholds demo</h3>
+<p>Group A: half would repay; group B: one in five. Make the selection rates equal, then the TPRs, and watch precision and accuracy move. You can't fix everything at once.</p>
+
+<h3><span class="n">6</span>The impossibility result</h3>
+<p class="fx">$\text{FPR}=\dfrac{p}{1-p}\cdot\dfrac{1-\text{PPV}}{\text{PPV}}\cdot\text{TPR}$</p>
+<p>($p$ = the group's base rate.) If two groups have the same PPV and the same TPR but different $p$, their FPRs <b>must</b> differ (Chouldechova, 2017). Unless the classifier is perfect.</p>
+<div class="eg"><b>Example from the lesson</b><br>Group A: $p=0.5$, PPV = 40/45, TPR = 0.8 → FPR = $1\times0.125\times0.8=$ <b>0.10</b> ✓.</div>
+<div class="sticky"><b>So it's a value judgement</b><br>When base rates differ, choose which fairness criterion matters <b>with the people affected</b>.</div>
+
+<h3><span class="n">7</span>What you can do</h3>
+<ul>
+<li><b>Fix the data</b>: more data for under-represented groups, labels that measure what you care about, rethink proxy features, re-weight.</li>
+<li><b>Constrain the model</b>: a fairness penalty in the loss (Fairlearn, AIF360).</li>
+<li><b>Adjust decisions</b>: per-group thresholds (effective, but can be legally restricted).</li>
+<li><b>Change the system</b>: a human in the loop, explanations, a way to appeal, monitoring.</li>
+</ul>
+<div class="box red">Deleting the protected column doesn't fix it (proxies). And always split metrics by group, never only overall accuracy.</div>
+
+<h3><span class="n">8</span>Privacy, transparency, accountability</h3>
+<ul>
+<li><b>Privacy</b>: collect only what you need, with consent. Models can leak training data; <b>differential privacy</b> adds calibrated noise so no single record changes the result much.</li>
+<li><b>Transparency</b>: interpretable models for high-stakes decisions; <b>datasheets</b> for data, <b>model cards</b> for models.</li>
+<li><b>Accountability</b>: someone is responsible and decisions can be contested. The EU AI Act requires risk management, documentation and human oversight for high-risk uses (hiring, credit).</li>
+</ul>
+
+<h3><span class="n">9</span>Checklist before deploying</h3>
+<ol>
+<li><b>Purpose</b>: who's affected; is ML appropriate at all?</li>
+<li><b>Data</b>: who's missing; is the label a fair proxy?</li>
+<li><b>Metrics</b>: selection rate, TPR, FPR, PPV for every group, with uncertainty.</li>
+<li><b>Choose</b> the criterion with stakeholders.</li>
+<li><b>Document</b>: a model card.</li>
+<li><b>Monitor</b> group metrics and feedback loops; provide explanations and appeals.</li>
+</ol>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: the impossibility, measured</h3>
+
+<h4>The identity</h4>
+<p>From the confusion matrix alone: equal PPV, TPR <i>and</i> FPR can hold together only if base rates are equal or the classifier is perfect. Kleinberg, Mullainathan and Raghavan (2016) proved a similar result for calibration. <mark>It's arithmetic, not a flaw of one model.</mark></p>
+
+<h4>A perfectly calibrated model, still unequal</h4>
+<p>Scores = true probabilities, so calibrated in both groups. Base rates: A 0.287, B 0.500. One threshold, 0.5:</p>
+<div class="eg"><b>Example from the lesson</b><br>Precision similar (A 0.607, B 0.636), but TPR A <b>0.232</b> vs B <b>0.631</b>, and FPR A <b>0.060</b> vs B <b>0.362</b>. A's true positives are far less likely to be flagged; B's negatives far more likely to be wrongly flagged.</div>
+<p>Which matters more depends on what being flagged means (a loan refused, an extra test, a police stop): a decision for people, not the metric.</p>
+
+<h4>Group-specific thresholds: gains and costs</h4>
+<div class="eg"><b>Example</b><br>Lower A's threshold to about 0.305 → A's TPR <b>0.634</b> matches B's 0.631; FPRs closer (0.320 vs 0.362). But A's accuracy falls <b>0.736 → 0.667</b>, and precision equality is lost.</div>
+<p>Every option moves along the trade-off; none removes it. Alternatives: better data for under-served groups, more informative features, or a different decision (a review instead of a refusal).</p>
+
+<h4>Small groups need error bars</h4>
+<div class="eg"><b>Example</b><br>Group A's TPR on 400 people (106 positives): <b>0.226</b>, but the 95% bootstrap interval is <b>0.151 to 0.311</b>, wider than many gaps people call "unfair" or "fixed".</div>
+<p>Report intervals for every group, check <b>intersections</b> (older women, not just women and older people), and treat big gaps in small groups as a reason to gather more evidence.</p>
+
+<h4>An audit checklist</h4>
+<ul>
+<li>Decide what harm matters (miss or false alarm?).</li>
+<li>Pick the metric <b>before</b> looking.</li>
+<li>Measure every group and intersection, with bootstrap intervals, on held-out data.</li>
+<li>Check calibration within each group.</li>
+<li>Compare mitigations with their costs.</li>
+<li>Document (model card) and re-check as data drifts.</li>
+</ul>
+</div>
+<div class="sign">✎ in one line: measure every metric per group with error bars, choose a fairness goal with the people affected, and build checks around the model.</div>
+</article>

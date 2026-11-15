@@ -1,0 +1,96 @@
+<article class="hn" id="n16">
+<div class="hn-tag">Part 4 · Lesson 16</div>
+<h2>Clustering</h2>
+
+<h3><span class="n">1</span>Learning without labels</h3>
+<div class="sticky"><b>Picture it</b><br>A shop owner notices groups: families buying in bulk, students buying snacks, office workers buying lunch. Nobody labelled them; the groups emerged from the data.</div>
+<p>Most of the world's data has <b>no labels</b>. Clustering finds natural groups: similar inside, different from other groups. Uses: customer segments, grouping news by topic, organising photos, spotting unusual activity, compressing an image to a few colours.</p>
+
+<h3><span class="n">2</span>k-means</h3>
+<p>Split the data into exactly $k$ clusters, each represented by its <b>centroid</b> (the average of its points). Goal: small <b>inertia</b>:</p>
+<p class="fx">$\text{inertia}=\sum_i\min_j\|\mathbf{x}_i-\boldsymbol\mu_j\|^2$</p>
+<p><b>Lloyd's algorithm</b>:</p>
+<ol><li>Pick $k$ starting centroids.</li><li><b>Assign</b> each point to its nearest centroid.</li><li><b>Update</b> each centroid to the mean of its points.</li><li>Repeat until nothing changes.</li></ol>
+<svg class="sk" viewBox="0 0 560 150" aria-label="Sketch: points with two crosses as centres; the centres move to the middle of their groups.">
+ <g><circle class="dot" cx="40" cy="40" r="4"/><circle class="dot" cx="60" cy="70" r="4"/><circle class="dot" cx="80" cy="45" r="4"/><circle class="dot" cx="70" cy="30" r="4"/>
+ <circle class="rdot" cx="190" cy="100" r="4"/><circle class="rdot" cx="210" cy="120" r="4"/><circle class="rdot" cx="230" cy="95" r="4"/><circle class="rdot" cx="200" cy="80" r="4"/>
+ <text x="110" y="60" style="font-size:26px">✕</text><text x="140" y="110" style="font-size:26px">✕</text><text x="20" y="145">start: centres in odd places</text></g>
+ <g transform="translate(300,0)"><circle class="dot" cx="40" cy="40" r="4"/><circle class="dot" cx="60" cy="70" r="4"/><circle class="dot" cx="80" cy="45" r="4"/><circle class="dot" cx="70" cy="30" r="4"/>
+ <circle class="rdot" cx="190" cy="100" r="4"/><circle class="rdot" cx="210" cy="120" r="4"/><circle class="rdot" cx="230" cy="95" r="4"/><circle class="rdot" cx="200" cy="80" r="4"/>
+ <text x="52" y="56" style="font-size:26px">✕</text><text x="200" y="106" style="font-size:26px">✕</text><text x="30" y="145">after a few rounds ✓</text></g>
+</svg>
+<p>Each step can only lower the inertia, so it <b>always converges</b>.</p>
+
+<h3><span class="n">3</span>The demo</h3>
+<p>Step through assign/update and watch the centroids move. On the "moons" data k-means makes round clusters and cuts the two curved shapes in the wrong place.</p>
+
+<h3><span class="n">4</span>Initialisation: k-means++</h3>
+<p>Converging isn't the same as finding the best: two centroids can start inside one natural group and split it (a <b>local minimum</b>). Fixes:</p>
+<ul><li><b>k-means++</b>: each new start centroid is picked with probability ∝ squared distance to the nearest chosen one → spread out (scikit-learn's default).</li><li><b>Restarts</b> (<code>n_init</code>): run several times, keep the lowest inertia.</li></ul>
+
+<h3><span class="n">5</span>Choosing k</h3>
+<p>Inertia <u>always</u> drops as $k$ grows ($k=n$ → 0), so don't just minimise it.</p>
+<ul>
+<li><b>Elbow</b>: plot inertia vs $k$; pick where the steep drop flattens.</li>
+<li><b>Silhouette</b>: $a$ = average distance to my own cluster, $b$ = to the nearest other cluster.</li>
+</ul>
+<p class="fx">$s=\dfrac{b-a}{\max(a,b)}$</p>
+<p>Near 1 = clearly placed; near 0 = on a border; negative = probably the wrong cluster. Choose the $k$ with the highest average.</p>
+<div class="eg"><b>Example</b><br>$a=2$, $b=6$ → $(6-2)/6\approx$ <b>0.67</b>.</div>
+
+<h3><span class="n">6</span>Limitations of k-means</h3>
+<ul>
+<li>You must choose $k$ in advance.</li>
+<li>Assumes <b>round, similar-sized</b> clusters; fails on long, curved or nested shapes.</li>
+<li>Sensitive to feature scales (standardise) and outliers.</li>
+<li>Every point is forced into some cluster.</li>
+</ul>
+
+<h3><span class="n">7</span>Hierarchical clustering</h3>
+<p><b>Agglomerative</b>: every point starts alone; merge the two closest clusters; repeat until one remains. The merge history is a tree, the <b>dendrogram</b>; cut it at any height for any number of clusters.</p>
+<svg class="sk" viewBox="0 0 400 160" aria-label="Sketch: a dendrogram over points A to F; a dashed cut line gives two clusters, A to D and E, F.">
+ <path class="k" d="M40 140 V110 H90 V140 M65 110 V80 H140 V140 M102 80 V55 H190 V140 M146 55 V30 H290 M260 140 V100 H320 V140 M290 100 V30"/>
+ <path class="r" d="M20 45 H380" style="stroke-dasharray:6 5"/><text x="300" y="42">cut</text>
+ <text x="33" y="156">A</text><text x="83" y="156">B</text><text x="133" y="156">C</text><text x="183" y="156">D</text><text x="253" y="156">E</text><text x="313" y="156">F</text>
+</svg>
+<p>"Closest" depends on the <b>linkage</b>: <b>single</b> (closest pair; follows chains and curves), <b>complete</b> (farthest pair; compact), <b>average</b>, <b>Ward</b> (smallest increase in variance; k-means-like).</p>
+
+<h3><span class="n">8</span>DBSCAN: dense regions</h3>
+<p>Clusters = regions where points are packed closely, separated by sparse regions. Two settings: <b>eps</b> (neighbourhood radius) and <b>min_samples</b>.</p>
+<ul><li><b>Core point</b>: at least min_samples points within eps.</li><li><b>Border point</b>: not core, but within eps of a core point.</li><li><b>Noise</b>: neither → labelled −1.</li></ul>
+<p>Finds clusters of <mark>any shape</mark>, works out how many there are, and flags outliers. Great for crescents + outliers.</p>
+
+<h3><span class="n">9</span>Is the clustering good?</h3>
+<ul>
+<li><b>Internal scores</b> (silhouette): tightness and separation, but favour round clusters.</li>
+<li><b>External scores</b> if some true labels exist: <b>adjusted Rand index</b> (1 = identical, ~0 = random).</li>
+<li><b>Usefulness</b>: do the clusters make sense to experts and help the task?</li>
+</ul>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: mixtures, density, hierarchy</h3>
+
+<h4>Gaussian mixtures and EM</h4>
+<p>Each point comes from cluster $k$ (probability $\pi_k$), drawn from a normal with mean $\boldsymbol\mu_k$ and covariance $\Sigma_k$, so clusters can be <b>stretched and tilted</b>. Fitted by <b>EM</b>:</p>
+<ul><li><b>E-step</b>: for every point, the probability ("responsibility") each cluster produced it (Bayes).</li><li><b>M-step</b>: re-estimate $\pi_k,\boldsymbol\mu_k,\Sigma_k$ weighted by responsibilities.</li></ul>
+<p>Never lowers the likelihood; can hit local optima, so restart. k-means = EM with round equal clusters and hard 0/1 responsibilities.</p>
+<div class="eg"><b>Example from the lesson</b><br>Three stretched, tilted blobs: k-means ARI <b>0.58</b>, Gaussian mixture <b>1.0</b>. Bonus: <b>soft</b> assignments show which points are genuinely ambiguous.</div>
+
+<h4>Any shape: DBSCAN and linkage</h4>
+<div class="eg"><b>Example: two half-moons</b><br>DBSCAN <b>1.000</b>, single linkage <b>1.000</b> (follow dense regions). k-means 0.253, Gaussian mixture 0.495, Ward 0.559 (assume compact groups, cut each moon in half).</div>
+<ul><li>Single linkage risks <b>chaining</b>: a thin bridge of noise merges two clusters.</li><li>DBSCAN is sensitive to eps and struggles with very different densities → <b>HDBSCAN</b> tries many densities.</li><li>Dendrograms help when the right level of detail is unknown (segments, taxonomies).</li></ul>
+
+<h4>Choosing the number of clusters</h4>
+<ul><li><b>Silhouette</b>: higher is better.</li><li><b>BIC</b> (mixtures): $-2\log L+p\log n$; penalises extra clusters; lower is better.</li></ul>
+<div class="eg"><b>Example</b><br>4 true clusters: silhouette peaks at k = 4 (<b>0.811</b>), BIC is lowest at k = 4 (<b>5133</b>). On real data signals are weaker: also ask whether each segment is useful.</div>
+
+<h4>Which method?</h4>
+<ul>
+<li><b>k-means</b>: round, similar blobs; needs k; scale first.</li>
+<li><b>Gaussian mixture</b>: elliptical, soft membership; choose k by BIC.</li>
+<li><b>DBSCAN / HDBSCAN</b>: any shape, marks noise; tune eps / min_samples.</li>
+<li><b>Agglomerative</b>: a hierarchy; ~$O(n^2)$ memory; chaining with single linkage.</li>
+</ul>
+</div>
+<div class="sign">✎ in one line: k-means for round groups, mixtures for stretched ones, DBSCAN for odd shapes and outliers, and check that the groups are useful.</div>
+</article>

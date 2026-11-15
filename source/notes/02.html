@@ -1,0 +1,96 @@
+<article class="hn" id="n02">
+<div class="hn-tag">Part 1 · Lesson 2</div>
+<h2>Vectors &amp; matrices</h2>
+
+<h3><span class="n">1</span>Why bother?</h3>
+<p>A house = a list of numbers (size, bedrooms, distance). A dataset = a table of such lists. In maths a list is a <b>vector</b> and a table is a <b>matrix</b>. Almost all ML is written this way because one short line can describe operations on thousands of examples, and computers run it very fast.</p>
+
+<h3><span class="n">2</span>Vectors</h3>
+<p>An ordered list of numbers, e.g. $\mathbf{x}=(50,1,2)$: size 50, 1 bedroom, 2 km. It has 3 <b>components</b> $x_1,x_2,x_3$, so its <b>dimension</b> is 3: $\mathbf{x}\in\mathbb{R}^3$.</p>
+<ul>
+<li>Picture it as a <b>point</b>: (3, 2) is 3 right, 2 up.</li>
+<li>Or as an <b>arrow</b> from (0, 0): it has a direction and a length.</li>
+</ul>
+<p>In ML each example is a point in "feature space", and <mark>similar examples are points close together</mark>.</p>
+
+<h3><span class="n">3</span>Adding and scaling</h3>
+<ul>
+<li><b>Add</b> component by component: $(1,2)+(3,-1)=(4,1)$. Picture: walk along one arrow, then the other.</li>
+<li><b>Scale</b> every component: $3\cdot(1,2)=(3,6)$, the same direction but 3× longer. Times −1 flips it.</li>
+</ul>
+<div class="sticky"><b>Where you'll see it</b><br>Gradient descent, $\mathbf{w}_{\text{new}}=\mathbf{w}-\eta\nabla L$, is just "scale one vector and subtract it from another".</div>
+
+<h3><span class="n">4</span>Length and distance</h3>
+<p class="fx">$\|\mathbf{v}\|=\sqrt{v_1^2+v_2^2+\dots+v_d^2}$</p>
+<p>That's Pythagoras: $\|(3,4)\|=\sqrt{9+16}=5$. This is the <b>Euclidean (L2) norm</b>. The <b>distance</b> between two points is the length of their difference, $\|\mathbf{a}-\mathbf{b}\|$.</p>
+<svg class="sk" viewBox="0 0 300 150" aria-label="Sketch: a right triangle with sides 3 and 4 and the long side 5.">
+ <path class="k" d="M30 130 H200 V20"/><path class="p" d="M30 130 L200 20"/><text x="110" y="148">3</text><text x="208" y="80">4</text><text x="80" y="65">distance = 5</text>
+</svg>
+<div class="eg"><b>Example</b><br>House A = (5, 2), house B = (8, 6). Difference (3, 4) → distance <b>5</b>. A "homes like this one" feature uses exactly this, and kNN (Lesson 11) too.</div>
+
+<h3><span class="n">5</span>The dot product (the star of ML)</h3>
+<p>Multiply matching entries, then add:</p>
+<p class="fx">$\mathbf{a}\cdot\mathbf{b}=\sum_i a_ib_i$</p>
+<div class="sticky"><b>Shopping bill</b><br>2 notebooks at ₹40, 3 pens at ₹10, 1 bag at ₹500 → $2\cdot40+3\cdot10+1\cdot500=610$. That's a dot product, and it's exactly how a linear model turns features and weights into a prediction.</div>
+<div class="eg"><b>Example</b><br>$(2,3,1)\cdot(4,-1,5)=8-3+5=$ <b>10</b>. The second feature has a negative weight, so it pulls the score down; raise it from 3 to 6 and the score falls to 7.</div>
+<p>It also measures how much two vectors <b>point the same way</b>: large = aligned, <mark>0 = at right angles</mark>, negative = opposite. Dividing by both lengths gives the <b>cosine similarity</b> ($\cos\theta$, from −1 to 1).</p>
+
+<h3><span class="n">6</span>The demo</h3>
+<p>Drag the two arrows: the dot product is exactly 0 when they're at 90°.</p>
+
+<h3><span class="n">7</span>Matrices</h3>
+<p>A grid of numbers with shape <b>rows × columns</b>. The house dataset (4 houses × 3 features) is a 4 × 3 matrix $X$: <mark>each row is an example, each column a feature</mark> (the convention in scikit-learn too). $X_{32}=3$ means row 3, column 2 (house 3 has 3 bedrooms).</p>
+
+<h3><span class="n">8</span>Matrix × vector: all predictions at once</h3>
+<p>$X\mathbf{w}$ = each row dotted with $\mathbf{w}$.</p>
+<div class="eg"><b>Example from the lesson</b><br>Rows (size, bedrooms, age), $\mathbf{w}=(3,20,-5)$:<br>row 1: $3\cdot50+20\cdot1-5\cdot2=160$, then 255, 360, 515.<br>One expression $\hat{\mathbf{y}}=X\mathbf{w}$ gives every house's prediction. Add a bedroom to house 1 → its prediction rises by exactly 20 (160 → 180).</div>
+
+<h3><span class="n">9</span>Matrix × matrix</h3>
+<p>Every row of $A$ dotted with every column of $B$. $A$ ($m\times n$) times $B$ ($n\times p$) gives $m\times p$.</p>
+<div class="eg"><b>Example</b><br>$\begin{bmatrix}1&2\\3&4\end{bmatrix}\begin{bmatrix}5&6\\7&8\end{bmatrix}=\begin{bmatrix}19&22\\43&50\end{bmatrix}$ (e.g. $19=1\cdot5+2\cdot7$).<br>Swap the order: $BA=\begin{bmatrix}23&34\\31&46\end{bmatrix}$. <b>Order matters</b>: $AB\ne BA$.</div>
+<div class="sticky"><b>Shape check</b><br>(m × <b>n</b>)(<b>n</b> × p) → (m × p). The inner sizes must match, e.g. (3×4)(4×2) → 3×2.</div>
+
+<h3><span class="n">10</span>Transpose and identity</h3>
+<ul>
+<li><b>Transpose</b> $A^\top$: rows become columns (2×3 → 3×2). It mostly appears to make shapes line up: $\mathbf{a}^\top\mathbf{b}$, $X^\top X$ in Lesson 6.</li>
+<li><b>Identity</b> $I$: 1s on the diagonal, 0s elsewhere. Acts like the number 1: $I\mathbf{x}=\mathbf{x}$.</li>
+</ul>
+
+<h3><span class="n">11</span>In NumPy</h3>
+<p>Arrays for vectors and matrices; <code>@</code> is matrix multiplication (or a dot product for two vectors); <code>*</code> is element-by-element. <code>A.T</code> is the transpose, <code>np.eye(3)</code> the identity.</p>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: linear algebra behind ML</h3>
+
+<h4>Other ways to measure size: norms</h4>
+<ul>
+<li><b>L2</b> $\sqrt{\sum v_i^2}$: straight-line length; big entries count a lot (squared).</li>
+<li><b>L1</b> $\sum|v_i|$: "city-block" distance; every entry counts in proportion.</li>
+<li><b>L∞</b> $\max|v_i|$: only the biggest entry counts.</li>
+<li><b>Frobenius</b> (matrices): the L2 norm of all entries in one long list.</li>
+</ul>
+<div class="eg"><b>Example</b><br>$\mathbf{v}=(3,-4,1)$: L1 = 8, L2 = $\sqrt{26}\approx5.099$, L∞ = 4.</div>
+<p>Why it matters: <b>ridge</b> penalises L2 and shrinks all weights a little; <b>lasso</b> penalises L1 and pushes some to exactly 0 (Lesson 10). The L1 "unit ball" is a diamond with sharp corners on the axes; L2's is a circle.</p>
+
+<h4>Independence, rank, determinant</h4>
+<p>Columns are <b>independent</b> if none can be built from the others. The <b>rank</b> = the number of independent columns. Least squares needs $X^\top X$ invertible, which only happens when the columns are independent.</p>
+<p>The <b>determinant</b> = how much a square matrix scales areas. $\det=0$ → it squashes space flat and has no inverse.</p>
+<div class="eg"><b>Example</b><br>If feature 3 = feature 1 + feature 2, only 2 columns carry information: rank 2, $\det(X^\top X)=0$ (the dummy-variable trap of Lesson 6). For $A=\begin{pmatrix}2&1\\1&3\end{pmatrix}$, $\det A=2\cdot3-1\cdot1=5$: areas get 5× bigger.</div>
+
+<h4>Eigenvalues and eigenvectors</h4>
+<p>An <b>eigenvector</b> is a direction the matrix only stretches, never turns: $A\mathbf{v}=\lambda\mathbf{v}$. $\lambda$ = how much.</p>
+<div class="eg"><b>Example</b><br>For the $A$ above, $\det(A-\lambda I)=\lambda^2-5\lambda+5=0$ → $\lambda\approx1.382$ and $3.618$. For 3.618 the eigenvector is about $(0.526,0.851)$, and the two eigenvectors are at right angles.</div>
+<div class="sticky"><b>Why PCA works</b><br>Every <b>symmetric</b> matrix has real eigenvalues and perpendicular eigenvectors ($A=Q\Lambda Q^\top$). Covariance matrices are symmetric, so PCA's components are their eigenvectors (Lesson 17). Use <code>np.linalg.eigh</code> for symmetric matrices.</div>
+
+<h4>Positive definite matrices</h4>
+<p>$\mathbf{x}^\top A\mathbf{x}&gt;0$ for every non-zero $\mathbf{x}$ (all eigenvalues positive). $X^\top X$ is always at least positive <i>semi</i>-definite, because $\mathbf{w}^\top X^\top X\mathbf{w}=\|X\mathbf{w}\|^2\ge0$. That's why the squared-error loss is a bowl with one lowest point (Lesson 3's Going deeper).</p>
+
+<h4>The SVD</h4>
+<p>Works for any matrix, including a data table: $A=U\Sigma V^\top$. The <b>singular values</b> in $\Sigma$ rank how important each hidden direction is, and keeping the top $k$ gives the <mark>best possible rank-$k$ approximation</mark> (Eckart–Young).</p>
+<div class="eg"><b>Example from the lesson</b><br>50 users × 40 films, secretly built from 3 hidden "tastes" plus noise. The singular values drop sharply after the third (38.5, then 3.9): the SVD found the 3 tastes. A rank-3 version stores 273 numbers instead of 2,000, with relative error 0.157 (mostly the noise). Recommender systems use this idea (Lesson 27).</div>
+
+<h4>Nearly duplicate features: the condition number</h4>
+<p>When two features are almost copies of each other, the matrix is close to losing rank. Its <b>condition number</b> (largest ÷ smallest singular value) becomes huge, and tiny changes in the data swing the weights wildly. Regularization (Lesson 10) calms this down.</p>
+</div>
+<div class="sign">✎ in one line: examples are vectors, datasets are matrices, predictions are dot products, and the shapes must line up.</div>
+</article>

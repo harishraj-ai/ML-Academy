@@ -1,0 +1,93 @@
+<article class="hn" id="n10">
+<div class="hn-tag">Part 2 · Lesson 10</div>
+<h2>Overfitting, regularization &amp; bias–variance</h2>
+
+<h3><span class="n">1</span>The problem</h3>
+<p>Lesson 5's degree-11 polynomial threaded every training point and failed on new data. Flexible models can fit more patterns, <u>including noise</u>. But real relationships are often complicated, so we don't want to throw flexibility away. Two questions: <b>why</b> does overfitting happen (bias–variance), and <b>how</b> do we stop it (regularization)?</p>
+
+<h3><span class="n">2</span>Bias and variance</h3>
+<div class="sticky"><b>Two students</b><br>One memorises last year's paper word for word (high variance: lost if the questions change). The other uses one rule of thumb for everything (high bias: wrong in a predictable way).</div>
+<p>Imagine training the same kind of model on many different training sets:</p>
+<ul>
+<li><b class="red">Bias</b>: error from wrong assumptions. Even on average it misses the true pattern (a line through a curve) → <b>underfitting</b>.</li>
+<li><b class="red">Variance</b>: error from sensitivity to the particular training set; each set gives a very different model → <b>overfitting</b>.</li>
+</ul>
+<p class="fx">expected error = bias² + variance + noise</p>
+<svg class="sk" viewBox="0 0 520 170" aria-label="Sketch: two dartboards. High bias: darts clustered but off-centre. High variance: darts spread all over around the centre.">
+ <g><circle class="k" cx="100" cy="80" r="60"/><circle class="k" cx="100" cy="80" r="30"/><circle class="rdot" cx="100" cy="80" r="4"/>
+  <circle class="dot" cx="135" cy="45" r="4"/><circle class="dot" cx="142" cy="52" r="4"/><circle class="dot" cx="130" cy="55" r="4"/><circle class="dot" cx="138" cy="40" r="4"/><text x="40" y="162">high bias: tight but off</text></g>
+ <g transform="translate(270,0)"><circle class="k" cx="100" cy="80" r="60"/><circle class="k" cx="100" cy="80" r="30"/><circle class="rdot" cx="100" cy="80" r="4"/>
+  <circle class="dot" cx="60" cy="50" r="4"/><circle class="dot" cx="140" cy="70" r="4"/><circle class="dot" cx="95" cy="125" r="4"/><circle class="dot" cx="120" cy="35" r="4"/><text x="25" y="162">high variance: all over</text></g>
+</svg>
+<p>Noise is the randomness no model can remove.</p>
+
+<h3><span class="n">3</span>The trade-off</h3>
+<p>More complexity → bias falls, variance rises. Total error is lowest in between, at the bottom of Lesson 5's U-curve.</p>
+<div class="box"><b>Diagnose</b><br>Train high, test high and similar → <b>high bias</b> → more flexible model, better features, <u>less</u> regularization.<br>Train low, test much higher → <b>high variance</b> → more data, simpler model, <u>more</u> regularization, fewer features.</div>
+<p><b>More data reduces variance</b>: noise averages out, which is why large datasets let us use very complex models. When you can't get more data, regularize.</p>
+
+<h3><span class="n">4</span>Regularization: penalise complexity</h3>
+<p>Overfitted models usually have <b>huge weights</b> that cancel each other out to bend sharply through noisy points. So add a penalty for large weights:</p>
+<p class="fx">loss = data loss (fit the data) + $\lambda\cdot$penalty (keep weights small)</p>
+<ul><li>$\lambda=0$: plain least squares. Small $\lambda$: gentle push. Large $\lambda$: weights forced to 0, may underfit.</li></ul>
+<p>It <mark>trades a little bias for a big drop in variance</mark>. The bias term $b$ isn't penalised (it only shifts predictions). In scikit-learn $\lambda$ is called <code>alpha</code>.</p>
+
+<h3><span class="n">5</span>Ridge (L2)</h3>
+<p class="fx">$L=\sum(y_i-\mathbf{w}\cdot\mathbf{x}_i-b)^2+\lambda\sum w_j^2,\qquad\mathbf{w}=(X^\top X+\lambda I)^{-1}X^\top\mathbf{y}$</p>
+<p>Bonus: adding $\lambda I$ means the matrix <b>always</b> has an inverse, fixing Lesson 6's perfectly correlated features.</p>
+<div class="eg"><b>Example from the lesson</b><br>$x=1,2,3$, $y=2,4,7$ → $w=\frac{31}{14+\lambda}$.<br>λ = 0: 2.214 · λ = 1: 2.067 · λ = 10: 1.292 · λ = 100: <b>0.272</b>. The weight shrinks smoothly towards 0.</div>
+
+<h3><span class="n">6</span>Lasso (L1)</h3>
+<p class="fx">$L=\frac{1}{2n}\sum(y_i-\mathbf{w}\cdot\mathbf{x}_i-b)^2+\lambda\sum|w_j|$</p>
+<p>Lasso drives many weights to <b>exactly zero</b>, switching off unhelpful features: automatic <mark>feature selection</mark> and simpler, more readable models.</p>
+<div class="sticky"><b>Why exact zeros?</b><br>The L2 penalty $w^2$ has slope $2w$, which fades near 0, so weights get small but rarely reach it. The L1 penalty $|w|$ has slope ±1 all the way down: a constant push that can pin a weight at 0.</div>
+
+<h3><span class="n">7</span>The demo</h3>
+<p>A degree-9 polynomial on 12 noisy points with ridge: slide λ from almost 0 (wild overfitting, huge weights) to very large (an almost flat line that underfits). The sweet spot is in between.</p>
+
+<h3><span class="n">8</span>Always scale first</h3>
+<p>A feature in millimetres needs a weight 1000× smaller than the same feature in metres. Without scaling, the penalty punishes some features unfairly. <b>Standardise inside a pipeline</b> (fitted on training data only).</p>
+
+<h3><span class="n">9</span>Choosing λ</h3>
+<p>λ is a <b>hyperparameter</b>. Try values spaced by factors (0.01, 0.1, 1, 10, 100), score each with cross-validation, pick the best, retrain on all training data. <code>RidgeCV</code> and <code>LassoCV</code> do this for you.</p>
+<div class="sticky"><b>Logistic regression too</b><br>L2 by default, controlled by <code>C</code> $=1/\lambda$: smaller C = stronger. <code>penalty="l1"</code> (with "liblinear" or "saga") for lasso-style selection.</div>
+
+<h3><span class="n">10</span>Other ways to fight overfitting</h3>
+<ul>
+<li>More training data (most reliable).</li>
+<li>A simpler model: fewer features, lower degree, shallower trees.</li>
+<li>Early stopping (Lesson 7).</li>
+<li>Ensembles: averaging reduces variance (Lesson 14).</li>
+<li>Dropout and data augmentation for neural networks (Lesson 19).</li>
+</ul>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: regularization in practice</h3>
+
+<h4>Measuring bias and variance</h4>
+<p>Simulate: draw many training sets, fit each, look at the predictions at fixed points. Their average vs the truth → bias²; their spread → variance.</p>
+<div class="eg"><b>Example from the lesson</b><br>Degree-9 polynomial with ridge, 20 noisy sine points, 300 repeats:<br>almost no penalty: bias² <b>0.001</b>, variance <b>1.133</b> (wildly different curves).<br>λ = 10: variance 0.025, bias² 0.335 (all curves flat).<br>Best total <b>0.240</b> at λ = 0.1, in between.</div>
+
+<h4>Why lasso gives exact zeros: soft-thresholding</h4>
+<p>If least squares alone would set a weight to $z$ (standardised features):</p>
+<p class="fx">ridge: $w=\dfrac{z}{1+\lambda}\qquad$ lasso: $w=\text{sign}(z)\max(|z|-\lambda,\,0)$</p>
+<div class="eg"><b>Example</b><br>λ = 1: lasso turns 3.0 → 2.0, but 0.8 and −0.3 → <b>exactly 0</b>. Ridge just halves everything.</div>
+<p>Solvers use <b>coordinate descent</b>: apply this rule to each weight in turn, repeat. Fast enough to fit a whole "regularization path" of λ values.</p>
+
+<h4>Choosing the penalty automatically</h4>
+<p><code>RidgeCV</code>, <code>LassoCV</code>, <code>ElasticNetCV</code> fit a grid of penalties and pick by CV. <b>Elastic net</b> mixes both: $\lambda(\rho\|\mathbf{w}\|_1+\frac{1-\rho}2\|\mathbf{w}\|_2^2)$, with $\rho$ = <code>l1_ratio</code>.</p>
+<div class="eg"><b>Example</b><br>Diabetes data: lasso picks α ≈ 0.079 and keeps 9 of 10 weights; elastic net picks ρ = 0.9 and keeps 8. With 442 patients and 10 features, little regularization is needed.</div>
+
+<h4>Lasso + correlated features → elastic net</h4>
+<p>With two near-duplicate features, lasso keeps one and drops the other, and which one flips with small data changes.</p>
+<div class="eg"><b>Example</b><br>200 bootstrap refits: only <i>a</i> kept 47 times, only <i>b</i> 63 times, both 90 times. Elastic net spreads the weight evenly (0.89 each).</div>
+<ul><li>Few features matter and they're not correlated → <b>lasso</b>.</li><li>Features come in correlated groups (genes, pixels, words) → <b>elastic net</b>.</li><li>Never trust one lasso fit's selection: check on bootstrap samples.</li></ul>
+
+<h4>Early stopping is regularization too</h4>
+<p>Starting from zero, weights grow gradually during gradient descent; stopping early keeps them small. For linear regression, $k$ steps at rate $\eta$ act roughly like ridge with $\lambda\approx1/(k\eta)$. In boosting, the number of trees plays the role of steps.</p>
+
+<h4>Double descent</h4>
+<p>Keep adding parameters past the point where the model fits the training data exactly (about parameters = data points): test error <b>peaks there, then falls again</b>. With far more parameters than needed, gradient descent picks the smoothest of the many perfect fits (smallest weights), an <b>implicit regularizer</b>. It helps explain why huge neural networks generalise. A well-tuned ridge penalty largely removes the peak.</p>
+</div>
+<div class="sign">✎ in one line: balance bias against variance; a penalty on weights trades a little bias for much less variance.</div>
+</article>

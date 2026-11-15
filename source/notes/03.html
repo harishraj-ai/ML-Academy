@@ -1,0 +1,90 @@
+<article class="hn" id="n03">
+<div class="hn-tag">Part 1 · Lesson 3</div>
+<h2>Derivatives &amp; gradients</h2>
+
+<h3><span class="n">1</span>Why calculus?</h3>
+<p>In Lesson 1 you moved sliders and <i>watched</i> the loss. A computer can't watch; it needs a precise answer to: <mark>"if I nudge this parameter, does the loss go up or down, and how fast?"</mark> That's exactly what a derivative tells it, for every parameter.</p>
+
+<h3><span class="n">2</span>Slope of a straight line</h3>
+<p class="fx">slope $=\dfrac{\Delta y}{\Delta x}=\dfrac{y_2-y_1}{x_2-x_1}$</p>
+<p>For $y=3x+1$: $x$ from 1 to 2 moves $y$ from 4 to 7 → slope 3. A straight line has the same slope everywhere.</p>
+
+<h3><span class="n">3</span>The derivative: slope at a point</h3>
+<div class="sticky"><b>The speedometer</b><br>60 km/h isn't your average for the trip, it's how fast your position changes <i>right now</i>. A derivative is the speedometer reading of a function.</div>
+<p>A curve is steeper in some places than others. Its slope at one point = the slope of the <b>tangent line</b>. Take two very close points and shrink the gap $h$ to zero:</p>
+<p class="fx">$f'(x)=\lim_{h\to0}\dfrac{f(x+h)-f(x)}{h}$</p>
+<div class="eg"><b>Example: $x^2$ from scratch</b><br>$(x+h)^2=x^2+2xh+h^2$, so the ratio is $2x+h$ → as $h\to0$: $f'(x)=$ <b>$2x$</b>.</div>
+
+<h3><span class="n">4</span>The demo</h3>
+<svg class="sk" viewBox="0 0 400 170" aria-label="Sketch: a U-shaped curve with a tangent line on the left side sloping down and a dot at the bottom where the slope is zero.">
+ <path class="k" d="M40 20 C110 200 290 200 360 20"/><path class="r" d="M60 70 L170 150"/><circle class="rdot" cx="105" cy="105" r="5"/>
+ <circle class="dot" cx="200" cy="155" r="5"/><text x="120" y="80">slope &lt; 0 here</text><text x="215" y="165">slope = 0 (minimum)</text>
+</svg>
+<p>On $f(x)=(x-1)^2+0.5$ the slope $2(x-1)$ is negative on the left, positive on the right, and <b>zero exactly at the bottom</b>.</p>
+
+<h3><span class="n">5</span>The rules you need</h3>
+<ul>
+<li>Constant: $c\to0$. Power: $x^n\to nx^{n-1}$ ($x^3\to3x^2$).</li>
+<li>Constant multiple: $5x^2\to10x$. Sum: differentiate term by term.</li>
+<li>$e^x\to e^x$, $\ln x\to\frac1x$.</li>
+</ul>
+<div class="eg"><b>Example</b><br>$4x^3-2x^2+7x-9$ → <b>$12x^2-4x+7$</b>. Slope 7 at $x=0$, 15 at $x=1$, 1,167 at $x=10$: for big inputs the highest power dominates.</div>
+
+<h3><span class="n">6</span>The chain rule (engine of deep learning)</h3>
+<p>A function inside a function: outer slope (at the inside) × inner slope.</p>
+<p class="fx">$\dfrac{d}{dx}f(g(x))=f'(g(x))\cdot g'(x)$</p>
+<div class="eg"><b>Example</b><br>$(3x+1)^2$ → $2(3x+1)\cdot3=$ <b>$6(3x+1)$</b>. At $x=0$: 6. Numerical check: $((1.003)^2-1)/0.001\approx6.009$ ✓</div>
+<div class="sticky"><b>Don't forget the inside!</b><br>$2(3x+1)$ alone is <span class="red">wrong</span>. A network is a chain of steps, and backpropagation is this rule applied step after step.</div>
+
+<h3><span class="n">7</span>Using it on a loss</h3>
+<p>Model $\hat{y}=wx$, one point $(x,y)=(2,6)$, loss $L(w)=(2w-6)^2$ → $\frac{dL}{dw}=4(2w-6)$.</p>
+<ul>
+<li>$w=1$: slope −16 (negative) → <b>increase</b> $w$.</li>
+<li>$w=5$: slope +16 → <b>decrease</b> $w$.</li>
+<li>$w=3$: slope 0 → the minimum ($3\cdot2=6$, a perfect fit).</li>
+</ul>
+<p><mark>Move against the derivative</mark> and the loss always goes down. That's gradient descent.</p>
+
+<h3><span class="n">8</span>Partial derivatives</h3>
+<p>Many parameters: nudge <b>one</b>, hold the rest fixed (as constants, not zeros). Written with a curly $\partial$.</p>
+<div class="eg"><b>Example</b><br>$f=w^2+3wb+b^2$ → $\frac{\partial f}{\partial w}=2w+3b$, $\frac{\partial f}{\partial b}=3w+2b$. At $(1,2)$: <b>8</b> and <b>7</b>. Turn $w$ up by 0.1 → loss rises by about $8\times0.1=0.8$.</div>
+
+<h3><span class="n">9</span>The gradient</h3>
+<p>All the partial derivatives in one vector: $\nabla L$. It points in the direction where the loss <b>increases fastest</b>, so $-\nabla L$ points downhill. Above: $\nabla f(1,2)=(8,7)$.</p>
+<div class="sticky"><b>Landscape picture</b><br>Position = the parameters, height = the loss. The gradient is an arrow pointing straight uphill. Training = walking downhill to a valley.</div>
+
+<h3><span class="n">10</span>Gradient descent in one line</h3>
+<p class="fx">$\mathbf{w}\leftarrow\mathbf{w}-\eta\,\nabla L(\mathbf{w})$</p>
+<p>Step a little ($\eta$ = learning rate) downhill; repeat until the loss stops falling. Lesson 7 covers it fully.</p>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: calculus for optimisation</h3>
+
+<h4>The Jacobian</h4>
+<p>A gradient is for "many numbers in → one number out". A network layer is "many in → many out"; its derivative is the <b>Jacobian</b>, a matrix of $\partial f_i/\partial x_j$ (one row per output).</p>
+<div class="eg"><b>Example</b><br>$\mathbf{f}=(x^2y,\;5x+\sin y)$ → $J=\begin{pmatrix}2xy&x^2\\5&\cos y\end{pmatrix}$, so $J(1,2)=\begin{pmatrix}4&1\\5&-0.4161\end{pmatrix}$.</div>
+<p>The chain rule for vector functions = <mark>multiplying Jacobians</mark>. Backpropagation does this layer by layer (only as products with vectors, never building the full matrices).</p>
+
+<h4>The Hessian: curvature</h4>
+<p>Second derivatives form the <b>Hessian</b> $H_{ij}=\partial^2L/\partial w_i\partial w_j$. It's symmetric; its eigenvalues are the curvature in each direction. Where the gradient is zero:</p>
+<ul><li>all eigenvalues positive → <b>minimum</b>;</li><li>all negative → <b>maximum</b>;</li><li>mixed → <b>saddle</b> (a mountain pass).</li></ul>
+<div class="eg"><b>Example</b><br>$w_1^2+10w_2^2$: eigenvalues 2 and 20, a minimum in a valley 10× steeper one way. $w_1^2-w_2^2$: −2 and 2, a saddle.</div>
+<p>In neural networks most zero-gradient points are saddles, not bad minima, one reason gradient descent works better than you'd expect.</p>
+
+<h4>Convexity: exactly one valley</h4>
+<p>A <b>convex</b> function is bowl-shaped: the straight line between any two points on the graph never dips below it. Test: the Hessian is positive semi-definite everywhere. Payoff: <mark>every local minimum is the global minimum</mark>, so gradient descent can't get stuck.</p>
+<ul><li>Convex: MSE for linear regression (Hessian $\frac2nX^\top X$), log loss (Lesson 8), hinge loss (Lesson 15).</li><li>Not convex: neural networks, so the starting point matters.</li></ul>
+
+<h4>Newton's method</h4>
+<p>Near any point, a smooth function looks like a bowl (2nd-order Taylor): $L(\mathbf{w}+\Delta)\approx L+\nabla L^\top\Delta+\tfrac12\Delta^\top H\Delta$. Gradient descent uses only the slope; Newton jumps to the bottom of the bowl: $\Delta=-H^{-1}\nabla L$.</p>
+<div class="eg"><b>Example from the lesson</b><br>Valley $w_1^2+10w_2^2$ from (10, 1): gradient descent must keep $\eta&lt;2/20$ or it blows up in the steep direction, so it needs <b>82 steps</b> at best. Newton lands on the minimum in <b>1 step</b>.</div>
+<p>But the Hessian has $d^2$ entries and costs about $d^3$ to use: impossible for a million weights. So practical methods approximate curvature: <b>L-BFGS</b> (scikit-learn's default for logistic regression) and <b>Adam</b>.</p>
+
+<h4>Checking your gradients</h4>
+<p>Compare a hand-derived gradient with the <b>central difference</b> $\frac{L(\mathbf{w}+h\mathbf{e}_i)-L(\mathbf{w}-h\mathbf{e}_i)}{2h}$ (error shrinks like $h^2$). Use the relative error $\frac{\|g_1-g_2\|}{\|g_1\|+\|g_2\|}$: below $10^{-7}$ is right, around $10^{-4}$ suspicious, above $10^{-2}$ a bug.</p>
+
+<h4>Optimising with a rule: Lagrange multipliers</h4>
+<p>To minimise a function <i>subject to a constraint</i> (e.g. weights must have length 1), add the constraint times a multiplier $\lambda$ and set all derivatives to zero. At the best point the two gradients are parallel. SVMs (Lesson 15) and PCA (Lesson 17) are solved this way.</p>
+</div>
+<div class="sign">✎ in one line: the derivative is the slope, the chain rule links the steps, and learning walks against the gradient.</div>
+</article>

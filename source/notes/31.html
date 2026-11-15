@@ -1,0 +1,68 @@
+<article class="hn" id="n31">
+<div class="hn-tag">Part 7 · Lesson 31</div>
+<h2>Reinforcement learning basics</h2>
+
+<h3><span class="n">1</span>Learning by acting</h3>
+<p>Supervised learning is told the right answer for every example. Often nobody knows the right move, only whether things went well <b>in the end</b>: a robot reaching a charger, a game won, a thermostat saving energy while keeping people comfortable. <b>Reinforcement learning</b> learns from such <mark>delayed rewards</mark> by acting, seeing what happens and adjusting. (Lesson 28's bandits were the simplest case: one decision, no state.)</p>
+<svg class="sk" viewBox="0 0 480 140" aria-label="Sketch: agent and environment boxes; the agent sends an action, the environment returns a new state and a reward.">
+ <rect class="hl2" x="20" y="45" width="120" height="44" rx="10"/><text x="50" y="73">agent</text>
+ <rect class="hl" x="320" y="45" width="140" height="44" rx="10"/><text x="340" y="73">environment</text>
+ <path class="p" d="M140 55 C200 20 260 20 320 55"/><text x="210" y="25">action</text>
+ <path class="g" d="M320 80 C260 120 200 120 140 80"/><text x="170" y="132">new state + reward</text>
+</svg>
+
+<h3><span class="n">2</span>Markov decision processes</h3>
+<ul>
+<li><b>States</b> $s$, <b>actions</b> $a$.</li>
+<li><b>Transitions</b> $P(s'\mid s,a)$: where an action leads, maybe at random.</li>
+<li><b>Rewards</b> $R$ after each step.</li>
+<li><b>Discount</b> $\gamma\in[0,1]$: how much future rewards count.</li>
+</ul>
+<p>"Markov" = the next state depends only on the current state and action, not the history. A <b>policy</b> $\pi(s)$ says what to do in each state; we want the one with the highest expected discounted return $r_1+\gamma r_2+\gamma^2r_3+\dots$</p>
+<div class="sticky"><b>γ = how far ahead it looks</b><br>Near 0: only the next reward (short-sighted). Near 1: plans for the long run.</div>
+
+<h3><span class="n">3</span>Values and the Bellman equation</h3>
+<p class="fx">$V(s)=\max_a\sum_{s'}P(s'\mid s,a)\big[R(s')+\gamma V(s')\big]$</p>
+<p>Try each action, average over where it might lead, take the best. <b>Value iteration</b>: start all values at 0, apply this to every state, repeat until nothing changes.</p>
+<div class="eg"><b>One Bellman update (slippery grid, γ = 0.9)</b><br>The square left of the goal: moving → reaches the goal with probability 0.9 (+1, episode over); 0.05 each it slides up (stays put) or down. Averaging those outcomes gives that square's new value.</div>
+
+<h3><span class="n">4</span>From values to a policy</h3>
+<p>Pick the action that achieves the max. On the slippery grid the policy goes <b>up the left side and along the top</b>, away from the pit, rather than the shorter route past it: with a slippery floor the safe path has a higher expected return. But this needed the full transition probabilities, which real problems rarely give you.</p>
+
+<h3><span class="n">5</span>The value-iteration demo</h3>
+<p>Values spread outwards from the goal sweep by sweep. Lower γ → short-sighted; raise the slip chance → the policy steers further from the pit.</p>
+
+<h3><span class="n">6</span>Q-learning: no model needed</h3>
+<p>Learn $Q(s,a)$, the value of each action in each state, from single steps:</p>
+<p class="fx">$Q(s,a)\leftarrow Q(s,a)+\alpha\big[r+\gamma\max_{a'}Q(s',a')-Q(s,a)\big]$</p>
+<p>The bracket is the <b>temporal-difference (TD) error</b>: how surprised the agent was; move a fraction α towards the target. <b>ε-greedy</b>: usually the best-looking action, with probability ε a random one, or it never discovers better actions.</p>
+<p>After 3,000 episodes of trial and error, Q-learning finds a sensible policy without ever being told the transition probabilities.</p>
+
+<h3><span class="n">7</span>Rewards shape behaviour</h3>
+<div class="eg"><b>Example from the lesson</b><br>Small step cost → the long, safe route. A huge step cost (−2 per step) → from squares next to the pit the agent <b>jumps in</b>: ending at −1 beats wandering towards the goal.</div>
+<div class="box red">Correct for the reward given, and a small case of <b>reward hacking</b>: agents maximise exactly the reward, loopholes included. Design rewards carefully, test them, add constraints.</div>
+
+<h3><span class="n">8</span>RL in practice</h3>
+<ul>
+<li><b>Model-based vs model-free</b>: value iteration uses known transitions; Q-learning learns from experience.</li>
+<li><b>On- vs off-policy</b>: SARSA learns the policy it follows; Q-learning learns the optimal one while exploring.</li>
+<li><b>Policy gradient</b> (REINFORCE, PPO): adjust a policy directly towards higher return.</li>
+<li><b>Function approximation</b>: replace the Q table with a model (deep Q-networks) when there are too many states.</li>
+<li><b>Offline RL</b>: learn from logged data only; hard, because of distribution shift.</li>
+</ul>
+<div class="sticky"><b>Before reaching for RL</b><br>It's data-hungry and hard to debug. Would a supervised model or a bandit do the job?</div>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: SARSA vs Q-learning on a cliff</h3>
+
+<h4>Two learners, one cliff</h4>
+<p>A 4×8 grid: start bottom-left, goal bottom-right, cliff squares between them (−100 and back to start); every other step −1. <b>SARSA</b> differs by one word: it updates towards the action it will <i>actually</i> take next (exploration included):</p>
+<p class="fx">$Q(s,a)\leftarrow Q(s,a)+\alpha\big[r+\gamma\,Q(s',a')-Q(s,a)\big]$</p>
+<div class="eg"><b>Example from the lesson</b><br>Q-learning: the shortest route, <b>9 steps</b>, 8 of them right along the cliff edge (optimal if you never slip).<br>SARSA: a <b>13-step</b> route away from the edge, because it knows its own random steps sometimes happen.</div>
+
+<h4>Which is better depends on when you're judged</h4>
+<div class="eg"><b>Reward collected while still exploring 10%</b><br>SARSA <b>−21.0</b> vs Q-learning <b>−31.2</b>: Q-learning's edge-hugging route often falls off on a random step.</div>
+<p>If exploration stops after training, Q-learning's policy is better; if the agent keeps exploring, or a real robot occasionally slips, <mark>SARSA's caution pays</mark>. Where mistakes during learning are costly: on-policy or risk-aware methods, and learn in simulation first.</p>
+</div>
+<div class="sign">✎ in one line: act, collect rewards, update values with the TD error, keep exploring, and design the reward with care.</div>
+</article>

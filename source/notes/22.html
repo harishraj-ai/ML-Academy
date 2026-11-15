@@ -1,0 +1,90 @@
+<article class="hn" id="n22">
+<div class="hn-tag">Part 6 · Lesson 22</div>
+<h2>SQL &amp; data wrangling for ML</h2>
+
+<h3><span class="n">1</span>Why SQL?</h3>
+<p>In a real job the data isn't one tidy table: it lives in a <b>database</b>, spread across many tables (customers, orders, payments, tickets), often with millions of rows. Someone has to pull the right rows, join, summarise events into features, and <mark>not peek into the future</mark>. That's usually you, in SQL. Data-science interviews almost always include a SQL round.</p>
+
+<h3><span class="n">2</span>Tables, rows and keys</h3>
+<ul>
+<li><b>Primary key</b>: uniquely identifies a row (<code>houses.id</code>).</li>
+<li><b>Foreign key</b>: points to another table's primary key (<code>viewings.house_id</code>).</li>
+</ul>
+<p>Viewings get their own table so a house can have 0, 1 or 50 without empty columns: <b>normalisation</b>. Building ML features is mostly the reverse: <b>denormalising</b> back into one wide row per entity.</p>
+
+<h3><span class="n">3</span>SELECT, WHERE, ORDER BY</h3>
+<p class="pen"><code>SELECT columns FROM table WHERE condition ORDER BY column</code></p>
+<ul>
+<li><code>pd.read_sql</code> runs a query and returns a DataFrame.</li>
+<li>Extras: <code>LIMIT</code>, <code>DISTINCT</code>, <code>AND/OR</code>, <code>IN (…)</code>, <code>BETWEEN</code>, <code>LIKE 'new%'</code>.</li>
+<li>Missing = <code>NULL</code> → use <code>IS NULL</code>; <code>= NULL</code> is never true.</li>
+</ul>
+
+<h3><span class="n">4</span>GROUP BY: rows → summaries</h3>
+<p>Collapse rows sharing a value; summarise with <code>COUNT, SUM, AVG, MIN, MAX</code>.</p>
+<div class="sticky"><b>WHERE vs HAVING</b><br><b>WHERE</b> filters <u>rows</u> before grouping. <b>HAVING</b> filters <u>groups</u> after (<code>HAVING COUNT(*) &gt;= 3</code>).</div>
+<div class="eg"><b>Example from the lesson</b><br>Outskirts homes: prices 84, 42, 50 lakh; sizes 150, 95, 130 m².<br>COUNT = 3; AVG(price) = 176/3 ≈ <b>58.7</b>.<br>AVG(price/size) = average of 0.560, 0.442, 0.385 ≈ <b>0.462</b>, but total price ÷ total size = 176/375 = <b>0.469</b>. Average of ratios ≠ ratio of totals.</div>
+
+<h3><span class="n">5</span>Joins</h3>
+<svg class="sk" viewBox="0 0 560 140" aria-label="Sketch: two overlapping circles. Inner join keeps only the overlap; left join keeps all of the left circle.">
+ <g><circle class="k" cx="80" cy="65" r="50"/><circle class="k" cx="140" cy="65" r="50"/><path class="hl" d="M110 25 A50 50 0 0 1 110 105 A50 50 0 0 1 110 25"/><text x="45" y="135">INNER: only matches</text></g>
+ <g transform="translate(280,0)"><circle class="hl2" cx="80" cy="65" r="50"/><circle class="k" cx="80" cy="65" r="50"/><circle class="k" cx="140" cy="65" r="50"/><text x="40" y="135">LEFT: keep everyone on the left</text></g>
+</svg>
+<div class="eg"><b>Example from the lesson</b><br>12 houses, only 7 had viewings. <b>INNER</b> join → 7 rows (the other 5 vanish). <b>LEFT</b> join → all 12, with 0 viewings for the unviewed.</div>
+<p>An inner join silently drops entities (often the unusual ones), and "zero viewings" is useful information.</p>
+<div class="box red"><b>One-to-many trap</b>: join houses to viewings, then AVG(price) → a house with 10 viewings counts 10 times. <b>Aggregate the "many" side first</b>, then join. Check row counts after every join.</div>
+
+<h3><span class="n">6</span>The join demo</h3>
+<p>Switch INNER/LEFT and grouping on/off: watch houses disappear, get NULLs, or repeat until grouped.</p>
+
+<h3><span class="n">7</span>Window functions</h3>
+<p>Compute across related rows <b>without collapsing</b> them: <code>OVER (PARTITION BY … ORDER BY …)</code>.</p>
+<div class="eg"><b>Example</b><br><code>RANK() OVER (PARTITION BY area ORDER BY price DESC)</code> and <code>price - AVG(price) OVER (PARTITION BY area)</code>: house 3 is <b>18.3 lakh above</b> the Central average; house 4 is <b>21.4 below</b> the Suburb average.</div>
+<p>Also <code>ROW_NUMBER()</code>, <code>LAG(x)</code> (previous value: "change since last month"), and running totals over a frame.</p>
+
+<h3><span class="n">8</span>The same in pandas</h3>
+<ul>
+<li><code>WHERE</code> → <code>df[df.price &gt; 80]</code> or <code>df.query(…)</code></li>
+<li><code>GROUP BY</code> → <code>df.groupby("area").agg(…)</code></li>
+<li><code>LEFT JOIN</code> → <code>left.merge(right, on=…, how="left")</code></li>
+<li>window AVG → <code>groupby(…)["x"].transform("mean")</code></li>
+<li><code>ORDER BY … LIMIT 5</code> → <code>df.nlargest(5, "x")</code></li>
+</ul>
+<p>Central homes average 1.25 viewings, Outskirts 0.33. Rule of thumb: filter and join in the database, finish in pandas.</p>
+
+<h3><span class="n">9</span>Reshaping and cleaning</h3>
+<ul>
+<li><b>Long vs wide</b>: events are long (one row per house per day); models need wide. <code>pivot_table</code> / <code>melt</code>.</li>
+<li><b>Types</b>: numbers as text, dates as strings → <code>pd.to_numeric</code>, <code>pd.to_datetime</code>.</li>
+<li><b>Duplicates</b>: check <code>df.id.is_unique</code> before and after joins.</li>
+<li><b>Missing</b> can mean zero, unknown or not applicable: decide deliberately.</li>
+</ul>
+
+<h3><span class="n">10</span>Point-in-time correctness</h3>
+<p>Predicting on day 5 with "number of viewings": counting <i>all</i> viewings includes days 6–9, information the model won't have in real use.</p>
+<div class="eg"><b>Example</b><br>All time: <b>11</b> viewings. Before day 5: only <b>6</b>.</div>
+<div class="sticky"><b>The golden rule</b><br>Put the time condition <b>inside the join</b>, so every feature uses only data from before that row's prediction time.</div>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: indexes, NULL logic, rolling features</h3>
+
+<h4>Indexes and query plans</h4>
+<p>Without an index, "find house 42's viewings" reads every row (a <b>full scan</b>). An index (usually a B-tree) jumps there in about $\log n$ steps. <code>EXPLAIN QUERY PLAN</code> shows the strategy.</p>
+<div class="eg"><b>Example</b><br>200,000 viewings: <code>SCAN</code> → <code>SEARCH … USING COVERING INDEX</code> (straight to house 42's 37 rows; "covering" = the index alone holds every needed column).</div>
+<p>Index what you filter and join on; indexes cost space and slow inserts. In warehouses (BigQuery, Snowflake) the equivalents are partitioning and clustering, and you pay per data scanned.</p>
+
+<h4>NULL: three-valued logic</h4>
+<p>A comparison with NULL is <b>unknown</b>, and WHERE keeps only <b>true</b> rows.</p>
+<div class="eg"><b>Example</b><br>Discounts 10, NULL, 2, NULL: <code>NOT (discount &gt; 5)</code> returns only the row with 2, not the NULLs. <code>COUNT(discount)</code> = 2, not 4; <code>AVG</code> = 5.0 (treating missing as 0 would give 2.5).</div>
+<p>Use <code>COALESCE(x, 0)</code> only when missing truly means zero.</p>
+
+<h4>Rolling features with window frames</h4>
+<p><code>ROWS BETWEEN 6 PRECEDING AND CURRENT ROW</code> = a rolling 7-day total; <code>LAG</code> = yesterday's value.</p>
+<div class="eg"><b>Example</b><br>Day 9's views_7d = 1 + 0 + 3 + 1 + 0 + 0 + 4 = <b>9</b> (days 3–9). Day 1 has no yesterday → NULL.</div>
+<ul>
+<li>Predicting at the <b>start</b> of day $d$? End the frame at <code>1 PRECEDING</code>, or that day's views leak in.</li>
+<li><code>ROWS</code> counts rows, not days: with missing days use <code>RANGE</code> on a numeric day, or fill the gaps.</li>
+</ul>
+</div>
+<div class="sign">✎ in one line: LEFT JOIN to keep everyone, aggregate before joining, mind the NULLs, and use only the past.</div>
+</article>

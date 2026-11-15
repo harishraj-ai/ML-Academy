@@ -1,0 +1,114 @@
+<article class="hn" id="n20">
+<div class="hn-tag">Part 5 · Lesson 20</div>
+<h2>Feature engineering, pipelines &amp; final project</h2>
+
+<h3><span class="n">1</span>Data beats algorithms</h3>
+<p>Models want a neat table of numbers. Real data has gaps, text categories ("Chennai", "two-year contract"), amounts from 5 to 5 million, and dates. Turning it into good inputs is <b>feature engineering</b>, and it <mark>often matters more than the algorithm</mark>.</p>
+
+<h3><span class="n">2</span>Numeric features: scaling</h3>
+<p>Distance- and gradient-based models (kNN, SVM, linear/logistic regression, neural nets) need similar scales. Trees don't.</p>
+<ul>
+<li><b>StandardScaler</b>: $z=(x-\mu)/\sigma$. The usual default.</li>
+<li><b>MinMaxScaler</b>: squeeze into [0, 1].</li>
+<li><b>RobustScaler</b>: median and IQR, so outliers don't distort it.</li>
+</ul>
+<div class="eg"><b>Example</b><br>Tenure 3, 12, 24 months → mean 13, sd $\sqrt{74}\approx8.60$ → z-scores ≈ <b>−1.16, −0.12, 1.28</b>.</div>
+<p>Very skewed amounts (balances 0 to 5,000,000, mostly small)? A <b>log transform</b>, e.g. <code>np.log1p</code> (handles zeros).</p>
+
+<h3><span class="n">3</span>Categorical features</h3>
+<div class="sticky"><b>House numbers vs light switches</b><br>Chennai = 1, Mumbai = 2, Delhi = 3 would mean Delhi is "3 × Chennai" and Mumbai lies "between". One-hot gives each city its own on/off switch.</div>
+<p><b>One-hot</b>: one 0/1 column per category, exactly one 1 per row; all categories equally different. <code>OneHotEncoder(handle_unknown="ignore")</code>: a city never seen in training (Kolkata) becomes all zeros instead of an error.</p>
+<p>Ordered categories (small &lt; medium &lt; large) can use ordinal codes.</p>
+
+<h3><span class="n">4</span>Missing values</h3>
+<ul>
+<li><b>Drop rows</b>: only if very few are missing at random.</li>
+<li><b>Impute</b> (<code>SimpleImputer</code>): median (numbers), most frequent (categories), or a constant like "unknown"; <code>KNNImputer</code> borrows from similar rows.</li>
+<li><b>Add a "was missing" indicator</b>: missingness itself can be informative.</li>
+</ul>
+<div class="box red">Imputation can leak too: the median must come from the <b>training</b> data only. Pipelines handle this.</div>
+
+<h3><span class="n">5</span>Creating new features</h3>
+<ul>
+<li><b>Ratios / differences</b>: price per m², debt-to-income, charge per support call.</li>
+<li><b>Dates</b>: weekday, month, hour, weekend, days since last purchase (raw timestamps rarely help).</li>
+<li><b>Interactions</b>: products of features (<code>PolynomialFeatures</code>).</li>
+<li><b>Aggregates</b>: average order value, orders in the last 30 days.</li>
+<li><b>Text</b>: word counts or TF-IDF.</li>
+</ul>
+<div class="sticky"><b>Think like the model</b><br>"If I were predicting this by hand, what would I want to know?" E.g. "days until due" for late payments.</div>
+
+<h3><span class="n">6</span>Feature selection</h3>
+<p>Remove near-constant features (<code>VarianceThreshold</code>), keep the best by a test (<code>SelectKBest</code>), keep what a model rates important (<code>SelectFromModel</code>, e.g. Lasso), or let L1 zero them out. Always <b>inside the pipeline</b>.</p>
+
+<h3><span class="n">7</span>The pipeline demo</h3>
+<p>Edit a raw customer table and watch the matrix the model receives: missing charge filled with the training median, numbers standardised, contract one-hot encoded. The statistics are exactly what <code>fit</code> learns.</p>
+
+<h3><span class="n">8</span>Pipelines done right</h3>
+<svg class="sk" viewBox="0 0 600 120" aria-label="Sketch: raw data goes into a pipeline box containing impute, scale and one-hot, then into the model.">
+ <text x="10" y="65">raw rows</text><path class="k" d="M90 60 H130"/>
+ <rect class="k" x="135" y="15" width="300" height="90" rx="12" style="stroke-dasharray:6 5"/><text x="230" y="35">Pipeline</text>
+ <rect class="hl2" x="150" y="45" width="80" height="34" rx="8"/><text x="160" y="68">impute</text>
+ <rect class="hl2" x="245" y="45" width="70" height="34" rx="8"/><text x="255" y="68">scale</text>
+ <rect class="hl2" x="330" y="45" width="90" height="34" rx="8"/><text x="338" y="68">one-hot</text>
+ <path class="k" d="M435 60 H475"/><rect class="hl" x="480" y="42" width="100" height="36" rx="8"/><text x="500" y="66">model</text>
+</svg>
+<p>A <b>Pipeline</b> chains steps into one model object; a <b>ColumnTransformer</b> applies different steps to different columns. Three huge benefits:</p>
+<ol>
+<li><b>No leakage</b>: everything is learned from training data, and re-learned inside every CV fold.</li>
+<li><b>One object to tune</b>: grid search can tune preprocessing and model together (e.g. <code>model__C</code>).</li>
+<li><b>One object to deploy</b>: raw data in, prediction out, with no "training/serving skew".</li>
+</ol>
+
+<h3><span class="n">9</span>Final project: customer churn</h3>
+<p>A telecom company wants to know who's likely to cancel, to offer them a deal first. A synthetic 2,000-customer dataset (patterns built in, so it illustrates the workflow, not real behaviour): <b>40% churned</b>, two columns with gaps (105 and 86 missing), three text categories.</p>
+<ol>
+<li>Load and explore.</li>
+<li><b>Split before anything else</b> (400 test customers locked away).</li>
+<li>Build the pipeline (impute, scale, one-hot).</li>
+<li>Score a trivial baseline, then compare models with cross-validation.</li>
+<li>Tune the best, evaluate once on the test set, choose a threshold.</li>
+<li>Interpret and save the whole pipeline.</li>
+</ol>
+
+<h3><span class="n">10</span>After deployment: monitoring</h3>
+<p>Performance can quietly decay as the world changes. "Watch for silent failures": a feature filled for 90% of rows dropping to 60% because an upstream system changed.</p>
+<ul>
+<li>Log inputs and predictions; track feature and probability distributions.</li>
+<li>Measure real-world metrics when outcomes arrive.</li>
+<li>Check for training/serving skew.</li>
+<li>Retrain on recent data; evaluate on later data.</li>
+</ul>
+
+<h3><span class="n">11</span>The whole workflow</h3>
+<p class="pen">define problem &amp; metric → explore → split (by time if needed) → pipeline → baseline → compare with CV → tune → test once &amp; threshold → interpret → save, deploy, monitor</p>
+
+<h3><span class="n">12</span>Where next</h3>
+<p>Practise on real datasets (scikit-learn's example gallery), go deeper into deep learning with PyTorch, strengthen the maths (<i>Mathematics for Machine Learning</i> is free online), and re-read earlier lessons: they often click after the later ones.</p>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: leak-proof pipelines, efficient tuning</h3>
+
+<h4>Target encoding: how much leakage can fake</h4>
+<p>Replace each category with its average target: powerful for many-level categories (postcodes, product IDs), but if the averages include the rows you evaluate on, each row's own label leaks in.</p>
+<div class="eg"><b>Example from the lesson</b><br>A 2,000-level category with <b>no real relationship</b> to the target (honest accuracy 50%). Naive encoding reports <b>73.1%</b> on pure noise. scikit-learn's <code>TargetEncoder</code> inside the pipeline (refitted per fold, with cross-fitting): <b>49.7%</b>.</div>
+<p>It also smooths rare levels towards the overall average and handles unseen levels.</p>
+
+<h4>One pipeline for mixed data</h4>
+<p>Numbers (impute + standardise), one-hot areas and TF-IDF of descriptions → 30 columns → ridge. The whole object can be cross-validated, tuned (names like <code>columntransformer__num__simpleimputer__strategy</code>) and saved as one file, so training and serving can't drift apart.</p>
+
+<h4>Grid vs random search</h4>
+<p>A 3×3×2 grid tests only 3 distinct values of each setting; 18 random draws test 18 values of every setting. Usually only one or two settings matter, so <mark>random search does as well or better</mark> (Bergstra &amp; Bengio, 2012). Sample learning rates and penalties on a <b>log scale</b>.</p>
+<div class="eg"><b>Example</b><br>18 settings each: grid 0.975, random 0.972, within noise. Random's advantage grows with the number of settings.</div>
+<p>Smarter: Bayesian optimisation (Optuna's TPE) and successive halving (<code>HalvingRandomSearchCV</code>).</p>
+
+<h4>Keeping track of experiments</h4>
+<ul>
+<li>Log every run: parameters, metrics, code version, data version, seed, library versions (MLflow, Weights &amp; Biases).</li>
+<li>Version the data too (DVC, dated snapshots).</li>
+<li>Save the whole pipeline with a <b>model card</b>: intended use, data, metrics by subgroup, limits.</li>
+<li>Keep the test set out of the loop.</li>
+</ul>
+</div>
+<div class="sign">✎ in one line: good features plus one Pipeline fitted on training data give honest scores and safe deployment.</div>
+</article>

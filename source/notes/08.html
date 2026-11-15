@@ -1,0 +1,87 @@
+<article class="hn" id="n08">
+<div class="hn-tag">Part 2 · Lesson 8</div>
+<h2>Logistic regression</h2>
+
+<h3><span class="n">1</span>From numbers to yes/no</h3>
+<p>Spam? Will the customer cancel? Malignant? Will the student pass? These are <b>binary classification</b>: $y=1$ (positive class) or $y=0$. Logistic regression is the standard first model. Despite its name it's a <b>classifier</b>, and it outputs a <mark>probability</mark> ("83% likely to pass"), which is far more useful for decisions.</p>
+<div class="eg"><b>Running example</b><br>Hours studied 0.5 … 5 vs passed (0/1): 0, 0, 0, 1, 0, 1, 0, 1, 1, 1. More study helps, but it's no guarantee: exactly the uncertainty probabilities describe.</div>
+
+<h3><span class="n">2</span>Why not linear regression?</h3>
+<ul>
+<li>A line goes on forever → "probabilities" like 1.4 or −0.3.</li>
+<li>One student who studied 40 hours flattens the whole line and shifts everyone's decision point.</li>
+<li>Squared error isn't the right way to score yes/no predictions.</li>
+</ul>
+
+<h3><span class="n">3</span>The sigmoid</h3>
+<p class="fx">$\sigma(z)=\dfrac{1}{1+e^{-z}}$</p>
+<svg class="sk" viewBox="0 0 400 150" aria-label="Sketch: S-shaped sigmoid curve from 0 to 1, crossing 0.5 at z equals 0.">
+ <path class="k" d="M20 130 H380 M200 135 V10"/><path class="k" d="M20 20 H380" style="stroke-dasharray:4 6"/>
+ <path class="p" d="M20 127 C150 126 170 75 200 75 C230 75 250 24 380 23"/>
+ <circle class="dot" cx="200" cy="75" r="5"/><text x="210" y="80">0.5 at z = 0</text><text x="330" y="15">1</text><text x="330" y="145">0</text>
+</svg>
+<p>Values: σ(−4) = 0.018, σ(−1) = 0.269, <b>σ(0) = 0.5</b>, σ(1) = 0.731, σ(4) = 0.982. Symmetric: $\sigma(-z)=1-\sigma(z)$. Its derivative is neat: $\sigma'(z)=\sigma(z)(1-\sigma(z))$. It turns an unlimited "score" into a "confidence".</p>
+
+<h3><span class="n">4</span>The model</h3>
+<p class="fx">$z=\mathbf{w}\cdot\mathbf{x}+b,\qquad p=\sigma(z)=P(y=1\mid\mathbf{x})$</p>
+<div class="eg"><b>Example from the lesson</b><br>Trained model $z=1.354x-3.723$.<br>2 hours: $z=-1.015$ → $p\approx$ <b>0.27</b>. 4 hours: $z=1.693$ → $p\approx$ <b>0.84</b>.</div>
+
+<h3><span class="n">5</span>The decision boundary</h3>
+<p>Predict 1 when $p\ge0.5$, which happens exactly when $\mathbf{w}\cdot\mathbf{x}+b\ge0$. The boundary $\mathbf{w}\cdot\mathbf{x}+b=0$ is a <mark>straight line</mark> (plane): logistic regression is a <b>linear classifier</b>.</p>
+<div class="eg"><b>Example</b><br>$1.354x-3.723=0$ → <b>x ≈ 2.75 hours</b>: below it "fail", above "pass".</div>
+<div class="sticky"><b>The threshold is a choice</b><br>Cancer screening: flag at $p\ge0.1$ (more false alarms, fewer misses). Spam filter: require $p\ge0.9$ so real emails get through.</div>
+
+<h3><span class="n">6</span>Reading the weights: odds</h3>
+<p>Odds $=\frac{p}{1-p}$ (0.8 → 4 to 1). The model is linear in the <b>log-odds</b> (logit): $\ln\frac{p}{1-p}=\mathbf{w}\cdot\mathbf{x}+b$. So <mark>+1 in $x_j$ multiplies the odds by $e^{w_j}$</mark>.</p>
+<div class="eg"><b>Example</b><br>$e^{1.354}\approx3.87$: each extra hour multiplies the odds of passing by about 3.9. A weight of $\ln2$ doubles them. The probability itself changes by different amounts at different places.</div>
+
+<h3><span class="n">7</span>The loss: log loss</h3>
+<p class="fx">$\ell=-[\,y\ln p+(1-y)\ln(1-p)\,]$</p>
+<p>Only one term is active: $-\ln p$ if $y=1$, $-\ln(1-p)$ if $y=0$. True label 1:</p>
+<ul><li>$p=0.9$ → 0.105 (confident and right)</li><li>$p=0.5$ → 0.693 (unsure)</li><li>$p=0.1$ → 2.303 (confident and wrong)</li><li>$p=0.01$ → <b>4.605</b> (very confident and wrong)</li></ul>
+<p>As $p\to0$ the loss → ∞: confident mistakes are punished hard. It's also the maximum-likelihood loss for yes/no outcomes.</p>
+
+<h3><span class="n">8</span>The gradient: surprisingly simple</h3>
+<p>Chain rule: $\frac{\partial\ell}{\partial p}\cdot\frac{\partial p}{\partial z}\cdot\frac{\partial z}{\partial w_j}$, and the first two multiply out to just $p-y$:</p>
+<p class="fx">$\dfrac{\partial L}{\partial\mathbf{w}}=\dfrac1n\sum(p_i-y_i)\,\mathbf{x}_i$</p>
+<div class="sticky"><b>Same shape again</b><br>(prediction − truth) × input, exactly like linear regression. No formula for the answer, so we use gradient descent.</div>
+
+<h3><span class="n">9</span>The demo</h3>
+<p>Add points of two classes and train. The background shows the probability; the white line is the boundary. Put one class in a <b>ring</b> around the other and a straight boundary can't separate them.</p>
+
+<h3><span class="n">10</span>More than two classes</h3>
+<ul>
+<li><b>One-vs-rest</b>: $K$ yes/no models ("a 3 or not?"), pick the most confident.</li>
+<li><b>Softmax</b>: a score per class, turned into probabilities that sum to 1: $P(y=k)=\frac{e^{z_k}}{\sum_je^{z_j}}$.</li>
+</ul>
+<div class="eg"><b>Example</b><br>Scores cat 2, dog 1, rabbit 0 → $e^z$ = 7.39, 2.72, 1 (total 11.11) → <b>66.5% / 24.5% / 9%</b>.</div>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: a probability model</h3>
+
+<h4>Why the loss is convex</h4>
+<p>Gradient $X^\top(\mathbf{p}-\mathbf{y})$; Hessian $H=X^\top SX$ with $S=\text{diag}(p_i(1-p_i))$. Every $p_i(1-p_i)&gt;0$, so $H$ is positive semi-definite everywhere: <mark>one valley, no bad local minima</mark>. Note $p(1-p)$ is largest (0.25) near the boundary and tiny for confident points, so confident points hardly shape the curvature.</p>
+
+<h4>How libraries solve it: Newton / IRLS</h4>
+<p>With a moderate number of features the Hessian is cheap, so use Newton's method; each step is a weighted least-squares problem, hence <b>IRLS</b> (iteratively reweighted least squares). An L2 penalty adds $\lambda\mathbf{w}$ to the gradient and $\lambda I$ to the Hessian.</p>
+<div class="eg"><b>Example from the lesson</b><br>Breast-cancer data, 5 features: step sizes $6\times10^{-4}$ → $1.5\times10^{-7}$ → $8\times10^{-15}$. Correct digits roughly double each step (quadratic convergence); 9 steps match scikit-learn to 4 decimals.</div>
+<div class="sticky"><b>scikit-learn's C</b><br>$C=1/\lambda$: <b>smaller C = stronger regularization</b>. It's on by default. Without it, perfectly separable data sends the weights to infinity.</div>
+
+<h4>Calibration: can you trust the probabilities?</h4>
+<p>Well calibrated = of all cases scored 0.8, about 80% are positive. Accuracy and AUC ignore this (they only care about order). Check with a <b>reliability table</b> (bin predictions, compare with the actual rate) and the <b>Brier score</b> = mean of $(p_i-y_i)^2$.</p>
+<div class="eg"><b>Example from the lesson</b><br>Logistic regression: bins line up (0.02 → 0%, 0.98 → 99%), Brier <b>0.018</b>. Gaussian naive Bayes: 107 cases at 0.00 but 10% positive, Brier <b>0.071</b> (4× worse), because it counts correlated evidence several times.</div>
+<p>Fix a badly calibrated model with <code>CalibratedClassifierCV</code>: <b>Platt scaling</b> or <b>isotonic regression</b>, on held-out data.</p>
+
+<h4>When one class is rare</h4>
+<div class="eg"><b>Example from the lesson</b><br>5% positives. Default model: recall only <b>7.5%</b>, but honest probabilities (average 0.055 vs true 0.054). With <code>class_weight="balanced"</code> (each positive counts ~19×): recall <b>82.2%</b>, precision 0.187, and the average prediction is 0.314, nowhere near 5%.</div>
+<ul>
+<li>Need trustworthy probabilities (pricing, expected cost)? Keep the model unweighted and <b>move the threshold</b>.</li>
+<li>Only need decisions? Either works.</li>
+<li>Oversampling / SMOTE acts like reweighting, and must happen only inside training folds.</li>
+</ul>
+
+<h4>Softmax gradient</h4>
+<p>$\nabla_WL=\mathbf{x}(\mathbf{p}-\mathbf{y})^\top$ with $\mathbf{y}$ one-hot. "Prediction minus truth, times input" appears in linear regression, logistic regression, softmax and a network's output layer, because all are <b>generalised linear models</b> trained by maximum likelihood with their natural link.</p>
+</div>
+<div class="sign">✎ in one line: a linear score squashed into a probability, trained with log loss, turned into a decision by a threshold you choose.</div>
+</article>

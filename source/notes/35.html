@@ -1,0 +1,81 @@
+<article class="hn" id="n35">
+<div class="hn-tag">Part 7 · Lesson 35</div>
+<h2>Graphical models &amp; HMMs</h2>
+
+<h3><span class="n">1</span>Structure in probability</h3>
+<p>Many uncertain things affect each other: a disease causes symptoms, hidden wear causes noisy sensor readings. One giant table for every combination is hopeless: 30 yes/no variables need over a <b>billion</b> entries. <b>Graphical models</b> use a graph of who directly influences whom and break the joint distribution into <mark>small, understandable pieces</mark>. (Naive Bayes was one: class → each feature.)</p>
+
+<h3><span class="n">2</span>Bayesian networks</h3>
+<p>A directed graph without cycles, with one conditional table per node:</p>
+<p class="fx">$P(x_1,\dots,x_n)=\prod_iP(x_i\mid\text{parents}(x_i))$</p>
+<svg class="sk" viewBox="0 0 420 140" aria-label="Sketch: rain points to sprinkler and to wet grass; sprinkler points to wet grass.">
+ <rect class="hl2" x="20" y="15" width="100" height="34" rx="8"/><text x="45" y="38">rain</text>
+ <rect class="hl2" x="280" y="15" width="120" height="34" rx="8"/><text x="295" y="38">sprinkler</text>
+ <rect class="hl" x="140" y="95" width="140" height="34" rx="8"/><text x="160" y="118">wet grass</text>
+ <path class="k" d="M70 49 L180 95 M340 49 L240 95 M120 32 H280"/>
+</svg>
+<p>Rain makes the sprinkler less likely; both make the grass wet. Three small tables replace one of $2^3$ combinations, and any question is answered by summing over the unknowns (<b>inference by enumeration</b>).</p>
+<div class="eg"><b>Example from the lesson</b><br>Before anything: P(rain) = <b>0.2</b>. See wet grass → <b>0.358</b>. Learn the sprinkler was on → <b>0.007</b>.</div>
+<div class="sticky"><b>Explaining away</b><br>One cause (the sprinkler) explains the effect, so the other cause (rain) becomes <u>less</u> likely.</div>
+<p>Arrows show the model's structure; don't read them as proven causes without a reason.</p>
+
+<h3><span class="n">3</span>Hidden Markov models</h3>
+<svg class="sk" viewBox="0 0 480 130" aria-label="Sketch: hidden states in a row linked by arrows, each with an arrow down to an observation.">
+ <circle class="hl2" cx="60" cy="35" r="22"/><circle class="hl2" cx="190" cy="35" r="22"/><circle class="hl2" cx="320" cy="35" r="22"/>
+ <path class="k" d="M82 35 H168 M212 35 H298 M342 35 H420"/><text x="430" y="40">…</text>
+ <rect class="hl" x="40" y="90" width="40" height="30" rx="6"/><rect class="hl" x="170" y="90" width="40" height="30" rx="6"/><rect class="hl" x="300" y="90" width="40" height="30" rx="6"/>
+ <path class="k" d="M60 57 V90 M190 57 V90 M320 57 V90"/><text x="345" y="110">seen</text><text x="440" y="70">hidden</text>
+</svg>
+<p>Hidden states $z_1,z_2,\dots$ follow a Markov chain; each emits an observation $x_t$. Three sets of numbers:</p>
+<ul>
+<li><b>Initial</b> $\pi_i=P(z_1=i)$.</li>
+<li><b>Transition</b> $T_{ij}=P(z_{t+1}=j\mid z_t=i)$.</li>
+<li><b>Emission</b> $E_{ik}=P(x_t=k\mid z_t=i)$.</li>
+</ul>
+<p>Example: a friend's weather is hidden (Sunny/Rainy); you only hear what they did (walk, shop, clean). Sunny days tend to follow sunny days; on rainy days they tend to clean. The <b>forward algorithm</b> gives the probability of a whole observed sequence.</p>
+<div class="box red">Don't mix up the transition and emission matrices. And use <b>logs</b>: many small probabilities multiplied underflow to 0.</div>
+
+<h3><span class="n">4</span>Decoding: Viterbi</h3>
+<p>The single <b>most likely sequence of hidden states</b>: the forward algorithm with the sum replaced by a <b>max</b>, plus back-pointers (dynamic programming, in logs).</p>
+<div class="eg"><b>Example from the lesson</b><br>Shopping on day 3 is ambiguous alone (sunny 0.3, rainy 0.4), but days 4–5 involve cleaning and weather persists, so Viterbi decides the rain <b>started on day 3</b>. Day 6 (shopping) keeps the rain; day 7 (walking) brings the sun back.</div>
+<p>The sequence context is what a day-by-day classifier misses.</p>
+
+<h3><span class="n">5</span>The decoding demo</h3>
+<p>True hidden state, a noisy signal of it, and Viterbi's decoding. Make the state stickier or the signal noisier and compare accuracies.</p>
+
+<h3><span class="n">6</span>Learning the parameters</h3>
+<ul>
+<li><b>Labelled states</b>: just count (share of sunny days followed by rainy → $T$; share of rainy days with cleaning → $E$). From 5,000 labelled days the counts are within <b>0.01</b> of the truth.</li>
+<li><b>Unlabelled</b>: <b>Baum–Welch</b> (EM). Finds states only up to their names (it doesn't know which is "Sunny") and can hit local optima, so run it from several starts.</li>
+</ul>
+
+<h3><span class="n">7</span>Why the sequence matters</h3>
+<div class="eg"><b>Example</b><br>2,000 new days: Viterbi right <b>75.2%</b> of the time vs <b>70.3%</b> for day-by-day guesses (the gain grows with stickier states).<br>Long-run share of sunny days (the <b>stationary distribution</b>, $T$ raised to a high power): <b>60%</b>, matching the sample's 59.5%.</div>
+<p>HMMs ran speech recognition and part-of-speech tagging for decades; still used for gene finding, activity recognition, regime detection.</p>
+
+<h3><span class="n">8</span>In practice</h3>
+<ul>
+<li><b>Naive Bayes</b>: class → features. Text, baselines.</li>
+<li><b>Bayesian network</b>: any DAG. Diagnosis, risk, causal diagrams.</li>
+<li><b>HMM</b>: a hidden chain. Speech, tagging, sensors, regimes.</li>
+<li><b>Markov random field / CRF</b>: undirected. Image segmentation, sequence labelling.</li>
+<li><b>Kalman filter</b>: an HMM with continuous normal states. Tracking, navigation.</li>
+</ul>
+<p>Exact inference is easy for chains and trees, hard for general graphs (use MCMC or variational inference). Libraries: pgmpy, hmmlearn.</p>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: forward–backward, Baum–Welch</h3>
+
+<h4>Each day's probabilities: forward–backward</h4>
+<p>Viterbi gives one path. Often you want <b>each day's</b> state probability given <i>all</i> observations: a forward pass α summarises the past, a backward pass β the future, and their normalised product gives $P(z_t\mid x_{1:n})$.</p>
+<div class="eg"><b>Example from the lesson</b><br>P(rain) rises through two shopping days to <b>0.741</b> on the cleaning day, then falls back. Day 5's shopping: <b>0.488</b>, genuinely uncertain, which Viterbi's single path hides.</div>
+<p>Use these for decisions with costs; they're also the E-step of Baum–Welch.</p>
+
+<h4>Learning from observations alone: Baum–Welch</h4>
+<ol><li><b>E-step</b>: forward–backward → expected state each day and expected number of each transition.</li><li><b>M-step</b>: re-estimate the parameters from those expected counts.</li></ol>
+<p>Each iteration increases the likelihood.</p>
+<div class="eg"><b>Example</b><br>From a rough guess and only 3,000 activities (no weather labels): learns transitions of <b>0.75/0.25</b> (true 0.8/0.2) and emissions close to the truth.</div>
+<p>Scaling by $c_t$ at each step stops underflow on long sequences. Like all EM, it can stop at a local optimum: run several starts, keep the best likelihood.</p>
+</div>
+<div class="sign">✎ in one line: draw who influences whom, multiply small local tables, use Viterbi for the best hidden path and forward–backward for each day's odds.</div>
+</article>

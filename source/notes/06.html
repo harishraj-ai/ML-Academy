@@ -1,0 +1,120 @@
+<article class="hn" id="n06">
+<div class="hn-tag">Part 2 · Lesson 6</div>
+<h2>Linear regression</h2>
+
+<h3><span class="n">1</span>The idea</h3>
+<p>The "hello world" of ML, and still one of the most used models in industry. It predicts a number assuming the label changes in a <b>straight-line</b> way with each feature. Worth learning well: logistic regression, regularized models, SVMs and every neuron in a neural network reuse the same pattern, <mark>weights × features + bias</mark>.</p>
+
+<h3><span class="n">2</span>The model</h3>
+<p class="fx">$\hat{y}=wx+b\qquad\text{or}\qquad\hat{y}=\mathbf{w}\cdot\mathbf{x}+b$</p>
+<p>$w$ (weight / slope) = change in $\hat{y}$ when $x$ goes up by 1. $b$ (bias / intercept) = the prediction at $x=0$. Two features → a flat plane; more → a "hyperplane".</p>
+
+<h3><span class="n">3</span>What does "best" mean? Least squares</h3>
+<svg class="sk" viewBox="0 0 400 190" aria-label="Sketch: dots around a straight line, with short vertical red lines from each dot to the line showing the errors.">
+ <path class="k" d="M30 170 H380 M30 170 V15"/><path class="p" d="M40 160 L370 30"/>
+ <circle class="dot" cx="80" cy="130" r="5"/><path class="r" d="M80 130 V144"/>
+ <circle class="dot" cx="140" cy="135" r="5"/><path class="r" d="M140 135 V120"/>
+ <circle class="dot" cx="200" cy="80" r="5"/><path class="r" d="M200 80 V97"/>
+ <circle class="dot" cx="260" cy="85" r="5"/><path class="r" d="M260 85 V73"/>
+ <circle class="dot" cx="320" cy="35" r="5"/><path class="r" d="M320 35 V50"/>
+ <text x="215" y="185">red = residuals</text>
+</svg>
+<p>Each <b>residual</b> $r_i=y_i-\hat{y}_i$ is a vertical gap. <b>Ordinary least squares (OLS)</b> minimises the mean of their squares:</p>
+<p class="fx">$L(w,b)=\frac1n\sum\big(y_i-(wx_i+b)\big)^2$</p>
+<ul>
+<li>Squaring makes every error positive, so ups and downs don't cancel.</li>
+<li>Big errors cost much more (an error of 4 costs 16, an error of 1 costs 1).</li>
+<li>The loss is a smooth bowl with one bottom, so calculus finds it.</li>
+</ul>
+<div class="sticky"><b>Picture it</b><br>Each squared residual is the area of a little square. Least squares finds the line with the smallest total area.</div>
+
+<h3><span class="n">4</span>Solving with calculus</h3>
+<p>At the bottom of the bowl both partial derivatives are zero.</p>
+<ul>
+<li>From $\partial L/\partial b=0$: $b=\bar{y}-w\bar{x}$, so <mark>the best line always passes through the average point $(\bar{x},\bar{y})$</mark>.</li>
+<li>From $\partial L/\partial w=0$: the slope formula below.</li>
+</ul>
+<p class="fx">$w=\dfrac{\sum(x_i-\bar{x})(y_i-\bar{y})}{\sum(x_i-\bar{x})^2}$</p>
+
+<h3><span class="n">5</span>Worked example by hand</h3>
+<div class="eg"><b>Example from the lesson</b><br>$x=1,2,3,4,5$; $y=2,4,5,4,5$ → $\bar{x}=3$, $\bar{y}=4$.<br>Top sum = 6, bottom sum = 10 → $w=$ <b>0.6</b>, $b=4-0.6\times3=$ <b>2.2</b>.<br>Line $\hat{y}=0.6x+2.2$; residuals −0.8, 0.6, 1.0, −0.6, −0.2 → squares sum to 2.4 → MSE = <b>0.48</b>. Predict $x=6$: 5.8.</div>
+<p>Read it as revision hours vs test score: each extra hour goes with about 0.6 more marks.</p>
+
+<h3><span class="n">6</span>The live demo</h3>
+<p>Click to add points and the line refits. Watch how <b>one far-away point (outlier) drags the whole line</b>.</p>
+
+<h3><span class="n">7</span>How good is the fit? R²</h3>
+<p>MSE depends on units. $R^2$ compares the model with the laziest baseline, "always predict the mean":</p>
+<p class="fx">$R^2=1-\dfrac{\text{SS}_{\text{res}}}{\text{SS}_{\text{tot}}}=1-\dfrac{\sum(y_i-\hat{y}_i)^2}{\sum(y_i-\bar{y})^2}$</p>
+<ul><li>1 = perfect · 0 = no better than the mean · below 0 = worse than the mean (possible on test data).</li></ul>
+<div class="eg"><b>Example</b><br>SS<sub>res</sub> = 2.4, SS<sub>tot</sub> = 6 → $R^2=1-2.4/6=$ <b>0.6</b>: the line explains 60% of the variation in scores.</div>
+
+<h3><span class="n">8</span>Many features: the normal equation</h3>
+<p>Add a column of 1s to $X$ so the bias is just another weight; then $\hat{\mathbf{y}}=X\mathbf{w}$. Setting the gradient $\frac2nX^\top(X\mathbf{w}-\mathbf{y})$ to zero gives:</p>
+<p class="fx">$\mathbf{w}=(X^\top X)^{-1}X^\top\mathbf{y}$</p>
+<p>The best weights can be calculated directly. For huge problems, gradient descent (Lesson 7) is faster.</p>
+
+<h3><span class="n">9</span>Reading the weights</h3>
+<p>price = 2.5·size + 12·bedrooms − 4·distance + 40 (in thousands) → holding the rest fixed, +1 m² ≈ +2.5k, +1 bedroom ≈ +12k, +1 km ≈ −4k.</p>
+<div class="box red"><b>Two cautions</b><br>• <b>Units matter</b>: standardise features first if you want to compare weights.<br>• <b>Correlation ≠ causation</b>: splitting a room into two won't necessarily add 12k.</div>
+
+<h3><span class="n">10</span>Limitations and fixes</h3>
+<ul>
+<li><b>Curved relationship</b> → add features like $x^2$, $x^3$ (still linear in the weights).</li>
+<li><b>Outliers</b> pull the line a long way.</li>
+<li><b>Correlated features</b> make single weights unstable → regularization (Lesson 10).</li>
+<li><b>Residuals should look like random noise.</b> A curved pattern means something is missing.</li>
+</ul>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: the statistics behind it</h3>
+
+<h4>The four assumptions: LINE</h4>
+<ul>
+<li><b>L</b>inearity: the average of $y$ is a straight-line function of the features. Check residuals vs predictions for curves.</li>
+<li><b>I</b>ndependence: one error says nothing about the next. Broken by time series and repeated measurements → standard errors too small.</li>
+<li><b>N</b>ormality: errors follow a bell curve. Only matters for exact p-values in small datasets.</li>
+<li><b>E</b>qual spread (homoscedasticity): errors are as big for large predictions as small ones. If they fan out, the weights are fine but the standard errors are wrong.</li>
+</ul>
+<p>The features and $y$ themselves don't need to be normal. And if you only care about test-set predictions, none of this is strictly needed; it matters when you claim "this feature has a real effect".</p>
+
+<h4>Why squared error?</h4>
+<ul>
+<li>It's the <b>maximum-likelihood</b> answer when noise is normal (with Laplace noise you'd get absolute error / median regression).</li>
+<li><b>Gauss–Markov</b>: with zero-mean, uncorrelated, equal-spread errors, OLS has the smallest variance among unbiased linear estimators ("BLUE"). But a slightly <i>biased</i> method like ridge can predict better.</li>
+</ul>
+
+<h4>How sure is each weight?</h4>
+<p>Fit on a different sample and the weights wobble. The <b>standard error</b> measures how much: $\text{Var}(\hat{\mathbf{w}})=\sigma^2(X^\top X)^{-1}$, with $\hat\sigma^2=\text{SS}_{\text{res}}/(n-d-1)$.</p>
+<ul><li>$t=\hat w/\text{SE}$: how many SEs from zero.</li><li><b>p-value</b>: chance of a $|t|$ this big if the true weight were 0.</li><li>95% interval: $\hat w\pm t^*\text{SE}$ (about ±1.97 SE here).</li></ul>
+<div class="eg"><b>Example: diabetes data (442 patients)</b><br><b>bmi</b>: 7.81 SEs from zero, interval 389 to 651 → clearly real. <b>age</b>: p = 0.867, interval −127 to +107 → can't even tell the direction. <b>s1</b>: big weight (−792) yet p = 0.058, because its SE (416.7) is huge.</div>
+<div class="sticky"><b>A p-value is not…</b><br>…the chance the feature is useless. A large p doesn't prove "no effect" (maybe too little data). A tiny p doesn't mean big, useful or causal.</div>
+
+<h4>Overlapping features: the VIF</h4>
+<p>s1 (total cholesterol) and s2 (LDL) correlate about 0.9, so the model can't decide how to split the credit. The <b>variance inflation factor</b>: predict feature $j$ from the others, then</p>
+<p class="fx">$\text{VIF}_j=\dfrac{1}{1-R_j^2}$</p>
+<p>VIF 1 = no inflation; 10 = the others explain 90%. SE grows by $\sqrt{\text{VIF}}$. Investigate above 5–10.</p>
+<div class="eg"><b>Example</b><br>s1's VIF = 59.2 (SE ×7.7). Drop s2 → s1's SE falls from 416.7 to 114.0, while $R^2$ barely moves (0.5177 → 0.5155).</div>
+<p><mark>Multicollinearity hurts interpretation, not prediction.</mark></p>
+
+<h4>Adjusted R² and cross-validation</h4>
+<p>Training $R^2$ never goes down when you add a feature, even pure noise. Adjusted $R^2=1-(1-R^2)\frac{n-1}{n-d-1}$ penalises each feature.</p>
+<div class="eg"><b>Example</b><br>Adding random noise columns: training $R^2$ climbs 0.518 → 0.633; adjusted stays about 0.51; <b>cross-validated</b> $R^2$ actually falls 0.482 → 0.277. CV tells the truth.</div>
+
+<h4>Errors that fan out: the log transform</h4>
+<p>Money-like targets vary in proportion to their size, so residuals fan out (senior salaries 3.4× more spread than juniors). Model $\log y$ instead: "±25%" becomes a constant "±0.25".</p>
+<p>Reading it: +1 in $x$ multiplies $y$ by $e^w$. $e^{0.0591}=1.061$ → each extra year ≈ <b>6.1% higher</b> salary (for small $w$, read $100w$ as a %). Converting back with $e^{\hat y}$ gives roughly the median. Alternatives: robust standard errors (HC3) or weighted least squares.</p>
+
+<h4>Points that bend the line</h4>
+<ul>
+<li><b>Outlier</b>: $y$ far from the line.</li>
+<li><b>High leverage</b>: $x$ far from the others (the hat-matrix diagonal $h_{ii}$; average $(d+1)/n$).</li>
+<li><b>Influential</b> = both. <b>Cook's distance</b> measures how much all predictions move if the point is deleted; flag above 1 (or 4/n).</li>
+</ul>
+<p>Robust regression (e.g. Huber loss) limits how much any single point can pull.</p>
+
+<h4>Categories: the dummy-variable trap</h4>
+<p>One-hot encode a category with $k$ values and keep only $k-1$ columns when there's an intercept. All $k$ columns add up to the 1s column, so $X^\top X$ can't be inverted. The dropped category becomes the baseline the others are compared to.</p>
+</div>
+<div class="sign">✎ in one line: the line that minimises squared gaps, judged by R² against the mean, read carefully and checked for assumptions.</div>
+</article>

@@ -220,7 +220,7 @@ UP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2
 
 
 ALL_LINKS = [("PATH", "Learning path"), ("map.html", "Course map"), ("review.html", "Review"), ("tests.html", "Tests"), ("projects.html", "Projects"), ("progress.html", "My progress"), ("notes.html", "My notes"), ("recent.html", "Recent developments"), ("next.html", "What next"), ("interview.html", "Interview questions"), ("confused.html", "Confused terms"), ("changelog.html", "Changelog"),
-             ("guide.html", "Which model?"), ("compare.html", "Compare"), ("glossary.html", "Glossary"), ("cheatsheet.html", "Cheat sheet")]
+             ("guide.html", "Which model?"), ("compare.html", "Compare"), ("glossary.html", "Glossary"), ("cheatsheet.html", "Cheat sheet"), ("course-notes.html", "Study notes")]
 def nav_html(path_href, primary, cls="nav"):
     links = [(path_href if h == "PATH" else h, t) for h, t in ALL_LINKS]
     prim = [l for l in links if l[1] in primary]
@@ -242,7 +242,7 @@ def head(title, desc, math=False, demos=True):
 """
 FOOTER = """<footer class="site-footer"><div class="container">
 <div>ML Academy · A free, beginner-first machine learning course.</div>
-<div class="footer-links"><a href="index.html#path">Learning path</a><a href="map.html">Course map</a><a href="tests.html">Part tests</a><a href="review.html">Review</a><a href="projects.html">Projects</a><a href="compare.html">Compare</a><a href="guide.html">Which model?</a><a href="glossary.html">Glossary</a><a href="cheatsheet.html">Cheat sheet</a><a href="workbook/ML-Academy-workbook.pdf">Printable workbook (PDF)</a><a href="index.html#setup">Setup</a><a href="changelog.html">Changelog &amp; versions</a></div>
+<div class="footer-links"><a href="index.html#path">Learning path</a><a href="map.html">Course map</a><a href="tests.html">Part tests</a><a href="review.html">Review</a><a href="projects.html">Projects</a><a href="compare.html">Compare</a><a href="guide.html">Which model?</a><a href="glossary.html">Glossary</a><a href="cheatsheet.html">Cheat sheet</a><a href="course-notes.html">Study notes</a><a href="workbook/ML-Academy-workbook.pdf">Printable workbook (PDF)</a><a href="index.html#setup">Setup</a><a href="changelog.html">Changelog &amp; versions</a></div>
 </div></footer>"""
 def ext(u, t): return f'<a href="{e(u)}" target="_blank" rel="noopener">{e(t)}</a>'
 
@@ -970,3 +970,12 @@ shutil.copy(os.path.join(HERE, "site_requirements.txt"), os.path.join(OUT, "requ
 print("README and requirements copied")
 
 shutil.copy(os.path.join(HERE, "site_gitignore"), os.path.join(OUT, ".gitignore"))
+
+# ---------------- course notes (built from the finished lesson pages) ----------------
+import subprocess
+subprocess.run([sys.executable, os.path.join(HERE, "course_notes.py"), OUT], check=True)
+_si = os.path.join(OUT, "assets", "search-index.js"); _t = open(_si, encoding="utf-8").read()
+if '"u":"course-notes.html"' not in _t:
+    IDX.append({"t": "Study notes", "s": "Notebook-style revision notes for every lesson, with sketches, worked examples and self-tests. PDF download.", "u": "course-notes.html", "k": "lesson", "x": "study notes course notes revision summary notebook pdf print download all lessons"})
+    open(_si, "w").write("window.MLA_INDEX=" + json.dumps(IDX, ensure_ascii=False, separators=(",", ":")) + ";")
+print("PDF of the study notes: node source/course_notes_pdf.js " + OUT)

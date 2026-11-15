@@ -1,0 +1,95 @@
+<article class="hn" id="n14">
+<div class="hn-tag">Part 3 · Lesson 14</div>
+<h2>Random forests &amp; boosting</h2>
+
+<h3><span class="n">1</span>The wisdom of crowds</h3>
+<p>In 1906, about 800 people at a fair guessed an ox's weight. Individual guesses were all over the place, but their <b>median was within 1%</b> of the truth. <b>Ensembles</b> do this with models: train many, combine their predictions. A single tree is unstable (Lesson 13); ensembles turn that into a strength. Random forests and gradient boosting <mark>win a large share of real-world tabular competitions</mark>.</p>
+
+<h3><span class="n">2</span>Why combining works</h3>
+<p>25 classifiers, each right 60% of the time, making mistakes <b>independently</b>. A majority vote is right when at least 13 are right:</p>
+<p class="fx">$P=\sum_{k=13}^{25}\binom{25}{k}0.6^k0.4^{25-k}\approx0.846$</p>
+<div class="sticky"><b>The catch</b><br>Twenty-five 60% models make an 85% team, but only if their mistakes <u>differ</u>. Copies of the same model don't help.</div>
+
+<h3><span class="n">3</span>Bagging: bootstrap aggregating</h3>
+<p>One training set, many different trees? Give each tree a <b>bootstrap sample</b>: draw $n$ rows from $n$ <b>with replacement</b>. Some rows appear twice, some not at all. Then average (or vote).</p>
+<div class="eg"><b>Example</b><br>Chance a row is never picked: $(1-\frac1n)^n\to e^{-1}\approx0.368$. So each sample holds about <b>63.2%</b> of the distinct rows (n = 1000: $1-0.999^{1000}\approx0.632$).</div>
+<svg class="sk" viewBox="0 0 600 150" aria-label="Sketch: the data feeds several bootstrap samples, each grows a tree, and their votes are averaged.">
+ <rect class="hl2" x="10" y="55" width="90" height="36" rx="8"/><text x="28" y="79">data</text>
+ <path class="k" d="M100 73 L170 25 M100 73 L170 73 M100 73 L170 121"/>
+ <text x="175" y="30">sample 1 → tree</text><text x="175" y="78">sample 2 → tree</text><text x="175" y="126">sample 3 → tree</text>
+ <path class="k" d="M320 25 L400 73 M320 73 L400 73 M320 121 L400 73"/><rect class="hl" x="405" y="55" width="180" height="36" rx="8"/><text x="415" y="79">vote / average ✓</text>
+</svg>
+
+<h3><span class="n">4</span>Random forests</h3>
+<p>Bagged trees are still similar (if one feature is strong, every tree splits on it first). A <b>random forest</b> (Breiman, 2001) also lets each split consider only a <b>random subset of features</b>, often $\sqrt d$ (<code>max_features="sqrt"</code>). The trees disagree more, so averaging helps more.</p>
+<ul>
+<li><code>n_estimators</code>: more is better up to a plateau; <mark>more trees never overfit</mark>, they only cost time.</li>
+<li><code>max_features</code>: smaller → more diverse but weaker trees.</li>
+<li>Trees are usually grown deep; limit them on noisy data.</li>
+</ul>
+<p>Popular because they work well with little tuning, handle mixed features, and need no scaling.</p>
+
+<h3><span class="n">5</span>Boosting: learning from mistakes</h3>
+<p>Bagging trains in <b>parallel</b>; boosting trains in <b>sequence</b>, each new model focusing on what the ensemble still gets wrong, usually with weak shallow trees (even depth-1 "stumps").</p>
+<div class="sticky"><b>Like revising for an exam</b><br>Do a practice test, study the questions you got wrong, retest, repeat.</div>
+<p>Bagging mainly cuts <b>variance</b>; boosting mainly cuts <b>bias</b>.</p>
+
+<h3><span class="n">6</span>AdaBoost</h3>
+<ol>
+<li>Every example starts with an equal weight.</li>
+<li>Train a weak learner on the weighted data; weighted error ε.</li>
+<li>Its vote: $\alpha=\frac12\ln\frac{1-\varepsilon}{\varepsilon}$ (better learners shout louder).</li>
+<li>Misclassified weights × $e^{\alpha}$, correct ones × $e^{-\alpha}$, renormalise.</li>
+</ol>
+<div class="eg"><b>Example</b><br>10 examples at 0.1 each; a stump gets 3 wrong → ε = 0.3 → α = ½ ln(7/3) ≈ <b>0.42</b>. The 3 mistakes get heavier, so the next stump focuses on them.</div>
+
+<h3><span class="n">7</span>Gradient boosting</h3>
+<ol>
+<li>Start with a constant: $F_0=\bar y$.</li>
+<li>Residuals: $r_i=y_i-F_{m-1}(x_i)$, what's still wrong.</li>
+<li>Fit a small tree $h_m$ to the residuals.</li>
+<li>Add it, scaled by a learning rate: $F_m=F_{m-1}+\eta\,h_m$.</li>
+</ol>
+<div class="eg"><b>Example</b><br>True price 300, model so far 260 → residual +40. The next tree learns to add about +40 (× η) for houses like this one.</div>
+<p><b>Why "gradient"?</b> For squared loss, the residual <i>is</i> the negative gradient with respect to the prediction, so each tree is a gradient-descent step in <b>prediction space</b>. Swap the loss (log loss, absolute error) and you get a different "residual".</p>
+
+<h3><span class="n">8</span>The demo</h3>
+<p>Add stumps one at a time: the prediction becomes a better and better step-shaped fit, and the residual panel shows what the next tree will fix. Big learning rate vs small rate with many trees.</p>
+
+<h3><span class="n">9</span>Modern libraries</h3>
+<p><b>XGBoost</b>, <b>LightGBM</b>, <b>CatBoost</b>: fast, polished gradient boosting. XGBoost adds tree regularization to the objective:</p>
+<p class="fx">$\text{obj}=\sum_i\ell(y_i,\hat y_i)+\sum_k\Omega(f_k),\quad\Omega=\gamma T+\tfrac12\lambda\sum_jw_j^2$</p>
+<p>($T$ = leaves, $w_j$ = leaf values). scikit-learn's <code>HistGradientBoostingClassifier</code> bins each feature into ≤ 255 bins, handles missing values, and early-stops automatically above 10,000 samples.</p>
+
+<h3><span class="n">10</span>At a glance</h3>
+<div class="twocol"><div class="box"><b>Random forest</b><br>trees in parallel, deep<br>cuts variance<br>more trees never overfit<br>little tuning · very good</div><div class="box"><b>Gradient boosting</b><br>trees in sequence, shallow<br>cuts bias<br>can overfit: tune the number of trees<br>moderate tuning · often the best</div></div>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: tuning ensembles, inside XGBoost</h3>
+
+<h4>Correlation is the limit</h4>
+<p class="fx">$\text{Var}(\text{average})=\rho\sigma^2+\dfrac{1-\rho}{B}\sigma^2$</p>
+<p>The second term vanishes with more trees $B$; the first doesn't. <mark>Correlation sets the floor</mark>: 1,000 identical trees = one tree.</p>
+<div class="eg"><b>Example from the lesson</b><br>All features per split (plain bagging): tree correlation 0.83, accuracy <b>0.930</b>. √30 ≈ 5 features: correlation 0.80, accuracy <b>0.953</b>. 1 feature: correlation 0.70 but each tree too weak, accuracy 0.936. "sqrt" is a good middle.</div>
+<p>The <b>out-of-bag</b> score (on rows each tree didn't see) gives a free validation estimate.</p>
+
+<h4>Learning rate + early stopping</h4>
+<div class="eg"><b>Example</b><br>Rate 1.0: stops after 35 trees at 0.924. Rate 0.1: 83 trees, <b>0.947</b>. Rate 0.03: 203 trees, no better here.</div>
+<div class="sticky"><b>Recipe</b><br>Rate 0.05–0.1 → early stopping chooses the trees → then tune tree size and regularization. Halving the rate ≈ doubles the trees.</div>
+
+<h4>What XGBoost, LightGBM, CatBoost add</h4>
+<ul>
+<li><b>Second-order (Newton) steps</b>: each point's gradient $g_i$ and curvature $h_i$; best leaf value $w^*=-\frac{\sum g_i}{\sum h_i+\lambda}$.</li>
+<li><b>Built-in regularization</b>: a split is made only if its gain exceeds γ (automatic pruning).</li>
+<li><b>Engineering</b>: learned direction for missing values, parallel, sparse data.</li>
+<li><b>LightGBM</b>: histograms (~255 bins) and <b>leaf-wise</b> growth.</li>
+<li><b>CatBoost</b>: categories natively with ordered target statistics (no leakage), symmetric trees.</li>
+</ul>
+<p>On most problems they're close; tuning matters more than the library.</p>
+
+<h4>Stacking</h4>
+<p>Train different models, then a simple blender (often logistic regression) on their <b>out-of-fold</b> predictions (otherwise it leaks).</p>
+<div class="eg"><b>Example</b><br>Forest + boosting + kNN stacked: <b>0.942</b>, no better than the forest alone (0.953). Stacking helps most when base models are strong and make different mistakes; often not worth the complexity in production.</div>
+</div>
+<div class="sign">✎ in one line: forests average many different deep trees; boosting adds shallow trees that fix the leftover errors.</div>
+</article>

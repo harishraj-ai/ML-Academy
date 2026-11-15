@@ -1,0 +1,73 @@
+<article class="hn" id="n29">
+<div class="hn-tag">Part 7 · Lesson 29</div>
+<h2>Causal inference</h2>
+
+<h3><span class="n">1</span>Prediction is not causation</h3>
+<p>So far: "what will happen?". Many business questions are: <mark>"what will happen <b>if we act</b>?"</mark> Will a discount raise spending? Did the new app cause the rise in orders? Who should get the coupon? A model that predicts well can still answer these badly, because of <b>confounding</b>: something that affects both the action and the outcome. If loyal customers get more discounts <i>and</i> spend more anyway, discount-takers spend more even if the discount does nothing.</p>
+
+<h3><span class="n">2</span>Potential outcomes</h3>
+<p>For each customer: $Y_i(1)$ = spend with a discount, $Y_i(0)$ = without. Individual effect = the difference; the <b>average treatment effect</b>:</p>
+<p class="fx">$\text{ATE}=\mathbb{E}[Y(1)-Y(0)]$</p>
+<p>We never see both for the same person (the "fundamental problem of causal inference"). The naive comparison equals the ATE only if both groups would have spent the same without the discount.</p>
+<div class="eg"><b>Example from the lesson</b><br>True effect <b>+10</b>, but loyalty drives both discounts and spending: the naive difference is <b>35.7</b>, more than 3× too big.</div>
+
+<h3><span class="n">3</span>The confounder demo</h3>
+<svg class="sk" viewBox="0 0 440 150" aria-label="Sketch: loyalty at the top with arrows to getting a discount and to spending; a dashed question-mark arrow from discount to spending.">
+ <rect class="hl" x="160" y="10" width="120" height="34" rx="8"/><text x="185" y="33">loyalty</text>
+ <path class="k" d="M190 44 L95 100 M250 44 L345 100"/>
+ <rect class="hl2" x="20" y="102" width="150" height="34" rx="8"/><text x="38" y="125">gets discount</text>
+ <rect class="hl2" x="280" y="102" width="140" height="34" rx="8"/><text x="310" y="125">spends more</text>
+ <path class="r" d="M170 119 H278" style="stroke-dasharray:6 6"/><text x="200" y="110">effect?</text>
+</svg>
+<p>Increase how much loyalty decides who gets a discount: the naive difference grows while the adjusted estimate stays near the true 10. At 0 (random discounts) they agree.</p>
+
+<h3><span class="n">4</span>The gold standard: randomise</h3>
+<p>If a coin decides, loyalty can't influence the choice, so the groups are alike <b>on average in everything, measured or not</b>, and a simple difference in means is unbiased.</p>
+<div class="eg"><b>Example</b><br>Randomised estimate <b>10.9</b>, 95% interval 9.3 to 12.6 (contains the true 10).</div>
+<p>Randomise whenever you can. When you can't (unethical, too slow, already decided), use the methods below and defend their assumptions.</p>
+
+<h3><span class="n">5</span>Adjusting for confounders</h3>
+<ul>
+<li><b>Regression adjustment</b>: include the confounders; the treatment's coefficient is the effect holding them fixed.</li>
+<li><b>Propensity scores</b> $e(x)=P(T=1\mid x)$: weight treated people by $1/e(x)$ and untreated by $1/(1-e(x))$ (<b>IPW</b>) to build a pseudo-population where treatment is unrelated to the confounders.</li>
+</ul>
+<div class="eg"><b>Example</b><br>A treated person with propensity 0.2 gets weight $1/0.2=$ <b>5</b>: they stand in for the many similar people who weren't treated.</div>
+<div class="sticky"><b>Two assumptions</b><br><b>No unmeasured confounding</b> (you measured everything that drives both) and <b>overlap</b> (everyone had some chance of either). Trim extreme weights near 0 or 1.</div>
+
+<h3><span class="n">6</span>Difference-in-differences</h3>
+<p>A change hits a whole group at once (a city launches an app). Before/after mixes the effect with everything else that changed; use a similar untreated group to measure the background change:</p>
+<p class="fx">$\text{DiD}=(\bar y_{B,\text{after}}-\bar y_{B,\text{before}})-(\bar y_{A,\text{after}}-\bar y_{A,\text{before}})$</p>
+<div class="eg"><b>Example</b><br>City B's orders rose <b>13.4</b> after the launch; city A (no app) also rose with the season. Subtracting → <b>7.5</b>, close to the true 8.</div>
+<p>Key assumption: <b>parallel trends</b>, i.e. without the app, B would have moved like A.</p>
+
+<h3><span class="n">7</span>Uplift modelling: who benefits?</h3>
+<p>An average hides variation: a coupon changes some customers and does nothing for others (they'd buy anyway, or never). Estimate the effect per person, $\tau(x)=\mathbb{E}[Y(1)-Y(0)\mid x]$.</p>
+<p><b>T-learner</b>: on randomised data, one model for treated, one for untreated; uplift = the difference of their predictions.</p>
+<div class="eg"><b>Example</b><br>Top 30% by predicted uplift: the coupon raises buying by <b>17.9</b> points; the rest only <b>9.0</b>. Predictions correlate 0.64 with the true effects.</div>
+<div class="box red">✗ target by predicted <i>purchase</i> (sends coupons to people who'd buy anyway) · ✓ target by predicted <b>uplift</b>.</div>
+
+<h3><span class="n">8</span>In practice</h3>
+<ul>
+<li>Can randomise → <b>A/B test</b> (no interference between units).</li>
+<li>Rich observational data → <b>regression / propensity weighting / matching</b> (no unmeasured confounding, overlap).</li>
+<li>A change at a known time → <b>difference-in-differences</b> (parallel trends).</li>
+<li>A threshold decides → <b>regression discontinuity</b>.</li>
+<li>Targeting → <b>uplift / CATE</b> models (T-learner, causal forests).</li>
+</ul>
+<p>Draw a <b>causal diagram</b> first: adjust for confounders, but never for things the treatment causes.</p>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: bad controls, discontinuities</h3>
+
+<h4>Don't adjust for what the treatment causes</h4>
+<p>A <b>mediator</b> lies on the path from treatment to outcome; adjusting for it removes part of the effect.</p>
+<div class="eg"><b>Example from the lesson</b><br>A randomised discount brings customers back more often, and all its effect on spending works through those visits. Unadjusted: <b>11.96</b> (true 12). "Controlling" for visits: about <b>0</b>, as if the discount did nothing.</div>
+<ul><li><b>Confounder</b> → adjust.</li><li><b>Mediator</b> → don't (unless you want only the direct effect).</li><li><b>Collider</b> (caused by both, e.g. "contacted support") → never; it creates fake associations.</li></ul>
+
+<h4>Regression discontinuity</h4>
+<p>When a threshold decides treatment (credit score ≥ 600), people just above and just below are very similar: almost an experiment. Fit a line on each side near the cut-off; measure the <b>jump</b>.</p>
+<div class="eg"><b>Example</b><br>Naive difference <b>29.8</b> (high scorers spend more anyway). Discontinuity within 25 points of 600: <b>14.7</b>, close to the true 15.</div>
+<p>Assumptions: people can't precisely manipulate their score across the line, and nothing else changes exactly at 600. Check for <b>bunching</b> just above the cut-off.</p>
+</div>
+<div class="sign">✎ in one line: ask "what if we act?", randomise if you can, otherwise adjust only for true confounders and state your assumptions.</div>
+</article>

@@ -1,0 +1,89 @@
+<article class="hn" id="n17">
+<div class="hn-tag">Part 4 · Lesson 17</div>
+<h2>Dimensionality reduction &amp; PCA</h2>
+
+<h3><span class="n">1</span>Too many features</h3>
+<div class="sticky"><b>The teapot</b><br>A photo from its best angle shows almost everything about its shape; a photo straight down the spout shows very little. PCA finds the "best angles" to look at your data.</div>
+<p>An 8×8 digit image = 64 numbers; a photo = millions; a customer record = hundreds of columns. Problems: the curse of dimensionality, overfitting, slowness, and we <b>can't see</b> more than 3 dimensions. Luckily real features are often <mark>redundant</mark> (height in cm and in inches carry the same information).</p>
+
+<h3><span class="n">2</span>Keep the directions with most variance</h3>
+<p>Points lying roughly along a diagonal differ mainly in <b>one</b> way: how far along the line. Rotate the axes so the first runs along the line: it captures almost all the differences; the perpendicular one is nearly constant (mostly noise) and can be dropped.</p>
+<svg class="sk" viewBox="0 0 400 200" aria-label="Sketch: an elongated cloud of points with a long arrow PC1 along it and a short perpendicular arrow PC2.">
+ <ellipse class="hl2" cx="200" cy="100" rx="160" ry="45" transform="rotate(-25 200 100)"/>
+ <circle class="dot" cx="100" cy="140" r="4"/><circle class="dot" cx="140" cy="115" r="4"/><circle class="dot" cx="170" cy="115" r="4"/><circle class="dot" cx="200" cy="95" r="4"/><circle class="dot" cx="235" cy="90" r="4"/><circle class="dot" cx="260" cy="70" r="4"/><circle class="dot" cx="300" cy="60" r="4"/><circle class="dot" cx="150" cy="135" r="4"/><circle class="dot" cx="250" cy="55" r="4"/>
+ <path class="p" d="M80 155 L330 40"/><path class="p" d="M322 38 L330 40 L325 47"/><text x="330" y="35">PC1</text>
+ <path class="r" d="M200 98 L222 145"/><text x="226" y="160">PC2</text>
+</svg>
+<p><b>PC1</b> = the direction of greatest spread; <b>PC2</b> = the greatest spread at right angles to PC1; and so on. Keep only the first few.</p>
+
+<h3><span class="n">3</span>The demo</h3>
+<p>Rotate a line and watch the variance of the projected points. The best angle (PC1) <b>maximises the kept variance</b> and, at the same time, <b>minimises the squared length of the projection lines</b> (the information lost).</p>
+
+<h3><span class="n">4</span>Covariance</h3>
+<p class="fx">$\text{cov}(x_1,x_2)=\dfrac{1}{n-1}\sum(x_{i1}-\bar x_1)(x_{i2}-\bar x_2)$</p>
+<ul><li>Positive: above average together (height and weight).</li><li>Negative: one up, the other down.</li><li>About 0: no linear relationship.</li></ul>
+<p>A feature's covariance with itself is its variance. All pairs in a table = the <b>covariance matrix</b> $\Sigma$ ($d\times d$, symmetric).</p>
+
+<h3><span class="n">5</span>Eigenvectors: PCA's directions</h3>
+<p>The principal components are the <b>eigenvectors of $\Sigma$</b>, and the variance along each is its <b>eigenvalue</b>.</p>
+<p class="fx">$\Sigma\mathbf{v}=\lambda\mathbf{v}$</p>
+<p>The matrix only <i>stretches</i> $\mathbf{v}$ (by λ), never turns it. For a covariance matrix the eigenvectors are perpendicular and the eigenvalues ≥ 0. Explained variance of component $j$ = $\lambda_j/\sum\lambda$.</p>
+
+<h3><span class="n">6</span>PCA by hand</h3>
+<div class="eg"><b>Example from the lesson</b><br>Points (1, 2), (2, 3), (3, 5), (4, 4), (5, 6).<br><b>Centre</b> (means 3, 4): (−2, −2), (−1, −1), (0, 1), (1, 0), (2, 2).<br><b>Covariance</b>: var 2.5 and 2.5, cov 2.25.<br><b>Eigenvalues</b>: $2.5\pm2.25$ → <b>4.75</b> and <b>0.25</b>.<br><b>PC1</b> = $(1,1)/\sqrt2$ (the diagonal); check: $\Sigma(1,1)=(4.75,4.75)$ ✓. PC2 = $(1,-1)/\sqrt2$.<br>PC1 explains $4.75/5=$ <b>95%</b> of the variance.</div>
+
+<h3><span class="n">7</span>PCA step by step</h3>
+<ol>
+<li><b>Centre</b> each feature (and usually <b>standardise</b> if units differ, or the biggest numbers dominate).</li>
+<li>Covariance matrix (or the SVD directly).</li>
+<li>Eigenvectors and eigenvalues, sorted largest first.</li>
+<li>Keep the top $k$ as columns of $W_k$.</li>
+<li><b>Project</b>: $Z=X_cW_k$ ($n\times k$ new features).</li>
+</ol>
+<p>Reconstruct approximately: $\hat X=ZW_k^\top+\bar{\mathbf{x}}$.</p>
+
+<h3><span class="n">8</span>How many components?</h3>
+<ul>
+<li>Variance threshold, e.g. 95%: <code>PCA(n_components=0.95)</code>.</li>
+<li><b>Scree plot</b>: eigenvalues in order, look for an elbow.</li>
+<li>Feeding a model: choose $k$ by cross-validation.</li>
+<li>Pictures: $k$ = 2 or 3.</li>
+</ul>
+<div class="eg"><b>Example</b><br>Eigenvalues 6, 3, 1 → first two explain $9/10=$ <b>90%</b>.</div>
+
+<h3><span class="n">9</span>Uses and limitations</h3>
+<div class="twocol"><div class="box"><b class="grn">Good for</b><br>2-D pictures of big data<br>speeding up / regularizing models<br>removing noise<br>compression</div><div class="box"><b class="red">Watch out</b><br>components mix features (hard to read)<br>only linear structure<br><u>high variance ≠ useful for prediction</u><br>scale-sensitive: standardise</div></div>
+
+<h3><span class="n">10</span>t-SNE and UMAP</h3>
+<p>For curved structure (like the moons), a flat projection can squash groups on top of each other. <b>t-SNE</b> places points in 2-D so that <mark>neighbours stay neighbours</mark>; its <b>perplexity</b> ≈ how many neighbours each point attends to. <b>UMAP</b> is newer and faster.</p>
+<div class="box red"><b>Reading t-SNE safely</b><br>Cluster sizes mean nothing; distances between separated clusters may mean nothing; low perplexity can make pure noise look clustered; different runs differ.</div>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: components and curved maps</h3>
+
+<h4>How many components? Reconstruction error</h4>
+<p>Keeping $k$ components has an exact cost: the reconstruction error equals the variance you dropped, and the top $k$ PCs give the smallest error of any $k$-dimensional flat subspace (Eckart–Young).</p>
+<div class="eg"><b>Example: 8×8 digits (64 pixels)</b><br>2 components keep only <b>28.5%</b>; <b>29</b> are needed for 95%. At 30 components 0.959 is kept and the relative error is 0.041 = 1 − 0.959.</div>
+<p>Side job: <b>anomaly detection</b>, since points the main components can't reconstruct don't follow the usual pattern.</p>
+
+<h4>Kernel PCA</h4>
+<p>PCA finds only flat directions. Kernel PCA uses the kernel trick to find components in a high-dimensional feature space.</p>
+<div class="eg"><b>Example: concentric circles</b><br>Ordinary PCA's one component: <b>0.450</b> (worse than guessing). RBF kernel PCA's first component: <b>1.000</b>; "distance from the centre" becomes a straight direction.</div>
+<p>Needs the $n\times n$ kernel matrix, so it doesn't scale to huge data, and its components are hard to interpret.</p>
+
+<h4>t-SNE and UMAP: maps for looking</h4>
+<p>t-SNE turns distances into neighbour probabilities (a normal curve whose width is set by the perplexity in the original space; a heavier-tailed $t$-distribution on the map) and moves the map points until they match. UMAP keeps more of the global layout.</p>
+<div class="eg"><b>Example</b><br>A digit's 5 nearest map neighbours share its label <b>97.6%</b> of the time with t-SNE vs <b>60.3%</b> with a flat PCA projection: hence t-SNE's ten neat islands.</div>
+<ul><li>Distances between clusters and cluster sizes mean little.</li><li>Try several perplexities and seeds.</li><li><b>For looking, not modelling</b>: no transform for new points, meaningless axes. Use PCA (or UMAP) for features.</li></ul>
+
+<h4>Practical notes</h4>
+<ul>
+<li>Fit PCA <b>inside the pipeline</b> on training data only.</li>
+<li>Standardise first when units differ.</li>
+<li><b>Whitening</b> rescales components to variance 1, but amplifies noise in small components.</li>
+<li>Huge or sparse data: <code>TruncatedSVD</code> (on TF-IDF it's latent semantic analysis), <code>IncrementalPCA</code>, randomized SVD.</li>
+<li>A linear <b>autoencoder</b> with squared error learns the same subspace as PCA.</li>
+</ul>
+</div>
+<div class="sign">✎ in one line: rotate to the directions of most spread, keep the top few, standardise first, and use t-SNE only for looking.</div>
+</article>

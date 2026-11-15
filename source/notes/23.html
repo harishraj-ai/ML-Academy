@@ -1,0 +1,69 @@
+<article class="hn" id="n23">
+<div class="hn-tag">Part 6 · Lesson 23</div>
+<h2>Hyperparameter tuning &amp; model selection</h2>
+
+<h3><span class="n">1</span>Parameters vs hyperparameters</h3>
+<div class="twocol"><div class="box"><b>Parameters</b><br>learned from data during training<br>(weights, split points)</div><div class="box"><b>Hyperparameters</b><br>chosen <i>before</i> training, control how it learns<br>(λ, k, max depth, C and γ, learning rate)</div></div>
+<p>Good hyperparameters often matter more than the algorithm. But every time you try a setting and look at a score, you learn a bit about the evaluation data, so <mark>careless tuning gives scores that are too good to be true</mark>.</p>
+
+<h3><span class="n">2</span>Validation curves</h3>
+<p>Vary one hyperparameter; plot training and CV scores.</p>
+<div class="eg"><b>Example: RBF SVM's γ, breast-cancer data</b><br>γ = 0.0001: both low (0.794 / 0.796) → too smooth, <b>underfits</b>.<br>γ = 1: training perfect, CV collapses to <b>0.631</b> → memorises.<br>Best in between: γ = 0.01, <b>0.968</b>.</div>
+<p>Values span orders of magnitude, so always search on a <b>log scale</b> (0.0001, 0.001, 0.01…).</p>
+
+<h3><span class="n">3</span>Grid search</h3>
+<p>Try every combination, score each with CV, keep the best, refit on all training data (<code>GridSearchCV</code>). Inside a pipeline, names look like <code>svc__C</code>.</p>
+<div class="eg"><b>How much work?</b><br>4 values of C × 4 of γ = 16 settings × 5 folds = 80 fits + 1 refit = <b>81</b>.<br>A third hyperparameter with 5 values: <b>401</b>. Five hyperparameters of 5 values: <b>15,626</b>. Grids explode.</div>
+
+<h3><span class="n">4</span>Random search</h3>
+<p>Sample each hyperparameter from a distribution (<code>loguniform</code> for anything spanning orders of magnitude).</p>
+<svg class="sk" viewBox="0 0 500 160" aria-label="Sketch: a 3 by 3 grid of points tries only 3 values of the important knob; 9 random points try 9 different values.">
+ <g><rect class="k" x="10" y="10" width="200" height="120" rx="6"/><circle class="dot" cx="50" cy="40" r="5"/><circle class="dot" cx="110" cy="40" r="5"/><circle class="dot" cx="170" cy="40" r="5"/><circle class="dot" cx="50" cy="70" r="5"/><circle class="dot" cx="110" cy="70" r="5"/><circle class="dot" cx="170" cy="70" r="5"/><circle class="dot" cx="50" cy="100" r="5"/><circle class="dot" cx="110" cy="100" r="5"/><circle class="dot" cx="170" cy="100" r="5"/><text x="20" y="152">grid: 3 values of each</text></g>
+ <g transform="translate(260,0)"><rect class="k" x="10" y="10" width="200" height="120" rx="6"/><circle class="rdot" cx="30" cy="90" r="5"/><circle class="rdot" cx="55" cy="35" r="5"/><circle class="rdot" cx="75" cy="110" r="5"/><circle class="rdot" cx="95" cy="60" r="5"/><circle class="rdot" cx="120" cy="25" r="5"/><circle class="rdot" cx="140" cy="95" r="5"/><circle class="rdot" cx="160" cy="55" r="5"/><circle class="rdot" cx="180" cy="115" r="5"/><circle class="rdot" cx="198" cy="40" r="5"/><text x="20" y="152">random: 9 values of each ✓</text></g>
+</svg>
+<p>Usually only one or two hyperparameters really matter. A 4×4 grid tries 4 values of each; 16 random draws try <b>16</b> values of every one (Bergstra &amp; Bengio, 2012).</p>
+<div class="eg"><b>Example</b><br>16 random draws: CV <b>0.981</b>, test 0.951, about the same as the grid here. Random search's advantage grows with more hyperparameters.</div>
+
+<h3><span class="n">5</span>The demo</h3>
+<p>One important knob (left–right), one that barely matters (up–down). Notice how few distinct values of the important knob the grid tests.</p>
+
+<h3><span class="n">6</span>Smarter searches</h3>
+<ul>
+<li><b>Bayesian optimisation</b>: fit a cheap <b>surrogate</b> of "score vs hyperparameters" (a Gaussian process, or Optuna's TPE), then pick the next setting balancing <b>exploitation</b> (near the best) and <b>exploration</b> (where it's unsure). Shines when each run is expensive.</li>
+<li><b>Successive halving</b>: start many candidates on a small budget (few rows / epochs / trees), keep the best third, triple their budget, repeat. In the lesson, 48 candidates start on 20 rows each and 16 survive the first round.</li>
+</ul>
+
+<h3><span class="n">7</span>Report honestly: nested CV</h3>
+<p>The best search score is the best of many tries on the same folds, so it's optimistic. Wrap the whole search in an outer CV loop.</p>
+<div class="eg"><b>Example</b><br>Nested CV: <b>0.979</b> (± 0.007 across outer folds) for the complete "tune, then fit" procedure.</div>
+<p>Report that (or a test set used once). The deployed model still comes from one search on all the training data.</p>
+
+<h3><span class="n">8</span>The simplest good model</h3>
+<p>CV scores are noisy. The <b>one-standard-error rule</b>: pick the simplest model within one standard error of the best.</p>
+<div class="eg"><b>Example</b><br>Tree depth 5: <b>0.941</b> (SE 0.012). Depth 4: <b>0.929</b>, within one SE → prefer the shallower tree.</div>
+<p>Also weigh prediction speed and cost, calibration, fairness across groups, and ease of maintenance.</p>
+<div class="box red">✗ choosing hyperparameters from test scores · ✗ linear scale for λ or learning rate · ✗ scaling/selecting features outside the CV loop · ✗ reporting the best search score as final</div>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: Bayesian optimisation from scratch</h3>
+
+<h4>The surrogate: a Gaussian process</h4>
+<p>A GP is a probability distribution over smooth functions. Given a few results it predicts a mean $\mu(x)$ and an uncertainty $\sigma(x)$ everywhere: confident near tried points, unsure far away. Its smoothness comes from a kernel (here Matérn), with the length scale learned from the data.</p>
+
+<h4>Choosing the next trial: expected improvement</h4>
+<p>With best-so-far $f^*$ and $z=(\mu-f^*)/\sigma$:</p>
+<p class="fx">$\text{EI}(x)=(\mu-f^*)\,\Phi(z)+\sigma\,\phi(z)$</p>
+<p>First term: a high predicted score (<b>exploitation</b>). Second: high uncertainty (<b>exploration</b>). Each round: fit the GP, pick the largest EI, evaluate, repeat.</p>
+<div class="eg"><b>Example from the lesson</b> (gap to the true best, average of 20 runs; a narrow peak over log learning rate)<br>5 trials: BO <b>0.130</b> vs random 0.119 (no better yet: 3 are random starts).<br>10 trials: BO <b>0.0103</b> vs random 0.0510 (5× closer).<br>15 trials: BO finds the peak every time; random still 0.026 away.</div>
+<p>Best when trials are expensive, you can afford only tens of them, and the space is low-dimensional.</p>
+
+<h4>In practice</h4>
+<ul>
+<li><b>Dimensions</b>: GPs up to ~10–20 hyperparameters; Optuna's <b>TPE</b> copes better with many, categorical and conditional ones ("number of layers", then a width per layer).</li>
+<li><b>Noise</b>: model it (white-noise term / <code>alpha</code>) or it chases lucky trials.</li>
+<li><b>Parallelism</b>: random search parallelises trivially; BO is sequential and needs tricks.</li>
+<li><b>Pruning</b>: a smart sampler + early stopping of bad trials (Optuna pruners, Hyperband) gives the biggest savings.</li>
+</ul>
+</div>
+<div class="sign">✎ in one line: tune with CV on a log scale, prefer random or Bayesian search, report nested CV, pick the simplest good model.</div>
+</article>

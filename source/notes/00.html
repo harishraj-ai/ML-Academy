@@ -1,0 +1,89 @@
+<article class="hn" id="n00">
+<div class="hn-tag">Before you begin · Lesson 0 (optional)</div>
+<h2>Python, NumPy &amp; pandas</h2>
+
+<h3><span class="n">1</span>Why Python?</h3>
+<p>Every lesson has Python code. This warm-up gives you <mark>just enough to read and run it</mark>: about an hour, no experience needed. Python reads almost like English, and the best ML libraries (scikit-learn, PyTorch, TensorFlow) use it. You don't need to memorise anything: come back whenever later code looks unfamiliar.</p>
+<div class="sticky"><b>Learn by running</b><br>Type the code yourself in the Lesson 0 notebook, run it, change something, run it again.</div>
+
+<h3><span class="n">2</span>Running code</h3>
+<p>Install Python and <b>JupyterLab</b> once (see Setup). A notebook is a list of <b>cells</b>: type code, press <b>Shift + Enter</b>, the output appears underneath.</p>
+<ul>
+<li><code>print("Hello")</code> shows something. Text goes inside quotes.</li>
+<li>Anything after <code>#</code> is a <b>comment</b>: a note for humans that Python ignores.</li>
+</ul>
+
+<h3><span class="n">3</span>Variables and arithmetic</h3>
+<p>A <b>variable</b> is a name for a value. <code>=</code> means "store this under this name", <u>not</u> the maths equals. You can overwrite it any time.</p>
+<ul>
+<li><code>**</code> = to the power of: <code>2 ** 3</code> → 8.</li>
+<li><code>/</code> always gives a decimal: <code>7 / 2</code> → 3.5.</li>
+<li><code>//</code> divides and drops the remainder: <code>7 // 2</code> → 3.</li>
+</ul>
+
+<h3><span class="n">4</span>Text (strings)</h3>
+<p>Text values are <b>strings</b>. An <b>f-string</b> drops variables into text: <code>f"Price: {price:.2f}"</code>, where <code>:.2f</code> rounds to 2 decimal places.</p>
+
+<h3><span class="n">5</span>Lists and indexing</h3>
+<p>A list holds values in order: <code>prices = [10, 20, 30, 40]</code>. Positions count from <mark>0</mark>, and negative positions count from the end (<code>prices[-1]</code> = last).</p>
+<svg class="sk" viewBox="0 0 520 90" aria-label="Sketch: a list with boxes 10, 20, 30, 40 and positions 0 to 3 below; a[1:3] covers positions 1 and 2.">
+ <path class="k" d="M20 20 H420 V60 H20 Z M120 20 V60 M220 20 V60 M320 20 V60"/>
+ <rect class="hl" x="122" y="22" width="196" height="36" rx="4"/>
+ <text x="55" y="46">10</text><text x="155" y="46">20</text><text x="255" y="46">30</text><text x="355" y="46">40</text>
+ <text x="65" y="82">0</text><text x="165" y="82">1</text><text x="265" y="82">2</text><text x="365" y="82">3</text>
+ <text x="430" y="46">← [1:3]</text>
+</svg>
+<div class="sticky"><b>The off-by-one trap</b><br>A slice <code>[start:stop]</code> stops <u>before</u> stop: <code>[1:3]</code> has 2 items. The last of 5 items is <code>[4]</code>; <code>[5]</code> is an error.</div>
+
+<h3><span class="n">6</span>Dictionaries</h3>
+<p>Values stored under names (<b>keys</b>) instead of positions, like one row of a table: <code>home = {"city": "Chennai", "size": 90}</code> → <code>home["city"]</code>.</p>
+
+<h3><span class="n">7</span>if and for</h3>
+<ul>
+<li><code>if</code> runs code only when a condition is true.</li>
+<li><code>for</code> repeats a block once per item. <code>range(n)</code> gives 0 … n−1.</li>
+<li>The <b>indented</b> lines (4 spaces) belong to the <code>if</code>/<code>for</code>. In Python, indentation <mark>is part of the syntax</mark>.</li>
+<li>A <b>list comprehension</b> builds a list in one line: <code>[p * 2 for p in prices]</code>.</li>
+</ul>
+
+<h3><span class="n">8</span>Functions</h3>
+<p><code>def</code> packages code under a name; <code>return</code> sends the result back. The lesson builds Lesson 1's mean squared error as a function:</p>
+<p><code>def mse(pred, true):</code> → average of the squared differences → <code>return</code> it.</p>
+
+<h3><span class="n">9</span>Libraries</h3>
+<p><code>import numpy as np</code>, <code>import pandas as pd</code>, <code>import matplotlib.pyplot as plt</code>: these three lines start almost every notebook in the course. <code>as</code> just gives a short nickname.</p>
+
+<h3><span class="n">10</span>NumPy: numbers in bulk</h3>
+<p>Arithmetic on an array applies to <b>every element at once</b>, no loop needed. This is <b class="pen">vectorisation</b>: shorter and much faster.</p>
+<div class="box">plain list: <code>[1, 2] * 2</code> → [1, 2, 1, 2] <span class="red">(repeats!)</span><br>NumPy: <code>np.array([1, 2]) * 2</code> → [2, 4] <span class="grn">(doubles ✓)</span></div>
+<ul>
+<li>2-D arrays = rows × columns (examples × features). <code>.shape</code> gives the size, e.g. (100, 5).</li>
+<li><code>X.mean(axis=0)</code> = down the rows → <b>one result per column</b>.</li>
+<li>Comparisons give True/False arrays you can <b>filter</b> with: <code>x[x &gt; 3]</code>.</li>
+<li><code>X @ w</code> multiplies a matrix by a vector: each row dotted with the weights (Lesson 2).</li>
+</ul>
+
+<h3><span class="n">11</span>pandas: tables</h3>
+<p>A <b>DataFrame</b> is a table with named columns. The course's running example is 12 houses in Chennai:</p>
+<ul>
+<li><code>df = pd.read_csv("houses.csv")</code> loads it.</li>
+<li><code>df["price"]</code> → one column (acts like a NumPy array).</li>
+<li><code>df[df["price"] &gt; 80]</code> → only the matching rows. (<code>df["price"] &gt; 80</code> alone is just True/False.)</li>
+<li><code>df.groupby("area")["price"].mean()</code> → a summary per group.</li>
+<li><code>df["per_m2"] = df["price"] / df["size"]</code> → a new column from old ones.</li>
+</ul>
+
+<h3><span class="n">12</span>A first plot</h3>
+<p><code>plt.scatter(df["size"], df["price"])</code>: price against size is the first thing to look at before fitting a model. Bigger houses tend to cost more, with plenty of scatter (distance and age matter too).</p>
+
+<h3><span class="n">13</span>Reading errors</h3>
+<p>Errors are normal. Python prints a <b>traceback</b>; <mark>the last line says what went wrong</mark>.</p>
+<ul>
+<li><b>NameError</b>: a typo, or a variable used before its cell was run. Run cells from the top.</li>
+<li><b>TypeError</b>: mixing types, e.g. <code>"Price: " + 72</code>. Use <code>str(72)</code> or an f-string.</li>
+<li><b>IndexError</b>: counting from 1 instead of 0.</li>
+<li><b>ValueError</b> (shape mismatch): arrays of different sizes. Print <code>.shape</code>: the most useful debugging habit in ML.</li>
+</ul>
+<div class="sticky"><b>When stuck</b><br>Read the last line → check spelling, brackets, quotes, indentation → restart and run all → search the exact error message.</div>
+<div class="sign">✎ in one line: count from 0, let NumPy do the loops, check .shape, read errors from the bottom.</div>
+</article>

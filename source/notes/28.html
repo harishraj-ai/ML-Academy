@@ -1,0 +1,59 @@
+<article class="hn" id="n28">
+<div class="hn-tag">Part 6 · Lesson 28</div>
+<h2>Bayesian &amp; probabilistic ML</h2>
+
+<h3><span class="n">1</span>Uncertain about the model itself</h3>
+<p>Most models give one answer: one set of weights. But with 10 data points the weights are very uncertain and with 10 million they're not, and a single number hides that. Bayesian ML treats every unknown, <mark>parameters included</mark>, as uncertain, describes it with distributions, and updates them as data arrives. You get honest error bars, sensible behaviour with little data, a way to include prior knowledge, and risk-aware decisions.</p>
+
+<h3><span class="n">2</span>Bayes for parameters</h3>
+<p class="fx">$p(\theta\mid D)=\dfrac{p(D\mid\theta)\,p(\theta)}{p(D)}\;\propto\;\text{likelihood}\times\text{prior}$</p>
+<ul><li>Max of the likelihood → <b>MLE</b>. Max of the posterior → <b>MAP</b> (= ridge or lasso for normal or Laplace priors).</li><li>A <b>conjugate</b> prior (Beta for a probability) gives a closed-form posterior.</li></ul>
+<p>This lesson uses the <b>whole</b> posterior, not just its peak.</p>
+
+<h3><span class="n">3</span>A Bayesian A/B test</h3>
+<p>Page A: 120 of 2,400 visitors converted; B: 156 of 2,400 (classical $p=0.026$). Give each rate a flat Beta(1, 1) prior and update:</p>
+<div class="eg"><b>The posterior by hand</b><br>Beta($a$, $b$) + $s$ successes + $f$ failures → <b>Beta($a+s$, $b+f$)</b>.<br>B: Beta(157, 2,245), mean $157/2402\approx$ <b>0.0654</b>, close to 156/2400, because 2,400 visitors overwhelm a weak prior.</div>
+<svg class="sk" viewBox="0 0 440 130" aria-label="Sketch: a wide flat prior curve and a taller narrower posterior curve after data.">
+ <path class="k" d="M20 110 H420"/><path class="k" d="M30 108 C90 60 170 50 230 70 C290 90 350 105 410 108" style="stroke-dasharray:5 5"/>
+ <path class="p" d="M60 108 C100 105 120 20 150 20 C180 20 200 100 260 108"/><text x="280" y="45">after data: narrower</text><text x="300" y="85">prior: wide</text>
+</svg>
+<p>Then sample both posteriors and answer the manager's questions directly: <b>P(B better than A)</b> and the <b>expected loss</b> if we pick B and it's worse.</p>
+
+<h3><span class="n">4</span>The updating demo</h3>
+<p>A prior centred on 10%; add visitors converting at about 8%. A stronger prior needs more data to move; each 100 visitors narrows the curve.</p>
+
+<h3><span class="n">5</span>Bayesian linear regression</h3>
+<p>Prior $\mathbf{w}\sim\mathcal N(0,\tau^2I)$, noise variance $\sigma^2$ → a normal posterior:</p>
+<p class="fx">$\Sigma_{\text{post}}=\Big(\tfrac{1}{\sigma^2}X^\top X+\tfrac{1}{\tau^2}I\Big)^{-1},\qquad\mathbf{m}_{\text{post}}=\tfrac{1}{\sigma^2}\Sigma_{\text{post}}X^\top\mathbf{y}$</p>
+<p>The mean is exactly <b>ridge</b> with $\lambda=\sigma^2/\tau^2$. New: the covariance gives every prediction its own <mark>error bar</mark>, $\boldsymbol\phi^\top\Sigma_{\text{post}}\boldsymbol\phi+\sigma^2$, which widens away from the data.</p>
+
+<h3><span class="n">6</span>Gaussian processes</h3>
+<p>A prior directly over <b>functions</b>, controlled by a kernel (how similar nearby outputs are). After data: a mean and a standard deviation everywhere.</p>
+<div class="eg"><b>Example from the lesson</b><br>At x = 2 (data): sd ≈ <b>0</b>. At x = 4.5 (a gap): <b>0.45</b>. At x = 11 (far beyond): back to the prior, mean ≈ 0, sd ≈ <b>1</b>.</div>
+<p>Excellent for small, smooth problems (calibration, sensors, experiment design, Bayesian optimisation), but cost grows like $O(n^3)$.</p>
+
+<h3><span class="n">7</span>MCMC: when there's no formula</h3>
+<p><b>Metropolis</b>: propose a small random move; if the posterior is higher, accept; if lower, accept with probability = the ratio. The chain visits regions in proportion to their posterior probability, and the awkward $p(D)$ <b>cancels</b> in the ratio.</p>
+<div class="eg"><b>Example</b><br>Centre of 7 measurements, one suspicious (8.5), with a heavy-tailed <b>Cauchy</b> likelihood (robust): about half the proposals accepted (healthy); posterior mean <b>2.76</b>, 95% interval 2.2 to 3.28.</div>
+<p>Stan and PyMC use smarter samplers (HMC/NUTS).</p>
+
+<h3><span class="n">8</span>Thompson sampling</h3>
+<p>A classic A/B test keeps sending half the visitors to the worse page. A <b>multi-armed bandit</b> learns and earns at once: for each visitor, draw a plausible rate for each design from its posterior, show the highest draw, update.</p>
+<div class="eg"><b>Example</b><br>True rates 4%, 5%, 6.5%: <b>9,188</b> of 10,000 visitors saw the best design; <b>652</b> conversions vs about 517 for an even split.</div>
+<div class="sticky"><b>Use a bandit when…</b><br>…you care about earning while learning (headlines, ads). Use a classic test when you need an unbiased, precise comparison of every option.</div>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: prior sensitivity, checking MCMC</h3>
+
+<h4>How much does the prior matter?</h4>
+<p>Three analysts, same 6% observed rate: flat Beta(1, 1), sceptical Beta(10, 190) (≈5%), optimistic Beta(30, 170) (≈15%).</p>
+<div class="eg"><b>Example from the lesson</b><br>50 visitors: posterior means <b>5.2% to 13.2%</b> (priors dominate).<br>500: 5.7% to 8.6%. 5,000: all within a third of a percentage point.</div>
+<p>A Beta($a$, $b$) prior acts like $a+b$ earlier visitors (the optimistic one ≈ 200). <mark>If reasonable priors disagree, the data can't settle the question yet</mark>: report a sensitivity analysis.</p>
+
+<h4>Has the sampler converged? R-hat</h4>
+<p>Run several chains from very different starts and compare between-chain spread with within-chain spread: <b>$\hat R$</b> near 1 = they agree; above ~1.01 = keep sampling or fix the sampler.</p>
+<div class="eg"><b>Example</b><br>Step 0.5: four chains from −10, 0, 10, 20 all settle near <b>2.9</b>, $\hat R$ = 1.0. Step 0.005: each chain barely moves, $\hat R$ enormous, yet each one alone looks smooth.</div>
+<p>One chain is never enough. Stan and PyMC report $\hat R$ and the effective sample size: check both.</p>
+</div>
+<div class="sign">✎ in one line: keep a distribution over the unknowns, update it with data, check the prior's influence, and use the uncertainty to decide.</div>
+</article>

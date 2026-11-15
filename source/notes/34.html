@@ -1,0 +1,76 @@
+<article class="hn" id="n34">
+<div class="hn-tag">Part 7 · Lesson 34</div>
+<h2>Graph data &amp; network analysis</h2>
+
+<h3><span class="n">1</span>When connections are the data</h3>
+<p>Who follows whom, which accounts pay which, which papers cite which, which products are bought together. Treating each row alone throws away the most useful part: a fraudster's account looks ordinary on its own, but it's <mark>connected to a ring of new accounts</mark>; churn risk rises when friends leave. A <b>graph</b> = <b>nodes</b> joined by <b>edges</b>.</p>
+
+<h3><span class="n">2</span>Representing a graph</h3>
+<svg class="sk" viewBox="0 0 520 140" aria-label="Sketch: a small graph of four nodes A, B, C, D and the matching adjacency matrix of zeros and ones.">
+ <path class="k" d="M50 40 L130 40 L90 110 Z M130 40 L200 100"/>
+ <circle class="hl2" cx="50" cy="40" r="16"/><circle class="hl2" cx="130" cy="40" r="16"/><circle class="hl2" cx="90" cy="110" r="16"/><circle class="hl2" cx="200" cy="100" r="16"/>
+ <text x="44" y="46">A</text><text x="124" y="46">B</text><text x="84" y="116">C</text><text x="194" y="106">D</text>
+ <text x="308" y="30">A</text><text x="336" y="30">B</text><text x="364" y="30">C</text><text x="392" y="30">D</text>
+ <text x="280" y="55">A</text><text x="308" y="55">0</text><text x="336" y="55">1</text><text x="364" y="55">1</text><text x="392" y="55">0</text>
+ <text x="280" y="80">B</text><text x="308" y="80">1</text><text x="336" y="80">0</text><text x="364" y="80">1</text><text x="392" y="80">1</text>
+ <text x="280" y="105">C</text><text x="308" y="105">1</text><text x="336" y="105">1</text><text x="364" y="105">0</text><text x="392" y="105">0</text>
+ <text x="280" y="130">D</text><text x="308" y="130">0</text><text x="336" y="130">1</text><text x="364" y="130">0</text><text x="392" y="130">0</text>
+</svg>
+<p><b>Adjacency matrix</b> $A_{ij}=1$ if connected (symmetric if undirected). A node's <b>degree</b> = its row sum (B has 3). Large graphs: <b>edge lists</b> or sparse matrices (almost all entries are 0). Keep direction when it matters (A paid B ≠ B paid A).</p>
+<div class="eg"><b>Example from the lesson</b><br>100 people in 3 hidden communities: of 357 edges, <b>332</b> are inside communities and only <b>25</b> cross.</div>
+
+<h3><span class="n">3</span>Who matters? Centrality</h3>
+<ul>
+<li><b>Degree</b>: how many connections.</li>
+<li><b>PageRank</b>: important if <mark>important nodes link to you</mark>. A random surfer follows a link with probability $d$ (≈ 0.85) or jumps anywhere; PageRank = share of time spent at each node.</li>
+<li><b>Closeness</b>: how near you are to everyone (1 / mean shortest-path distance).</li>
+<li><b>Betweenness</b>: how often you sit on others' shortest paths (a bridge).</li>
+</ul>
+<p class="fx">$r_j=\dfrac{1-d}{n}+d\sum_{i\to j}\dfrac{r_i}{\text{out-degree}(i)}$</p>
+
+<h3><span class="n">4</span>The PageRank demo</h3>
+<p>Circle size = PageRank. Change the damping factor, or cut the top node's links and watch importance move elsewhere.</p>
+
+<h3><span class="n">5</span>Communities</h3>
+<p>Groups densely connected inside. <b>Modularity</b> = fraction of edges inside groups minus what random wiring with the same degrees would give:</p>
+<p class="fx">$Q=\dfrac{1}{2m}\sum_{ij}\Big(A_{ij}-\dfrac{k_ik_j}{2m}\Big)[c_i=c_j]$</p>
+<p>Near 0 = no structure; <b>above ~0.3</b> = clear communities. Found with <b>Louvain/Leiden</b> (greedy modularity) or <b>spectral clustering</b> (eigenvectors of the graph). In the lesson, spectral clustering recovers the three communities almost perfectly.</p>
+
+<h3><span class="n">6</span>Predicting missing links</h3>
+<ul>
+<li><b>Common neighbours</b>: how many friends two people share.</li>
+<li><b>Adamic–Adar</b>: shared neighbours weighted by $1/\log(\text{degree})$; <i>a shared friend with few friends says more than a shared celebrity</i>.</li>
+<li><b>Preferential attachment</b>: product of the degrees (busy nodes gain more links).</li>
+</ul>
+<div class="eg"><b>Example</b><br>Hide 10% of edges, score them against unconnected pairs: common neighbours AUC <b>0.613</b>, Adamic–Adar <b>0.605</b>, better than chance. Preferential attachment doesn't fit this graph: check which mechanism fits yours.</div>
+
+<h3><span class="n">7</span>Graph features for ordinary models</h3>
+<p>Easiest use: compute features (degree, PageRank, community, clustering coefficient, <b>neighbours' averages</b>) and add them to a normal model.</p>
+<div class="sticky"><b>Homophily</b><br>Connected nodes tend to be alike. Adding contacts' average signal raised accuracy from <b>63.0% to 72.0%</b>: neighbours average out each person's noise. Graph neural networks build on this idea.</div>
+<div class="box red">Only use neighbour labels that would really be known at prediction time.</div>
+
+<h3><span class="n">8</span>In practice</h3>
+<ul>
+<li><b>Node importance</b> (influencers, critical servers): degree, PageRank, betweenness.</li>
+<li><b>Communities</b> (segments, fraud rings): Louvain/Leiden, spectral.</li>
+<li><b>Link prediction</b> (suggestions): common neighbours, Adamic–Adar, embeddings.</li>
+<li><b>Node classification</b> (fraud, bots): graph features + classifier, label propagation, GNNs.</li>
+<li><b>Paths and flows</b> (deliveries, supply chains): shortest paths, max-flow.</li>
+</ul>
+<p><code>networkx</code> for small and medium graphs; graph databases and PyTorch Geometric for big ones.</p>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: PageRank and the Laplacian</h3>
+
+<h4>PageRank is an eigenvector</h4>
+<p>The surfer's matrix $G=\frac{1-d}{n}\mathbf{1}\mathbf{1}^\top+dM$; PageRank is $r$ with $rG=r$, an eigenvector with eigenvalue 1. All entries of $G$ are positive, so <b>Perron–Frobenius</b> guarantees it's the largest eigenvalue with a unique positive eigenvector, which is why <b>power iteration</b> (multiply again and again) finds it.</p>
+<div class="eg"><b>Example from the lesson</b><br>60-node directed graph: largest eigenvalue exactly 1; power iteration converges in <b>27</b> steps, matching to $10^{-11}$. Errors shrink by about $d$ per step. PageRank correlates with <b>in-degree (0.724)</b>, not out-degree (−0.208).</div>
+
+<h4>The graph Laplacian</h4>
+<p class="fx">$L=D-A,\qquad f^\top Lf=\sum_{\text{edges }ij}(f_i-f_j)^2$</p>
+<p>Small when connected nodes get similar values. The smallest eigenvalue is 0 (a constant vector); the eigenvector of the second-smallest, the <b>Fiedler vector</b>, is the smoothest non-constant labelling, and tends to split the graph along its weakest cut.</p>
+<div class="eg"><b>Example</b><br>Eigenvalues 0, then 2.091; splitting nodes by the sign of the Fiedler vector recovers the two planted communities <b>exactly</b>.</div>
+<p>Spectral clustering = several eigenvectors + k-means. The same Laplacian appears in label spreading and in graph neural networks.</p>
+</div>
+<div class="sign">✎ in one line: store it sparsely, measure who matters, find the communities, and use neighbours as features.</div>
+</article>

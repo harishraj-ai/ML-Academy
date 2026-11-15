@@ -1,0 +1,70 @@
+<article class="hn" id="n12">
+<div class="hn-tag">Part 3 · Lesson 12</div>
+<h2>Naive Bayes</h2>
+
+<h3><span class="n">1</span>A classifier from Bayes' theorem</h3>
+<p>Lesson 4 used Bayes to update a belief from evidence. Naive Bayes turns that into a classifier: <b>evidence = the features</b>, <b>hypothesis = the class</b>. The classic spam filters of the early 2000s were Naive Bayes, and it's still useful: <mark>trains almost instantly, needs little data, great on text</mark>.</p>
+
+<h3><span class="n">2</span>Bayes for classification</h3>
+<p class="fx">$P(y\mid\mathbf{x})=\dfrac{P(y)\,P(\mathbf{x}\mid y)}{P(\mathbf{x})}$</p>
+<ul><li>$P(y)$ = <b>prior</b>: how common the class is (40% of emails are spam).</li><li>$P(\mathbf{x}\mid y)$ = <b>likelihood</b>: how probable these features are for this class.</li><li>$P(\mathbf{x})$ is the same for every class, so ignore it when comparing (divide by the total at the end for real probabilities).</li></ul>
+
+<h3><span class="n">3</span>The "naive" assumption</h3>
+<p>$P(\mathbf{x}\mid y)$ for a whole combination of thousands of words is impossible to count. So assume the features are <b>independent given the class</b>, and just multiply:</p>
+<p class="fx">$\hat y=\arg\max_y\;P(y)\prod_jP(x_j\mid y)$</p>
+<p>Usually false ("free" and "money" appear together), but the classifier only needs to get the <b>ranking</b> of classes right, not the exact probabilities, so it often works well anyway.</p>
+
+<h3><span class="n">4</span>A spam filter by hand</h3>
+<div class="eg"><b>The lesson's data</b><br>10 emails: 4 spam ("win money now", "free money offer", "win a free prize now", "claim your free prize"), 6 ham. Is <b>"free money now"</b> spam?<br><b>Priors</b>: P(spam) = 0.4, P(ham) = 0.6.<br><b>Counts</b>: spam has 15 words, ham 25; vocabulary 24 words.</div>
+<div class="box"><b>Laplace smoothing (+1)</b><br>$P(w\mid c)=\dfrac{\text{count}+1}{\text{total words in }c+\text{vocab}}$<br>Without it, "free" never appearing in ham → P = 0 → the whole ham score is 0. One word would kill the class.</div>
+<div class="eg"><b>Word probabilities</b><br>spam: free (3+1)/39 = 0.1026, money 3/39 = 0.0769, now 3/39 = 0.0769<br>ham: free 1/49 = 0.0204, money 0.0204, now 2/49 = 0.0408<br>spam score = 0.4 × 0.1026 × 0.0769 × 0.0769 ≫ ham score → <b>spam</b>.</div>
+
+<h3><span class="n">5</span>Work with logs</h3>
+<p>Hundreds of numbers like 0.001 multiplied together <b>underflow</b> to exactly 0. Logs turn products into sums and keep the order:</p>
+<p class="fx">$\ln P(y)+\sum_j\ln P(x_j\mid y)$</p>
+<div class="eg"><b>Same email in log space</b><br>spam: −0.916 − 2.277 − 2.565 − 2.565 = <b>−8.32</b><br>ham: −0.511 − 3.892 − 3.892 − 3.199 ≈ <b>−11.49</b> → spam wins.</div>
+
+<h3><span class="n">6</span>The demo</h3>
+<p>Type a message: each word adds a bar of length $\ln\frac{P(w\mid\text{spam})}{P(w\mid\text{ham})}$ towards spam or ham. Unseen words are ignored. Try "win a free lunch" or "team meeting now".</p>
+
+<h3><span class="n">7</span>Variants</h3>
+<p>Same formula; only $P(x_j\mid y)$ changes:</p>
+<ul>
+<li><b>Multinomial</b>: word counts → text.</li>
+<li><b>Bernoulli</b>: present/absent → short texts, yes/no features.</li>
+<li><b>Gaussian</b>: a bell curve per class and feature → measurements.</li>
+<li><b>Complement</b>: statistics from all <i>other</i> classes → imbalanced text.</li>
+<li><b>Categorical</b>: smoothed frequency of each category.</li>
+</ul>
+
+<h3><span class="n">8</span>Strengths and weaknesses</h3>
+<div class="twocol"><div class="box"><b class="grn">+</b> extremely fast (just counting)<br><b class="grn">+</b> little data, many features<br><b class="grn">+</b> many classes naturally<br><b class="grn">+</b> easy to explain</div><div class="box"><b class="red">−</b> independence is usually false<br><b class="red">−</b> probabilities often over-confident<br><b class="red">−</b> can't learn interactions<br><b class="red">−</b> Gaussian NB assumes bell shapes</div></div>
+<div class="sticky"><b>A great baseline</b><br>Quick to try, hard to break. If a complex model can't beat it, the complexity isn't earning its keep.</div>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: smoothing, text, generative models</h3>
+
+<h4>Where smoothing comes from</h4>
+<div class="eg"><b>Example from the lesson</b><br>Two messages with words seen in only one class. Almost no smoothing (α = 10⁻¹⁰): answers of exactly <b>0 and 1</b>, decided by a single word. With α = 1: a sensible <b>0.184 and 0.735</b>.</div>
+<p class="fx">$P(\text{word }j\mid c)=\dfrac{\text{count}_{j,c}+\alpha}{\text{total}_c+\alpha V}$</p>
+<p>It's not a hack: it's the Bayesian posterior mean with a symmetric <b>Dirichlet prior</b> (the many-category Beta), like having seen every word α extra times. α is a regularization strength: tune by CV (0.01–1 is common for text).</p>
+
+<h4>Reading what it learned</h4>
+<p>Each word adds $\log P(w\mid\text{spam})-\log P(w\mid\text{ham})$ to the spam log-odds every time it appears.</p>
+<div class="eg"><b>Example</b><br>"win", "cash", "now", "prize": <b>+1.07</b> each. "monday", "meeting": <b>−1.12</b>.</div>
+<p>So the log-odds is a weighted sum of word counts: multinomial NB is a <mark>linear classifier</mark>, like logistic regression, with weights set by counting instead of optimisation.</p>
+
+<h4>A realistic text pipeline</h4>
+<ul>
+<li><b>Bigrams</b> (word pairs), so "not good" isn't "not" + "good".</li>
+<li><b>TF-IDF</b>: term frequency × inverse document frequency; down-weights words in every document ("the", "to").</li>
+<li><b>Complement NB</b>: more stable with imbalanced classes, often beats standard multinomial on text.</li>
+</ul>
+<p>Even on 8 messages it classifies both new ones correctly with 47 features. Also try a linear SVM or logistic regression on the same TF-IDF features; modern alternatives use embeddings or a fine-tuned transformer.</p>
+
+<h4>Generative vs discriminative</h4>
+<div class="twocol"><div class="box"><b>Generative</b> (NB, LDA, mixtures)<br>learns how each class <i>produces</i> data, $P(\mathbf{x}\mid y)$<br>· good with little data<br>· handles missing features naturally<br>· can generate examples<br>· probabilities often badly calibrated</div><div class="box"><b>Discriminative</b> (logistic regression, SVM, neural nets)<br>learns the boundary $P(y\mid\mathbf{x})$ directly<br>· needs more data<br>· usually more accurate with lots of data<br>· better calibrated</div></div>
+<p>Ng and Jordan (2001): NB reaches its best error with far fewer examples (about logarithmic in the number of features), logistic regression needs more (about linear) but ends lower when independence is wrong. Today's generative AI is the generative idea at enormous scale.</p>
+</div>
+<div class="sign">✎ in one line: prior × word likelihoods, with smoothing and logs; fast, simple and a strong text baseline.</div>
+</article>

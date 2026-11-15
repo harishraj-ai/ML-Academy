@@ -1,0 +1,101 @@
+<article class="hn" id="n18">
+<div class="hn-tag">Part 5 · Lesson 18</div>
+<h2>Neural networks from scratch</h2>
+
+<h3><span class="n">1</span>Why neural networks?</h3>
+<p>Every model so far had a fixed shape (a line, boxes, a kernel). Neural networks <mark>learn their own internal features</mark>, and stacked up they can represent very complicated things: faces, translation, text generation. Good news: you already know every ingredient. A neuron = logistic regression; training = gradient descent; backpropagation = the chain rule.</p>
+
+<h3><span class="n">2</span>The artificial neuron</h3>
+<div class="sticky"><b>Picture it</b><br>Deciding whether to go for a run: weigh the weather, your tiredness and whether a friend is coming, add it up, decide. A neuron does the same.</div>
+<p class="fx">$z=\mathbf{w}\cdot\mathbf{x}+b,\qquad a=g(z)$</p>
+<p>With $g$ = sigmoid, one neuron <i>is</i> logistic regression: one straight boundary. (Loosely inspired by biological neurons, but only a cartoon of them.)</p>
+
+<h3><span class="n">3</span>Why one isn't enough: XOR</h3>
+<p>XOR = 1 when exactly one input is 1: (0,0)→0, (0,1)→1, (1,0)→1, (1,1)→0. The 1s sit on one diagonal, the 0s on the other: <b>no single line separates them</b>.</p>
+<p>But two neurons can each draw a line, and a third combines them ("above line A <i>and</i> below line B"). That's the power of <b>hidden layers</b>: they create new features that make the problem easy.</p>
+
+<h3><span class="n">4</span>Layers: the multilayer perceptron</h3>
+<svg class="sk" viewBox="0 0 460 190" aria-label="Sketch: a small network with two inputs, three hidden neurons and one output, all connected.">
+ <g class="k"><path d="M70 60 L200 35 M70 60 L200 95 M70 60 L200 155 M70 130 L200 35 M70 130 L200 95 M70 130 L200 155 M200 35 L340 95 M200 95 L340 95 M200 155 L340 95"/></g>
+ <circle class="hl2" cx="70" cy="60" r="18"/><circle class="hl2" cx="70" cy="130" r="18"/><circle class="hl" cx="200" cy="35" r="18"/><circle class="hl" cx="200" cy="95" r="18"/><circle class="hl" cx="200" cy="155" r="18"/><circle class="hl2" cx="340" cy="95" r="20"/>
+ <text x="40" y="185">inputs</text><text x="160" y="185">hidden</text><text x="320" y="135">output</text>
+</svg>
+<p>Input layer (the features), hidden layer(s), output layer. Each layer = <b>matrix multiply + activation</b>:</p>
+<p class="fx">$\mathbf{h}=g(W^{[1]}\mathbf{x}+\mathbf{b}^{[1]}),\qquad\hat y=\sigma(\mathbf{v}\cdot\mathbf{h}+c)$</p>
+<p>$W^{[1]}$ has one row per hidden neuron: $d$ inputs and $m$ hidden → $m\times d$, plus $m$ biases.</p>
+<div class="box red"><b>Why activations are essential</b><br>Without them two layers collapse into one: $V(W\mathbf{x})=(VW)\mathbf{x}$, still linear.</div>
+
+<h3><span class="n">5</span>Activation functions</h3>
+<ul>
+<li><b>ReLU</b> $\max(0,z)$: default for hidden layers (ReLU(−3) = 0). Slope 1 if $z&gt;0$, else 0.</li>
+<li><b>Sigmoid</b>: (0, 1), for a binary output. Slope $\sigma(1-\sigma)$.</li>
+<li><b>tanh</b>: (−1, 1), zero-centred. Slope $1-\tanh^2$.</li>
+<li><b>Softmax</b>: probabilities summing to 1, for multi-class outputs.</li>
+</ul>
+<p>ReLU is popular because it's cheap and its gradient doesn't shrink for positive inputs.</p>
+
+<h3><span class="n">6</span>A forward pass by hand</h3>
+<div class="eg"><b>Example from the lesson: a 2-2-1 network</b><br>Input (1, 0), label $y=1$, sigmoid everywhere, biases 0. Hidden weights (0.5, 0.3) and (−0.5, 0.8); output weights (1, −1).<br>$z_1=0.5$ → $h_1\approx0.6225$; $z_2=-0.5$ → $h_2\approx0.3775$.<br>Output $z=0.6225-0.3775=0.2449$ → $p\approx$ <b>0.5609</b>. Loss $-\ln0.5609\approx$ <b>0.578</b>. Only 56% on the right answer, so let's teach it.</div>
+
+<h3><span class="n">7</span>Backpropagation</h3>
+<p>Every weight affects the loss through a chain (weight → hidden $z$ → $h$ → output $z$ → $p$ → $L$). Backprop multiplies the local slopes, starting at the output and <mark>passing the blame backwards</mark>, reusing each result.</p>
+<ol>
+<li>Output error (sigmoid + log loss): $\delta_{\text{out}}=p-y$.</li>
+<li>Output weight gradient = $\delta_{\text{out}}\times h_j$.</li>
+<li>Hidden error: $\delta_j=\delta_{\text{out}}\,v_j\,g'(z_j)$.</li>
+<li>Hidden weight gradient = $\delta_j\times$ its input.</li>
+</ol>
+<div class="eg"><b>Continuing the example</b><br>$\delta_{\text{out}}=0.5609-1=-0.439$.<br>$\partial L/\partial v_1=-0.439\times0.6225\approx-0.273$, $\partial L/\partial v_2\approx-0.166$ → both $v$'s will <b>increase</b>, pushing $p$ up.<br>Hidden: $\delta_1=-0.439\times1\times0.235\approx-0.103$, $\delta_2\approx+0.103$.</div>
+<div class="sticky"><b>Rule of thumb</b><br>Each gradient = <b>error × the input it received</b>. Positive gradient → the weight goes down.</div>
+
+<h3><span class="n">8</span>With matrices (a whole batch)</h3>
+<p class="fx">$H=\tanh(XW_1+\mathbf{b}_1),\qquad P=\sigma(HW_2+b_2)$</p>
+<p class="fx">$\Delta_2=\tfrac1n(P-Y),\;\;\tfrac{\partial L}{\partial W_2}=H^\top\Delta_2,\;\;\Delta_1=(\Delta_2W_2^\top)\odot(1-H^2),\;\;\tfrac{\partial L}{\partial W_1}=X^\top\Delta_1$</p>
+<p>(⊙ = element-wise; $1-H^2$ is tanh's slope.) These four lines are the whole training step in about 20 lines of NumPy.</p>
+
+<h3><span class="n">9</span>The demo</h3>
+<p>Pick XOR, circle or spiral and a number of hidden neurons. With <b>1</b> neuron it draws only a straight line; add neurons and the boundary bends. The spiral needs the most neurons and the most training.</p>
+
+<h3><span class="n">10</span>Training in practice</h3>
+<ul>
+<li><b>Random initialisation</b>, never all equal (otherwise every neuron learns the same thing).</li>
+<li><b>Scale the inputs.</b></li>
+<li>Mini-batches and epochs.</li>
+<li>Watch validation loss: early stopping, L2 regularization.</li>
+<li>More neurons/layers = more capacity and more overfitting risk.</li>
+</ul>
+<div class="sticky"><b>Universal approximation</b><br>One hidden layer with enough neurons can approximate any reasonable continuous function. It doesn't say how many neurons, or that training will find them.</div>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: making deep networks trainable</h3>
+
+<h4>Initialisation keeps the signal alive</h4>
+<p>With $n$ inputs of variance 1 and weight variance $s^2$, a unit's sum has variance about $ns^2$: above 1 it grows layer by layer, below 1 it shrinks.</p>
+<ul><li><b>Xavier (Glorot)</b>: variance $1/n$, for tanh-like activations.</li><li><b>He</b>: variance $2/n$, for ReLU (which zeroes half its inputs).</li></ul>
+<div class="eg"><b>Example: 20 layers of width 256</b><br>std 0.01 → spread <b>10⁻¹⁶</b> by layer 20 (vanished).<br>std 1 with tanh → 86.6% of units saturated beyond ±0.99 (almost no gradient).<br>Xavier + ReLU fades (0.000893); <b>He + ReLU stays steady (0.674)</b>.</div>
+
+<h4>Vanishing gradients, measured</h4>
+<p>Sigmoid's slope is at most 0.25, so 20 layers can shrink a gradient by $0.25^{20}\approx10^{-12}$.</p>
+<div class="eg"><b>Example</b><br>Sigmoid: the first layer's gradient is <b>4 × 10⁻¹¹</b> (early layers never learn). ReLU + He: same order of magnitude throughout (197 at the end, 524 at the start).</div>
+<p>This, plus good initialisation and <b>residual connections</b> ($\mathbf{h}+f(\mathbf{h})$), made deep networks trainable around 2010–2012.</p>
+
+<h4>Batch normalisation</h4>
+<p class="fx">$\hat z=\dfrac{z-\mu_{\text{batch}}}{\sqrt{\sigma^2_{\text{batch}}+\epsilon}},\qquad\text{out}=\gamma\hat z+\beta$</p>
+<p>Keeps each layer's inputs in a steady range → bigger learning rates, less sensitivity to initialisation. At prediction time it uses running averages. <b>Layer norm</b> normalises within one example (no batch dependence): the standard in transformers.</p>
+
+<h4>Dropout</h4>
+<p>Randomly switch off each hidden unit with probability $p$ during training, so the network can't lean on any single unit; like averaging a huge ensemble of thinned networks. <b>Inverted dropout</b> scales survivors by $1/(1-p)$ so nothing changes at prediction time.</p>
+<div class="eg"><b>Example</b><br>p = 0.5: about half survive (0.498), average activation stays ≈ 1 (0.995).</div>
+<div class="box red">In PyTorch, forgetting <code>model.eval()</code> before predicting (dropout and batch norm still in training mode) is a classic bug.</div>
+
+<h4>A recipe for a new network</h4>
+<ul>
+<li>Activation: ReLU (GELU in transformers). Initialisation: framework default.</li>
+<li>Normalisation: batch norm for CNNs, layer norm for transformers.</li>
+<li>Optimiser: AdamW, ~$10^{-3}$, warm-up then decay.</li>
+<li>Regularization: weight decay, dropout 0.1–0.5, early stopping, augmentation.</li>
+<li><b>First check</b>: overfit a tiny batch (~10 examples) to near-zero loss. If you can't, there's a bug.</li>
+</ul>
+</div>
+<div class="sign">✎ in one line: layers of weighted sums plus non-linearities, trained by passing the error backwards, kept trainable by good initialisation and normalisation.</div>
+</article>

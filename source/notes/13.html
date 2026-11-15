@@ -1,0 +1,93 @@
+<article class="hn" id="n13">
+<div class="hn-tag">Part 3 · Lesson 13</div>
+<h2>Decision trees</h2>
+
+<h3><span class="n">1</span>Twenty questions with data</h3>
+<p>Find an object with yes/no questions ("Is it alive?", "Bigger than a cat?"). A tree classifies the same way: "Is petal width ≤ 0.8 cm?" … until it reaches an answer. A single tree is easy to explain; combined into forests and boosting (Lesson 14), trees are often <mark>the strongest models for tabular data</mark>.</p>
+
+<h3><span class="n">2</span>Anatomy of a tree</h3>
+<ul>
+<li><b>Root</b>: all the data, the first question.</li>
+<li><b>Internal node</b>: one feature vs a threshold, "$x_j\le t$?" (yes → left, no → right).</li>
+<li><b>Leaf</b>: the prediction (majority class, or average for regression).</li>
+<li><b>Depth</b>: the number of questions on the longest path.</li>
+</ul>
+<svg class="sk" viewBox="0 0 540 190" aria-label="Sketch: the depth-2 iris tree. Petal width at most 0.8 gives setosa; otherwise petal width at most 1.75 gives versicolor, else virginica.">
+ <rect class="k" x="170" y="10" width="200" height="36" rx="10"/><text x="182" y="34">petal width ≤ 0.8 cm?</text>
+ <path class="k" d="M220 46 L110 90 M320 46 L400 90"/><text x="140" y="70">yes</text><text x="365" y="70">no</text>
+ <rect class="hl2" x="50" y="92" width="120" height="34" rx="8"/><text x="78" y="115">setosa</text>
+ <rect class="k" x="310" y="92" width="200" height="36" rx="10"/><text x="322" y="116">petal width ≤ 1.75?</text>
+ <path class="k" d="M360 128 L310 160 M460 128 L490 160"/>
+ <rect class="hl2" x="240" y="160" width="130" height="28" rx="8"/><text x="258" y="180">versicolor</text>
+ <rect class="hl2" x="430" y="160" width="105" height="28" rx="8"/><text x="442" y="180">virginica</text>
+</svg>
+<div class="eg"><b>Example</b><br>Petal width 1.2: is 1.2 ≤ 0.8? No → right. Is 1.2 ≤ 1.75? Yes → <b>versicolor</b>. Anyone can follow that.</div>
+<p>Each split cuts the feature space with an <b>axis-parallel</b> line, so the regions are boxes.</p>
+
+<h3><span class="n">3</span>Choosing questions: impurity</h3>
+<div class="sticky"><b>Sorting laundry</b><br>A pile of only white shirts is "pure": you know what to do. A mixed pile is "impure". A tree keeps asking until its piles are as pure as possible.</div>
+<p class="fx">Gini $G=1-\sum_kp_k^2\qquad$ Entropy $H=-\sum_kp_k\log_2p_k$</p>
+<p>Both are 0 for a pure node and largest for an even mix.</p>
+<div class="eg"><b>Example</b><br>6 yes / 4 no → Gini $1-(0.36+0.16)=$ <b>0.48</b>. 5 / 5 → 0.5 (the maximum for two classes).</div>
+
+<h3><span class="n">4</span>Scoring a split: information gain</h3>
+<p class="fx">$G_{\text{split}}=\frac{n_L}{n}G(\text{left})+\frac{n_R}{n}G(\text{right}),\qquad\text{Gain}=G(\text{parent})-G_{\text{split}}$</p>
+<div class="eg"><b>Example from the lesson</b><br>Parent 6 yes / 4 no (Gini 0.48).<br><b>Split A</b>: left 4/0 (pure, 0), right 2/4 (0.444) → weighted 0.267 → gain <b>0.213</b>.<br><b>Split B</b>: both sides 3/2, the same mix as the parent → gain <b>0</b>. A is much better.</div>
+
+<h3><span class="n">5</span>Growing it: CART</h3>
+<ol>
+<li>At a node, try every feature and every threshold (midpoints between sorted values).</li>
+<li>Pick the split with the biggest impurity decrease.</li>
+<li>Split, then repeat on each child until a stopping rule (pure, max depth, too few examples).</li>
+</ol>
+<p><b>Greedy</b>: the best split <i>right now</i>, no looking ahead. Not guaranteed optimal (finding the best tree is far too hard), but it works very well.</p>
+
+<h3><span class="n">6</span>The demo</h3>
+<p>Raise the maximum depth and the tree adds axis-parallel cuts: <b>underfits</b> at low depth, carves tiny boxes around single points at high depth (<b>overfits</b>).</p>
+
+<h3><span class="n">7</span>Regression trees</h3>
+<p>A leaf predicts the <b>average</b> $y$ of its examples; impurity = the variance (MSE) in the node. The result is a <mark>step function</mark>: flat inside each box, jumps between boxes.</p>
+
+<h3><span class="n">8</span>Trees overfit easily</h3>
+<p>Left alone, a tree splits until every leaf is pure and memorises the noise. Controls (pick by CV):</p>
+<ul>
+<li><code>max_depth</code>: fewer questions.</li>
+<li><code>min_samples_split</code> / <code>min_samples_leaf</code>: no tiny groups.</li>
+<li><code>max_leaf_nodes</code>: cap the leaves.</li>
+<li><b>Cost-complexity pruning</b> (<code>ccp_alpha</code>): grow fully, then cut back, minimising $R_\alpha(T)=R(T)+\alpha|T|$.</li>
+</ul>
+
+<h3><span class="n">9</span>Feature importance</h3>
+<p>Add up each feature's impurity reductions (weighted by examples), normalise to 1. It shows what the tree <i>relied on</i>.</p>
+<div class="box red">Favours features with many distinct values (IDs, continuous numbers). With correlated features the tree may use one and make the other look useless. It describes the model, not causation.</div>
+
+<h3><span class="n">10</span>Strengths and weaknesses</h3>
+<div class="twocol"><div class="box"><b class="grn">+</b> easy to read<br><b class="grn">+</b> no scaling (splits compare one feature with a threshold)<br><b class="grn">+</b> numeric and categorical, non-linear, interactions<br><b class="grn">+</b> fast</div><div class="box"><b class="red">−</b> overfit without limits<br><b class="red">−</b> <b>unstable</b>: small data change → very different tree<br><b class="red">−</b> staircase boundaries (a diagonal needs many steps)<br><b class="red">−</b> rarely the most accurate alone</div></div>
+<p>The fix for instability: many trees combined (Lesson 14).</p>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: pruning, honest importance, instability</h3>
+
+<h4>Cost-complexity pruning</h4>
+<p>Depth limits stop growth early, but a useless-looking split can enable a very useful one below it. Pruning grows the full tree, then removes the "weakest links" one at a time as α grows, giving a nested sequence of smaller trees.</p>
+<div class="eg"><b>Example from the lesson</b><br>Full tree: 16 leaves, perfect on training, <b>0.906</b> on test. Pruned to 6 leaves: test <b>0.918</b>. Pruned to 3: too far (0.889). CV on the training set picks α ≈ 0.0088, the 6-leaf tree.</div>
+
+<h4>Impurity vs permutation importance</h4>
+<p>The default <code>feature_importances_</code> is measured on <b>training</b> data (memorised noise still earns credit) and favours many-valued features.</p>
+<div class="eg"><b>Example from the lesson</b><br>Add a pure-noise column with a different value on every row (like a customer ID). Impurity importance ranks it <b>6th of 31</b>, ahead of 25 real measurements. Permutation importance on test data: exactly <b>0</b>.</div>
+<p><mark>Report permutation importance (or SHAP) instead.</mark> Correlated features can still hide each other, and "used" ≠ "causes".</p>
+
+<h4>Trees are unstable</h4>
+<div class="eg"><b>Example from the lesson</b><br>100 bootstrap samples of the same data: <b>5 different features</b> end up at the root ("worst perimeter" 52 times, "worst concave points" 30, three others).</div>
+<p>Explaining a decision by one tree's structure is fragile. This high variance is exactly what bagging and random forests average away, keeping the low bias.</p>
+
+<h4>Practical details</h4>
+<ul>
+<li>Regression trees <b>can't extrapolate</b> beyond the training range.</li>
+<li>Categories: one-hot works; LightGBM and CatBoost split categories directly.</li>
+<li>Missing values: recent scikit-learn trees learn which side they go.</li>
+<li>Finding the smallest accurate tree is NP-hard, hence greedy growing.</li>
+</ul>
+</div>
+<div class="sign">✎ in one line: ask the question that makes the purest groups, repeat, prune before it memorises, and trust permutation importance.</div>
+</article>

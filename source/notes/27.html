@@ -1,0 +1,71 @@
+<article class="hn" id="n27">
+<div class="hn-tag">Part 6 · Lesson 27</div>
+<h2>Recommender systems</h2>
+
+<h3><span class="n">1</span>What recommenders do</h3>
+<p>Every streaming service, shop and feed picks, for each person, a few items out of millions. A large share of what people watch and buy online comes from recommendations. The data: a huge, <b>mostly empty</b> users × items table; the job: <mark>fill in the blanks</mark> and show each user their best unseen items.</p>
+
+<h3><span class="n">2</span>Explicit vs implicit feedback</h3>
+<ul>
+<li><b>Explicit</b>: stars, thumbs. Clear but scarce.</li>
+<li><b>Implicit</b>: clicks, plays, purchases, watch time. Plentiful but noisy, and <b>no negatives</b>: an unclicked item may be disliked or simply never seen.</li>
+</ul>
+<div class="eg"><b>The lesson's data</b><br>300 users × 60 films, built from 3 hidden tastes: 2,747 ratings fill <b>15.3%</b> of 18,000 cells. Real systems are often well under 1%.</div>
+
+<h3><span class="n">3</span>Baselines: averages and biases</h3>
+<div class="eg"><b>Example (RMSE on one held-out rating per user)</b><br>Global average <b>1.077</b> · each film's average <b>1.024</b> · film average + naive user bias <b>1.057</b> (worse!).</div>
+<p>With only ~9 ratings per user the user bias is noisy and double-counts the film effect (someone who happened to rate good films looks generous). Biases must be learned <b>jointly with regularization</b>, as matrix factorisation does.</p>
+<div class="sticky"><b>Always beat popularity</b><br>Compare with "most popular items", not with random recommendations.</div>
+
+<h3><span class="n">4</span>Collaborative filtering</h3>
+<p>"People like you also liked…". <b>User-based</b>: from users similar to you. <b>Item-based</b>: from films similar to this one (rated alike by the same users). No item information needed.</p>
+<p>Similarity (cosine or Pearson) on <b>centred</b> ratings, so a harsh and a generous rater with the same taste look alike:</p>
+<p class="fx">$\hat r_{ui}=\bar r_u+\dfrac{\sum_{j\in N(i)}\text{sim}(i,j)(r_{uj}-\bar r_u)}{\sum_{j\in N(i)}|\text{sim}(i,j)|}$</p>
+<div class="eg"><b>Example</b><br>Item-item CF: RMSE <b>1.012</b>, a little better than the baselines (similarities are noisy with ~46 ratings per film).</div>
+
+<h3><span class="n">5</span>The demo</h3>
+<p>Rate a few films; your ratings are compared with every other user's, and the users who resemble you predict the rest. Rate sci-fi high and romance low, then the reverse.</p>
+
+<h3><span class="n">6</span>Matrix factorisation</h3>
+<svg class="sk" viewBox="0 0 520 140" aria-label="Sketch: a big sparse user by item matrix equals a tall thin user matrix times a short wide item matrix.">
+ <rect class="k" x="10" y="15" width="150" height="110" rx="6"/><text x="30" y="45">? 4 ? ?</text><text x="30" y="75">5 ? ? 1</text><text x="30" y="105">? ? 3 ?</text>
+ <text x="175" y="75">≈</text>
+ <rect class="hl2" x="205" y="15" width="40" height="110" rx="6"/><text x="200" y="140">users</text>
+ <text x="255" y="75">×</text>
+ <rect class="hl" x="280" y="45" width="150" height="40" rx="6"/><text x="320" y="105">items</text>
+</svg>
+<p>Give every user a vector $\mathbf{p}_u$ and every item a vector $\mathbf{q}_i$ of $k$ hidden factors (tastes), plus biases:</p>
+<p class="fx">$\hat r_{ui}=\mu+b_u+b_i+\mathbf{p}_u\cdot\mathbf{q}_i$</p>
+<p>Learned by minimising squared error on the <b>known</b> ratings, with L2 regularization:</p>
+<p class="fx">$\min\sum_{\text{known}}(r_{ui}-\hat r_{ui})^2+\lambda(\|\mathbf{p}_u\|^2+\|\mathbf{q}_i\|^2+b_u^2+b_i^2)$</p>
+<p>It's the low-rank (SVD) idea from Lesson 2, trained by SGD or ALS. The same dot products fill in the blanks.</p>
+
+<h3><span class="n">7</span>Evaluating: rankings, not ratings</h3>
+<p>Users see a short list, so measure the top of it:</p>
+<ul><li><b>Precision@k</b>: share of the top $k$ that are relevant.</li><li><b>Recall@k / hit rate@k</b>.</li><li><b>NDCG, MAP</b>: also reward putting good items higher.</li></ul>
+<div class="eg"><b>Example: top-10 unseen films per user</b><br>Random films liked <b>44.7%</b> of the time; popularity baseline <b>67.1%</b>; matrix factorisation's personalised lists do better still.</div>
+<ul><li>Split by <b>time</b> so the model never sees a user's future.</li><li>Exclude items the user already has.</li><li>Unobserved ≠ disliked.</li><li>Final judge: an online <b>A/B test</b>.</li></ul>
+
+<h3><span class="n">8</span>Cold start, content, feedback loops</h3>
+<ul>
+<li><b>Cold start</b>: a new user or item has no interactions → popularity, a few onboarding questions, or <b>content</b> features (genre, description via TF-IDF or embeddings, price). <b>Hybrids</b> combine both.</li>
+<li><b>Two-stage systems</b>: fast <b>retrieval</b> of a few hundred candidates (nearest neighbours of a user embedding), then a <b>ranking</b> model orders them.</li>
+<li><b>Feedback loops</b>: users only click what they're shown, so popular items get more exposure and look even better. Add some exploration and watch diversity.</li>
+</ul>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: ALS and popularity bias</h3>
+
+<h4>Alternating least squares</h4>
+<p>Fix the item factors $Q$, and each user's vector is a small ridge regression with a closed form, $\mathbf{p}_u=(Q_u^\top Q_u+\lambda I)^{-1}Q_u^\top\mathbf{r}_u$ (only the items that user rated). Then fix $P$ and solve each item. Repeat.</p>
+<div class="eg"><b>Example</b><br>3 true factors, 20% observed: test RMSE <b>1.635</b> after one sweep → <b>0.762</b> after eight.</div>
+<p>Each user's and item's update is independent, so ALS parallelises well (Spark's recommender). A weighted version (Hu, Koren, Volinsky) handles implicit feedback, treating unobserved pairs as weak zeros.</p>
+
+<h4>Measuring popularity bias</h4>
+<p>Accuracy metrics reward popular items (they're most likely to appear in anyone's held-out set). Track:</p>
+<ul><li><b>Catalogue coverage</b>: share of items ever recommended.</li><li><b>Average popularity</b> of recommended items.</li></ul>
+<div class="eg"><b>Example</b><br>Most-popular lists: only <b>30%</b> coverage, average popularity 38.7 users (catalogue average 29.2). Matrix factorisation: <b>85%</b> coverage, popularity 30.4.</div>
+<p>A change that slightly raises precision but halves coverage can make the product worse for users and for item suppliers.</p>
+</div>
+<div class="sign">✎ in one line: beat popularity, factorise the big table, judge rankings on a time split, and watch coverage.</div>
+</article>

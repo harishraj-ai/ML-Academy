@@ -1,0 +1,68 @@
+<article class="hn" id="n33">
+<div class="hn-tag">Part 7 · Lesson 33</div>
+<h2>Survival analysis</h2>
+
+<h3><span class="n">1</span>Not "whether" but "when"</h3>
+<p>How long until a customer cancels, a machine fails, a loan defaults, a patient recovers? <b>Survival (time-to-event) analysis</b> models these times. The special challenge is <b>censoring</b>: for many people the event hasn't happened yet. A customer who joined 3 months ago and is still here hasn't survived "3 months"; they've survived <mark>at least</mark> 3 months.</p>
+<div class="box red">Treat them as churned at 3 months → you underestimate how long people stay. Drop them → you lose information and bias towards short times.</div>
+
+<h3><span class="n">2</span>Censored data</h3>
+<svg class="sk" viewBox="0 0 480 150" aria-label="Sketch: four timelines. Two end with an X for the event; two end with an open circle at the end of the study, meaning censored.">
+ <path class="k" d="M380 10 V140" style="stroke-dasharray:5 5"/><text x="390" y="20">study ends</text>
+ <path class="p" d="M20 30 H200"/><text x="200" y="37" style="fill:var(--red)">✕ churned</text>
+ <path class="p" d="M60 65 H380"/><circle class="k" cx="380" cy="65" r="7" style="fill:var(--paper)"/><text x="395" y="70">still here</text>
+ <path class="p" d="M100 100 H290"/><text x="290" y="107" style="fill:var(--red)">✕ churned</text>
+ <path class="p" d="M200 130 H380"/><circle class="k" cx="380" cy="130" r="7" style="fill:var(--paper)"/><text x="395" y="135">still here</text>
+</svg>
+<p>Each row: a <b>time</b> and an <b>event flag</b> (1 = churned then; 0 = still subscribed when the study ended: <b>right-censored</b>).</p>
+<div class="eg"><b>Example from the lesson</b><br>600 subscribers, 106 censored. Averaging the observed times gives <b>6.02</b> months, well below the true <b>7.86</b>: censored people are counted when we stopped watching, not when they eventually left.</div>
+
+<h3><span class="n">3</span>Kaplan–Meier</h3>
+<p>$S(t)$ = probability of still being a customer after time $t$. At each churn time, with $n_k$ still at risk and $d_k$ churning:</p>
+<p class="fx">$\hat S(t)=\prod_{t_k\le t}\left(1-\dfrac{d_k}{n_k}\right)$</p>
+<div class="eg"><b>By hand</b><br>Churned at 2; censored at 3; churned at 4 and 4; censored at 6.<br>t = 2: 5 at risk, 1 churns → $S=0.8$.<br>t = 3: censored, no step, but the risk set drops to 3.<br>t = 4: 3 at risk, 2 churn → $S=0.8\times(1-2/3)\approx$ <b>0.267</b>. Then flat.</div>
+<p>Report the <b>median</b> survival time (where the curve crosses 0.5): the mean depends on a long tail that censoring hides.</p>
+<div class="eg"><b>Example</b><br>40 at risk, 4 churn → multiply by $1-4/40=$ <b>0.9</b>.</div>
+
+<h3><span class="n">4</span>The demo</h3>
+<p>True medians 4.9 and 9.7 months. Increase the share censored: Kaplan–Meier still recovers curves and medians close to the truth.</p>
+
+<h3><span class="n">5</span>Comparing groups: log-rank test</h3>
+<p>At each churn time, compare the churns in one group with what you'd expect if both had the same risk, given who was at risk; sum into a chi-squared with 1 degree of freedom.</p>
+<div class="eg"><b>Example</b><br>Annual vs monthly plans: chi-squared <b>55.0</b>, p ≈ $10^{-13}$: annual customers really do stay longer.</div>
+<p>That says the difference isn't chance, not how big or why. Annual customers may differ in other ways, so it's no proof that switching plans would make someone stay.</p>
+
+<h3><span class="n">6</span>The Cox model</h3>
+<p>Model the <b>hazard</b>: the instant churn rate among those still at risk.</p>
+<p class="fx">$h(t\mid x)=h_0(t)\exp(\beta_1x_1+\dots+\beta_px_p)$</p>
+<p>The baseline $h_0(t)$ can have any shape (never estimated directly); features multiply it by a constant. $e^{\beta_j}$ = the <b>hazard ratio</b> per unit of $x_j$ (assumes proportional hazards). Fitted by the <b>partial likelihood</b>: at each churn, the chance it was this customer among everyone at risk.</p>
+<div class="eg"><b>Examples</b><br>Annual plan: hazard ratio <b>0.50</b> → at any moment annual customers churn at about half the rate.<br>$\beta=0.4$ for missed payments → each one multiplies the hazard by $e^{0.4}\approx$ <b>1.49</b>.</div>
+
+<h3><span class="n">7</span>Evaluating survival models</h3>
+<p>You don't know true times for censored people, so use the <b>concordance index</b>: among pairs where we know who churned first, the share where the model gave the earlier churner a higher risk. 0.5 random, 1 perfect: survival's ROC-AUC.</p>
+<div class="eg"><b>Example</b><br>Cox <b>0.639</b> · support tickets alone 0.59 · random 0.517. Values of 0.6–0.75 are typical (churn timing is noisy).</div>
+<p>Also: the Brier score over time, random survival forests, gradient boosting with survival losses.</p>
+
+<h3><span class="n">8</span>In practice</h3>
+<ul>
+<li><b>Time zero</b>: start everyone's clock at a comparable moment (sign-up, installation, diagnosis).</li>
+<li><b>Non-informative censoring</b>: people mustn't drop out of view <i>because</i> they were about to churn.</li>
+<li><b>No features from the future</b>: only values known at time zero (or time-varying models).</li>
+<li><b>Competing risks</b> (cancelled vs moved to a partner): treating one as censoring for the other biases estimates.</li>
+</ul>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: checking proportional hazards, RMST</h3>
+
+<h4>When hazards aren't proportional</h4>
+<p>A Cox model reports one hazard ratio for the whole period. If an advantage fades (a welcome offer that helps only early), that single number misleads.</p>
+<div class="eg"><b>Example from the lesson</b><br>First 6 months: group 1 churns at <b>0.39×</b> group 0's rate. After that: <b>1.04×</b>, no advantage. A single Cox ratio would average to about 0.6, true of no period.</div>
+<p>Fixes: separate coefficients per period, stratify, or report the curves. Check visually: $\log(-\log\hat S(t))$ lines should be <b>parallel</b>.</p>
+
+<h4>Restricted mean survival time (RMST)</h4>
+<p>The average time survived within a fixed horizon = the area under the Kaplan–Meier curve up to it. No proportional-hazards assumption needed.</p>
+<div class="eg"><b>Example</b><br>First 12 months: group 1 stays <b>7.71</b> months on average, group 0 <b>5.45</b> → <b>2.3 more months</b> per customer, which converts directly into revenue.</div>
+<p>"2.3 more months in the first year" is easier for decision-makers than a hazard ratio.</p>
+</div>
+<div class="sign">✎ in one line: model "when", keep censored people in, use Kaplan–Meier and Cox, judge with the C-index, and check the hazards stay proportional.</div>
+</article>

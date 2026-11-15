@@ -1,0 +1,80 @@
+<article class="hn" id="n26">
+<div class="hn-tag">Part 6 · Lesson 26</div>
+<h2>Time series forecasting</h2>
+
+<h3><span class="n">1</span>Why time is different</h3>
+<p>Umbrellas next week, electricity tomorrow evening, patients on Saturday night: predict future values from past ones. Time changes the rules:</p>
+<ul>
+<li>Rows <b>aren't independent</b>: today looks like yesterday.</li>
+<li>The future can differ from the past (trends, holidays, a pandemic).</li>
+<li>A <b>random split is badly wrong</b>: it trains on the future (Lesson 5's shuffled split reported R² = 0.96 for a model that couldn't forecast at all).</li>
+</ul>
+
+<h3><span class="n">2</span>Trend, seasonality, noise</h3>
+<svg class="sk" viewBox="0 0 520 125" aria-label="Sketch: a wavy line that slowly rises, showing a trend with a repeating weekly pattern.">
+ <path class="k" d="M20 105 H500 M20 105 V10"/><path class="p" d="M25 90 C40 70 50 95 65 85 C80 65 90 92 105 80 C120 60 130 88 145 75 C160 55 170 84 185 70 C200 50 210 78 225 65 C240 45 250 74 265 60 C280 40 290 70 305 55 C320 35 330 64 345 50 C360 30 370 60 385 45 C400 25 410 55 425 40 C440 20 450 50 465 35"/>
+ <path class="r" d="M25 92 L465 40" style="stroke-dasharray:6 6"/><text x="250" y="122">dashed = trend, wiggles = season</text>
+</svg>
+<ul>
+<li><b>Trend</b>: long-term direction. <b>Seasonality</b>: repeats with a fixed period (weekday, month, hour). <b>Noise</b>: the unpredictable rest.</li>
+<li><b>Additive</b> (trend + season + noise) or <b>multiplicative</b> (swings grow with the level, typical of sales; take logs to make it additive).</li>
+</ul>
+<div class="eg"><b>Example: 3 years of simulated shop sales</b><br>Saturday ≈ <b>383</b> vs Monday ≈ <b>254</b> (weekly pattern); yearly averages 245 → 304 → 361 (trend).</div>
+
+<h3><span class="n">3</span>Baselines first</h3>
+<ul><li><b>Naive</b>: tomorrow = today.</li><li><b>Seasonal naive</b>: tomorrow = the same day last week.</li><li><b>Moving average</b>: the average of the last $k$ days.</li></ul>
+<div class="eg"><b>Example (one day ahead, last 8 weeks)</b><br>Seasonal naive MAE <b>32.6</b> · 28-day average 45.3 · yesterday 50.0. Seasonal naive gets the weekly pattern for free. <b>Any model must beat 32.6.</b></div>
+
+<h3><span class="n">4</span>The baselines demo</h3>
+<p>Compare the four simple forecasts over 4 weeks: the methods that ignore the weekday miss every weekly peak.</p>
+
+<h3><span class="n">5</span>Turning a series into features</h3>
+<ul>
+<li><b>Lags</b>: the value 1, 7, 14, 28 days earlier.</li>
+<li><b>Rolling statistics</b>: mean / max / sd of the previous 7 or 28 days. <mark>Shift before rolling</mark> so the window excludes the day being predicted.</li>
+<li><b>Calendar</b>: weekday (one-hot), month, holidays, and $\sin$/$\cos$ of the day of year (so 31 Dec and 1 Jan are close).</li>
+<li><b>Known future inputs</b>: planned promotions, the weather forecast.</li>
+</ul>
+<div class="sticky"><b>MASE: a scaled error</b><br>"MAE 26" means nothing alone. MASE = your MAE ÷ the seasonal-naive MAE. <b>Below 1 beats the baseline</b>; 1.3 = 30% worse.</div>
+
+<h3><span class="n">6</span>Backtesting</h3>
+<svg class="sk" viewBox="0 0 520 100" aria-label="Sketch: three rows; each trains on an expanding past window and tests on the next block.">
+ <rect class="hl2" x="20" y="10" width="200" height="20" rx="4"/><rect class="hl" x="222" y="10" width="60" height="20" rx="4"/>
+ <rect class="hl2" x="20" y="40" width="260" height="20" rx="4"/><rect class="hl" x="282" y="40" width="60" height="20" rx="4"/>
+ <rect class="hl2" x="20" y="70" width="320" height="20" rx="4"/><rect class="hl" x="342" y="70" width="60" height="20" rx="4"/>
+ <text x="420" y="35">green = train</text><text x="420" y="65">yellow = test</text>
+</svg>
+<p>One test period can be lucky. Repeat "train up to a date, forecast the next block" moving forward (<code>TimeSeriesSplit</code>).</p>
+<div class="eg"><b>Example</b><br>Five consecutive 8-week windows: error from <b>19.8 to 28.6</b>. Report the average (<b>25.0</b>) and the spread.</div>
+<p>Leave a gap if your features need data that won't be available in time, and re-run the backtest whenever features change.</p>
+
+<h3><span class="n">7</span>Several steps ahead</h3>
+<ul><li><b>Recursive</b>: predict tomorrow, feed it back as a lag, continue. One model; errors can compound.</li><li><b>Direct</b>: a separate model per horizon. More models, no compounding.</li></ul>
+<div class="eg"><b>Example</b><br>Recursive: error <b>28.1</b> for days 1–7, <b>24.8</b> for days 8–14 (didn't grow here: the series is smooth and strongly seasonal).</div>
+<p>With shocks, recursive errors usually grow, so always report accuracy <b>by horizon</b>.</p>
+
+<h3><span class="n">8</span>The wider toolkit</h3>
+<ul>
+<li><b>Seasonal naive, moving averages</b>: baselines, often strong.</li>
+<li><b>Exponential smoothing</b> (Holt–Winters, ETS): one series with trend and season; fast, robust.</li>
+<li><b>ARIMA / SARIMA</b>: classical statistics with prediction intervals.</li>
+<li><b>Gradient boosting on lag features</b>: many related series (thousands of products) plus prices and promotions.</li>
+<li><b>Deep learning</b>: very many long series; needs lots of data to win.</li>
+</ul>
+<div class="box red"><b>Trees can't extrapolate</b>: a tree never predicts above values it has seen. On a rising trend, model the changes or detrend first.</div>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: lags and honest intervals</h3>
+
+<h4>Autocorrelation: which lags matter?</h4>
+<p>Autocorrelation at lag $k$ = correlation of the series with itself shifted by $k$. Compute it on the <b>changes</b> (a trend makes every lag look correlated). Peaks reveal the seasonal period.</p>
+<div class="eg"><b>Example</b><br>Daily sales changes: about <b>0.6</b> at lags 7, 14 and 21, barely anything at lags 1–6 → use multiples of 7. (A negative value at lag 2 is a typical side effect of differencing.)</div>
+<p>A standard first look: <code>plot_acf</code> up to two seasons.</p>
+
+<h4>Prediction intervals from held-out errors</h4>
+<p>A point forecast says nothing about how wrong it might be. Forecast a calibration period, take the 5th and 95th percentiles of the errors, add them to future forecasts: the idea of <b>split conformal prediction</b>.</p>
+<div class="eg"><b>Example</b><br>Built for 90%, it covers only <b>85.6%</b> on the test period: sales (and errors) keep growing, so older errors understate newer ones.</div>
+<p>Fixes: model the log (relative errors), use only recent errors, or recompute at each backtest step. Always report the coverage you actually achieve, by horizon.</p>
+</div>
+<div class="sign">✎ in one line: beat seasonal naive, build features only from the past, backtest in time order, and check your interval coverage.</div>
+</article>

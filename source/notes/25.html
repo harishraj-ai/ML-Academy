@@ -1,0 +1,68 @@
+<article class="hn" id="n25">
+<div class="hn-tag">Part 6 · Lesson 25</div>
+<h2>Imbalanced data &amp; anomaly detection</h2>
+
+<h3><span class="n">1</span>When what you care about is rare</h3>
+<p>Fraud ~1 in 1,000 transactions; machine failure 1 in 10,000 readings; a rare disease 1 in 500 patients. A model that never predicts the rare class is <mark>99.9% accurate and useless</mark>.</p>
+<ul><li>Some labelled rare cases → <b>imbalanced classification</b>: right metrics, then thresholds, weights or resampling.</li><li>Few or no labels → <b>anomaly detection</b>: find points that don't look like the rest.</li></ul>
+
+<h3><span class="n">2</span>Why accuracy fails, in numbers</h3>
+<div class="eg"><b>Example from the lesson (1% positives)</b><br>"Always normal": <b>99.0%</b> accurate, catches 0 of 100 positives.<br>Logistic regression: <b>99.5%</b> accurate, catches <b>52%</b>. Accuracy hides almost everything that matters.</div>
+<p>Use instead: <b>recall</b> (share caught), <b>precision</b> (share of alerts that are real), <b>average precision</b> (compare with its baseline, the positive rate: 0.01 here), or a <b>cost</b> metric (rupees saved, alerts per analyst per day).</p>
+
+<h3><span class="n">3</span>Thresholds, weights, resampling</h3>
+<ul>
+<li><b>Move the threshold</b>: flag above 0.1 instead of 0.5.</li>
+<li><b>Class weights</b>: positives count more in the loss (<code>class_weight="balanced"</code>).</li>
+<li><b>Resampling</b>: oversample positives (repeat) or undersample negatives (drop) in the training data.</li>
+</ul>
+<div class="eg"><b>Example</b><br>Threshold 0.5 → 0.1: recall <b>0.52 → 0.76</b> at precision 0.49, with the <b>same</b> average precision (0.746), since the ranking didn't change.</div>
+<div class="sticky"><b>Try in this order</b><br>A good model + a threshold tuned on validation data first. Weights and resampling mostly just move the threshold, can hurt the ranking, and distort the probabilities.</div>
+
+<h3><span class="n">4</span>SMOTE</h3>
+<svg class="sk" viewBox="0 0 400 130" aria-label="Sketch: two red minority points with a new hollow point created on the line between them.">
+ <circle class="dot" cx="40" cy="40" r="4"/><circle class="dot" cx="80" cy="100" r="4"/><circle class="dot" cx="340" cy="30" r="4"/><circle class="dot" cx="360" cy="110" r="4"/><circle class="dot" cx="60" cy="70" r="4"/>
+ <circle class="rdot" cx="150" cy="40" r="6"/><circle class="rdot" cx="260" cy="95" r="6"/><path class="r" d="M150 40 L260 95" style="stroke-dasharray:5 5"/>
+ <circle class="r" cx="205" cy="67" r="7"/><text x="215" y="60">new synthetic point</text>
+</svg>
+<p>Repeating the same positives invites memorising. SMOTE <b>creates</b> new ones: pick a positive, pick one of its $k$ nearest positive neighbours, place a point at a random spot on the line between them.</p>
+<div class="eg"><b>Example</b><br>9,800 synthetic positives: same recall as oversampling (0.900), slightly better precision (0.169) and average precision (0.515), still below the plain model with a tuned threshold.</div>
+<div class="box red">Resample <b>only the training folds</b>. Before splitting, near-copies land on both sides → leakage.</div>
+
+<h3><span class="n">5</span>Anomaly detection without labels</h3>
+<p>Model what's <b>normal</b> and flag what isn't:</p>
+<ul>
+<li><b>z-scores</b>: more than ~3 sd from the mean. Assumes one bell; outliers inflate the very sd used to find them.</li>
+<li><b>IQR rule</b>: beyond 1.5 × IQR outside the middle half. Robust, one feature at a time.</li>
+<li><b>Isolation Forest</b>: random trees with random splits; anomalies are <mark>few and different</mark>, so they're isolated in very few splits.</li>
+<li><b>LOF</b>: compare each point's local density with its neighbours'. Much sparser = anomaly; handles several clusters.</li>
+</ul>
+
+<h3><span class="n">6</span>The demo</h3>
+<p>Score = distance to the 5th nearest neighbour (the idea behind LOF). Flag more points: recall rises, precision falls.</p>
+
+<h3><span class="n">7</span>Running a detector</h3>
+<ul>
+<li><b>Get some labels</b>: a few hundred reviewed cases let you measure precision at the top of the list.</li>
+<li><b>Split by time</b>: fraud and failures change.</li>
+<li><b>Combine</b>: a supervised model for known patterns, unsupervised for new ones; analysts' decisions become the next labels.</li>
+<li><b>Set the alert budget</b>: 200 reviews a day → flag the top 200; capacity sets the threshold.</li>
+<li><b>Watch for feedback</b>: you only learn about cases you flagged. Randomly review some <u>unflagged</u> ones to see what you miss.</li>
+</ul>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: fixing probabilities, how isolation works</h3>
+
+<h4>Undoing class weights: the prior correction</h4>
+<p>Balanced weights make the model act as if positives were 50%, so its probabilities are far too high. With the real positive rate $\pi$:</p>
+<p class="fx">$\text{odds}_{\text{real}}=\dfrac{p}{1-p}\cdot\dfrac{\pi}{1-\pi},\qquad p_{\text{real}}=\dfrac{\text{odds}_{\text{real}}}{1+\text{odds}_{\text{real}}}$</p>
+<div class="eg"><b>Example from the lesson</b><br>Balanced model: average risk <b>0.372</b> vs true rate 0.020, Brier 0.1702. After the correction: average <b>0.017</b>, Brier <b>0.0178</b>, almost matching an unweighted model (0.0169).</div>
+<p>Apply it (or recalibrate with <code>CalibratedClassifierCV</code>) before using outputs as risks: pricing, expected loss, telling a patient their risk.</p>
+
+<h4>Why random splits isolate anomalies</h4>
+<p>Each tree picks a random feature and a random split value until every point is alone. A far-away point is cut off by one of the first few splits.</p>
+<div class="eg"><b>Example</b><br>Among 500 points: the far point is isolated in <b>2.3</b> splits on average, typical points in <b>14.6</b>.</div>
+<p>The path length becomes a 0–1 score, normalised by the expected path for $n$ points (about $2\ln n$). No distances are computed, so it scales linearly and copes with many features. Settings: number of trees and subsample size (256 by default is enough, since anomalies stand out even in small samples).</p>
+</div>
+<div class="sign">✎ in one line: forget accuracy, tune the threshold first, resample only inside training, correct the probabilities, and check what you didn't flag.</div>
+</article>

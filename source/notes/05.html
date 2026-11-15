@@ -1,0 +1,167 @@
+<article class="hn" id="n05">
+<div class="hn-tag">Part 2 · Lesson 5</div>
+<h2>Data, features &amp; generalization</h2>
+
+<h3><span class="n">1</span>The real goal: new data</h3>
+<p>In Lesson 1, learning meant "find the parameters that make the loss small". True, but there's a catch: we <b>already know</b> the answers for the training data. A model is only useful if it predicts well on data it has <mark>never seen</mark>: next month's houses, tomorrow's emails, next week's patient. That ability is called <b class="pen">generalization</b>, and it's the single most important idea in ML.</p>
+<div class="sticky"><b>The exam story</b><br>Student A memorises the 50 practice answers. Student B learns the methods. Both get 100% on the practice questions. On the real exam (new questions) A fails, B passes. A memorising model is student A; we need a fair exam to tell them apart.</div>
+
+<h3><span class="n">2</span>What a dataset looks like</h3>
+<p>A table: <b>one row per example</b>, <b>one column per feature</b>, plus a label column. In maths: features $X$ of shape $n\times d$ ($n$ examples, $d$ features) and labels $\mathbf{y}$ of length $n$.</p>
+<p><b>Kinds of features</b></p>
+<ul>
+<li><b class="pen">Numerical</b>: measured amounts. Continuous (size, temperature) or discrete counts (bedrooms).</li>
+<li><b class="pen">Categorical</b>: one of a fixed set (city, colour). Must be turned into numbers (Lesson 20).</li>
+<li><b class="pen">Ordinal</b>: categories with an order: small &lt; medium &lt; large, 1–5 stars.</li>
+<li><b class="pen">Binary</b>: yes/no → 1/0.</li>
+<li><b class="pen">Text, images, audio</b>: must be turned into numbers first (word counts, pixel values).</li>
+</ul>
+<p><b>Data quality beats clever algorithms.</b> A model can only learn patterns that are really in the data. Common problems:</p>
+<ul>
+<li><b>Missing values</b>: blanks in the table.</li>
+<li><b>Errors and outliers</b>: a house listed at 5 m², a typo adding three zeros to a price.</li>
+<li><b>Too few examples</b>: can't tell real patterns from coincidences.</li>
+<li><b>Unrepresentative data</b>: trained on city flats, then asked about rural farmhouses.</li>
+<li><b>Wrong labels</b>: mislabelled examples teach the wrong lesson.</li>
+</ul>
+<div class="box"><b>The i.i.d. assumption</b><br>Most ML assumes examples are <b>independent and identically distributed</b>: in plain words, <mark>future data will look like past data</mark>. When that stops being true (fashions change, a new competitor arrives), models quietly get worse.</div>
+
+<h3><span class="n">3</span>Underfitting, good fit, overfitting</h3>
+<svg class="sk" viewBox="0 0 700 215" aria-label="Sketch: three fits to the same dots. Underfit is a flat line, a good fit follows the trend, overfit wiggles through every dot.">
+ <g transform="translate(10,10)"><path class="k" d="M10 160 L200 160 M10 160 L10 10"/>
+  <circle class="dot" cx="30" cy="140" r="4"/><circle class="dot" cx="60" cy="118" r="4"/><circle class="dot" cx="90" cy="125" r="4"/><circle class="dot" cx="120" cy="85" r="4"/><circle class="dot" cx="150" cy="78" r="4"/><circle class="dot" cx="180" cy="45" r="4"/>
+  <path class="r" d="M15 100 C70 99 130 101 195 100"/><text x="40" y="195">underfit: too simple</text></g>
+ <g transform="translate(240,10)"><path class="k" d="M10 160 L200 160 M10 160 L10 10"/>
+  <circle class="dot" cx="30" cy="140" r="4"/><circle class="dot" cx="60" cy="118" r="4"/><circle class="dot" cx="90" cy="125" r="4"/><circle class="dot" cx="120" cy="85" r="4"/><circle class="dot" cx="150" cy="78" r="4"/><circle class="dot" cx="180" cy="45" r="4"/>
+  <path class="g" d="M18 148 C80 120 130 85 195 42"/><text x="55" y="195">just right ✓</text></g>
+ <g transform="translate(470,10)"><path class="k" d="M10 160 L200 160 M10 160 L10 10"/>
+  <circle class="dot" cx="30" cy="140" r="4"/><circle class="dot" cx="60" cy="118" r="4"/><circle class="dot" cx="90" cy="125" r="4"/><circle class="dot" cx="120" cy="85" r="4"/><circle class="dot" cx="150" cy="78" r="4"/><circle class="dot" cx="180" cy="45" r="4"/>
+  <path class="r" d="M30 140 C45 90 50 120 60 118 C75 115 80 150 90 125 C100 100 110 60 120 85 C130 110 140 70 150 78 C160 90 170 20 180 45"/><text x="30" y="195">overfit: memorised the noise</text></g>
+</svg>
+<ul>
+<li><b class="red">Underfitting</b>: too simple (a straight line through a curve). Wrong on training <i>and</i> new data.</li>
+<li><b class="grn">Good fit</b>: catches the real pattern, ignores the noise. Low error on both.</li>
+<li><b class="red">Overfitting</b>: so flexible it bends through every training point, noise included. Tiny training error, wild mistakes on new data.</li>
+</ul>
+<div class="box"><b>Two errors to know</b><br><b>Training error</b> = loss on the data it trained on.<br><b>Test (generalization) error</b> = loss on new data.<br>Overfitting: training ≪ test. Underfitting: both high.</div>
+<p>As the model gets more flexible, training error <mark>keeps falling</mark> (more freedom always fits the points better). Test error falls at first, then <u>rises again</u> once the model starts fitting noise. The best model sits at the bottom of the test-error curve.</p>
+<svg class="sk" viewBox="0 0 460 190" aria-label="Sketch: error against model complexity. Training error keeps falling; test error falls then rises, with the sweet spot at its lowest point.">
+ <path class="k" d="M40 160 H430 M40 160 V15"/><text x="300" y="182">complexity →</text><text x="5" y="20">error</text>
+ <path class="p" d="M50 40 C120 110 220 140 420 150"/><text x="330" y="140">training</text>
+ <path class="r" d="M50 45 C120 115 180 125 230 118 C300 108 360 70 420 35"/><text x="365" y="40">test</text>
+ <circle class="dot" cx="210" cy="121" r="5"/><text x="160" y="105">sweet spot</text>
+</svg>
+
+<h3><span class="n">4</span>Watching it happen (the demo)</h3>
+<p>Fit a polynomial $\hat{y}=w_0+w_1x+w_2x^2+\dots+w_kx^k$ to some noisy points and raise the degree $k$. Training error shrinks every time; past some point the curve starts wiggling to chase single points, and test error grows.</p>
+<div class="eg"><b>Example</b><br>12 training points and degree 11 → 12 parameters, so the curve can pass through <b>every</b> point exactly. Perfect training score, terrible model.</div>
+
+<h3><span class="n">5</span>Train / validation / test</h3>
+<p>The fix is simple and non-negotiable: <mark>judge the model on data it didn't train on</mark>. Split before doing anything else:</p>
+<svg class="sk" viewBox="0 0 640 90" aria-label="Sketch: the data bar split into train 70 percent, validation 15 percent and test 15 percent.">
+ <rect class="hl2" x="10" y="20" width="420" height="40" rx="6"/><rect class="hl" x="430" y="20" width="95" height="40" rx="6"/><rect x="525" y="20" width="95" height="40" rx="6" style="fill:var(--margin);opacity:.6"/>
+ <path class="k" d="M10 20 H620 V60 H10 Z M430 20 V60 M525 20 V60"/>
+ <text x="170" y="46">train ~70%</text><text x="440" y="46">validate</text><text x="550" y="46">test</text>
+ <text x="150" y="84">fit the parameters</text><text x="425" y="84">choose settings</text><text x="545" y="84">use ONCE</text>
+</svg>
+<ul>
+<li><b>Training set</b> (~70%): fit the model's parameters.</li>
+<li><b>Validation set</b> (~15%): compare models and pick settings (like the polynomial degree).</li>
+<li><b>Test set</b> (~15%): one final honest estimate. With huge datasets, validation and test can be a smaller share.</li>
+</ul>
+<div class="sticky"><b>Why a separate validation set?</b><br>Try 20 models and keep whichever wins on the test set, and you've <i>tuned to the test set</i>: its score is now too optimistic. Choices happen on validation; the test set gives the final verdict. Both "wear out" the more you reuse them.</div>
+<p><b>Rules for a good split</b></p>
+<ul>
+<li>Shuffle first, <u>unless</u> it's a time series: then train on the past, test on the future.</li>
+<li>The test set should look like real-world data (the same mix of cases).</li>
+<li>No duplicates between training and test, or you're testing on memorised examples.</li>
+<li>For classification, use a <b>stratified</b> split: each set keeps the same share of each class.</li>
+</ul>
+
+<h3><span class="n">6</span>k-fold cross-validation</h3>
+<p>Judging a restaurant by one meal is risky: maybe the chef had a bad night. Five meals tell you much more. With a small dataset, one validation split is like one meal: the score depends on which examples happened to land in it.</p>
+<ol>
+<li>Cut the training data into $k$ equal <b>folds</b> (usually 5 or 10).</li>
+<li>Train on $k-1$ folds, score on the one left out.</li>
+<li>Repeat so every fold is left out exactly once.</li>
+<li>Report the <b>mean</b> and the <b>standard deviation</b> of the $k$ scores.</li>
+</ol>
+<p class="fx">$\text{CV score}=\dfrac{1}{k}\sum_{j=1}^{k}\text{score}_j$</p>
+<div class="eg"><b>Example</b><br>5 folds score 0.82, 0.85, 0.80, 0.84, 0.84 → mean $4.15/5=$ <b>0.83</b>, with a small spread (about ± 0.02). Five models were trained, one per fold. Report it as 0.83 ± 0.02.</div>
+
+<h3><span class="n">7</span>Data leakage: the silent killer</h3>
+<p>Leakage = information from outside the training data sneaking into training, so the score looks better than reality. Classic ways it happens:</p>
+<ul>
+<li><b>Preprocessing before splitting</b>: computing the mean and standard deviation for scaling on <i>all</i> the data, test set included.</li>
+<li><b>A feature that contains the answer</b>: predicting whether a customer will cancel using a "cancellation fee charged" column.</li>
+<li><b>Time travel</b>: shuffling stock prices so the model trains on Wednesday to predict Tuesday.</li>
+<li><b>Duplicates</b> that end up in both training and test.</li>
+</ul>
+<div class="box red"><b>The golden rule</b><br>✗ scale everything → split<br>✓ <b>split first</b> → learn everything (scaling, feature choices, parameters) from training data only → just <i>apply</i> it to validation and test. Never call <code>fit</code> on the test data.</div>
+
+<h3><span class="n">8</span>Putting it all together</h3>
+<ol>
+<li>Split off a test set and don't look at it.</li>
+<li>On the training set, use cross-validation (or a validation set) to compare models and settings.</li>
+<li>Pick the best one and retrain it on the full training set.</li>
+<li>Evaluate <b>once</b> on the test set and report that number.</li>
+</ol>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: validation you can trust</h3>
+<p>The habits above (split, cross-validate, avoid leakage) quietly break in four common situations. Each one makes a model look great in testing and disappoint in production.</p>
+
+<h4>1. Tuning inflates the score → nested CV</h4>
+<p>Try many settings and keep the best cross-validated score, and that score is <mark>optimistic</mark>: some settings won partly by luck on these particular folds (like the best of 20 coin-flippers looking "skilled").</p>
+<p><b class="pen">Nested cross-validation</b> fixes it with two loops:</p>
+<ul>
+<li><b>Inner loop</b>: chooses the settings, using only the training part of each outer fold.</li>
+<li><b>Outer loop</b>: scores the whole "tune, then fit" recipe on data the tuning never saw.</li>
+</ul>
+<div class="eg"><b>Example from the lesson</b><br>An SVM tuned over 25 settings on a small, noisy dataset: the search reports <b>0.633</b>, nested CV says <b>0.608</b>. The gap grows with more settings and shrinks with more data.</div>
+<p>To build the final model you still run the normal search on all the data; nested CV tells you how well that recipe will do.</p>
+
+<h4>2. Rows that aren't independent: time and groups</h4>
+<ul>
+<li><b>Time series</b>: neighbouring days look alike. A shuffled split puts Tuesday in training and Wednesday in validation, so the model just "remembers" the nearby level.</li>
+<li><b>Groups</b>: several rows per customer, patient or house. If one customer is on both sides, the model learns <i>that person</i>, not the pattern.</li>
+</ul>
+<div class="eg"><b>Example from the lesson</b><br>Slowly drifting daily sales, random forest. Shuffled k-fold: $R^2=$ <b>0.957</b> (looks superb). Time-ordered split (<code>TimeSeriesSplit</code>): $R^2=$ <b class="red">−0.609</b>, worse than predicting the average! The forest can't follow a drifting trend, and shuffling hid it.</div>
+<p>For groups use <code>GroupKFold</code> (all of one group's rows on the same side).</p>
+<div class="sticky"><b>Rule</b><br>Split the way the model will be <b>used</b>.</div>
+
+<h4>3. Would more data help? Learning curves</h4>
+<p>Train on growing subsets and plot training and validation scores against training-set size.</p>
+<svg class="sk" viewBox="0 0 460 180" aria-label="Sketch: learning curve. Training accuracy stays high, validation accuracy rises with more data and the gap closes.">
+ <path class="k" d="M40 150 H430 M40 150 V15"/><text x="250" y="172">training-set size →</text><text x="5" y="20">score</text>
+ <path class="p" d="M50 28 C150 32 300 34 420 35"/><text x="360" y="25">train</text>
+ <path class="g" d="M50 110 C120 60 220 50 420 45"/><text x="330" y="70">validation</text>
+</svg>
+<div class="eg"><b>Example from the lesson</b><br>Breast-cancer data, logistic regression: validation accuracy climbs from <b>0.916</b> (22 examples) to <b>0.981</b> (455), and the gap to training (0.989) is now small.</div>
+<ul>
+<li><b>Big gap, validation still rising</b> (high variance) → more data will probably help.</li>
+<li><b>Both low and close</b> (high bias) → more data won't help much; use a more flexible model or better features.</li>
+<li><b>Both high, flat and close</b> → you're near the limit for this model and these features.</li>
+</ul>
+
+<h4>4. When the world changes: distribution shift</h4>
+<ul>
+<li><b>Covariate shift</b>: the inputs change, the relationship stays (a new city with bigger homes).</li>
+<li><b>Label shift</b>: the class balance changes (more fraud in the holiday season).</li>
+<li><b>Concept drift</b>: the relationship itself changes (after a rule change, the same features mean something else). Needs fresh labels to detect.</li>
+</ul>
+<p><b class="pen">Adversarial validation</b> spots the first kind: label training rows 0 and new rows 1, then train a classifier to tell them apart. AUC near 0.5 → they look alike. Clearly higher → real shift, and the feature importances show where.</p>
+<div class="eg"><b>Example from the lesson</b><br>No shift: AUC <b>0.540</b>, importances evenly spread. One feature drifted by 0.8 standard deviations: AUC <b>0.695</b>, and that feature's importance jumps to <b>0.59</b>, pointing straight at the culprit.</div>
+
+<h4>A validation checklist</h4>
+<ul>
+<li>Reporting a tuned model → <b>nested CV</b>, or a test set used once.</li>
+<li>Data ordered in time → <b>time-ordered splits</b>, never shuffle.</li>
+<li>Several rows per person, item or place → <b>GroupKFold</b>.</li>
+<li>Rare classes → <b>stratified</b> splits.</li>
+<li>Should we collect more data? → a <b>learning curve</b>.</li>
+<li>New data might differ → <b>adversarial validation</b> and drift monitoring.</li>
+</ul>
+</div>
+<div class="sign">✎ in one line: fit on train, choose with validation or CV, judge once on test, and never let the test data leak in.</div>
+</article>

@@ -1,0 +1,73 @@
+<article class="hn" id="n24">
+<div class="hn-tag">Part 6 · Lesson 24</div>
+<h2>Interpretability &amp; explainable ML</h2>
+
+<h3><span class="n">1</span>Why explain a model?</h3>
+<p>A loan is refused and the applicant asks why; a regulator asks how decisions are made; a data scientist wonders whether the model learned something real or a <b>shortcut</b> (a pneumonia model that "reads" the hospital's name printed on the X-ray). Accuracy answers none of these.</p>
+<ul><li><b>Global</b>: how does the model behave overall? Which features matter, and how?</li><li><b>Local</b>: why <i>this</i> prediction for <i>this</i> person?</li></ul>
+
+<h3><span class="n">2</span>Reading linear models properly</h3>
+<p>Weights are the explanation, but only on comparable scales. <b>Standardise first</b>: each weight then = change in log-odds per one standard deviation.</p>
+<div class="eg"><b>Example</b><br>Breast-cancer data (1 = benign): the five largest standardised weights are all <b>negative</b>; larger "worst" tumour measurements push away from benign.</div>
+<div class="box red">Correlated features share and swap weight (radius, perimeter and area are nearly the same measurement). Regularization shrinks weights. A weight is association, not cause.</div>
+
+<h3><span class="n">3</span>Permutation importance</h3>
+<p>How much worse does the model get if a feature's information is destroyed? <mark>Shuffle one test column</mark> (keeps its distribution, breaks its link to the target), measure the score drop, repeat and average.</p>
+<svg class="sk" viewBox="0 0 520 110" aria-label="Sketch: a table column gets shuffled and the score drops from 0.90 to 0.70.">
+ <rect class="k" x="10" y="15" width="200" height="80" rx="6"/><path class="k" d="M76 15 V95 M143 15 V95"/><rect class="hl" x="78" y="17" width="63" height="76"/>
+ <text x="85" y="40">2 ↕</text><text x="85" y="65">7 ↕</text><text x="85" y="88">4 ↕</text>
+ <path class="k" d="M220 55 H270"/><text x="280" y="45">score drops a lot?</text><text x="280" y="75">→ the model relied on it</text>
+</svg>
+<div class="eg"><b>Example</b><br>Random forest: shuffling "worst radius" drops accuracy most, by <b>0.021</b>. Drops are small because correlated features cover for each other.</div>
+<p>Use test data (training data inflates it with overfitting).</p>
+
+<h3><span class="n">4</span>Partial dependence and ICE</h3>
+<p>Importance says <i>how much</i>, not <i>how</i>. A <b>PDP</b> sets the feature to $v$ for every row, predicts and averages:</p>
+<p class="fx">$\text{PD}(v)=\frac1n\sum_if(v,\mathbf{x}_{i,\text{other}})$</p>
+<p>An <b>ICE</b> plot draws one curve per row, showing whether people respond differently.</p>
+<div class="eg"><b>Example</b><br>Diabetes progression: the average prediction rises from about <b>131 to 210</b> as BMI goes from low to high, with a jump mid-range; ICE curves are spread by about 40–49.</div>
+<p>With strongly correlated features, PDPs use unrealistic combinations: prefer <b>ALE</b> plots.</p>
+
+<h3><span class="n">5</span>SHAP values: fair credit</h3>
+<p>Split <mark>prediction − average prediction</mark> into one contribution per feature, using the <b>Shapley value</b> from game theory: features are players, the prediction is the payout, and each feature gets its average extra contribution over every order of joining.</p>
+<p class="fx">$\phi_j=\sum_{S\subseteq F\setminus\{j\}}\frac{|S|!\,(p-|S|-1)!}{p!}\big[v(S\cup\{j\})-v(S)\big]$</p>
+<p>The only "fair" split: contributions <b>add up exactly</b> (efficiency), identical features get equal credit, a feature that never matters gets 0.</p>
+<div class="eg"><b>Examples</b><br>Baseline 100, Priya's prediction 130 → her SHAP values sum to <b>30</b>.<br>$f=4x_1x_3$ at $x_1=x_3=1$ (baseline 0) → the interaction's 4 is shared: <b>2 each</b>.</div>
+<p><b>TreeSHAP</b> computes exact values quickly for tree models.</p>
+
+<h3><span class="n">6</span>The Shapley demo</h3>
+<p>$f=2x_1+3x_2+4x_1x_3$ against baseline (0, 0, 0). Set $x_3=0$ and $x_1$'s share of the interaction disappears; set $x_1=0$ and $x_3$ gets nothing.</p>
+
+<h3><span class="n">7</span>LIME: local surrogates</h3>
+<p>Explain one prediction with a simple model that imitates the black box <b>nearby</b>: perturb the example, predict the copies, weight by closeness, fit a weighted linear regression. Its slopes are the explanation.</p>
+<div class="eg"><b>Example</b><br>Near one patient: about <b>+22</b> per standard deviation of s5, 7.7–9.3 for the others.</div>
+<p>LIME gives <b>slopes</b> ("if s5 rose a little"); SHAP gives <b>contributions</b> ("how far this patient's s5 moved the prediction from average"). Both valid, different questions. Check LIME is stable across runs.</p>
+
+<h3><span class="n">8</span>How explanations mislead</h3>
+<ul>
+<li><b>Importance ≠ causation</b>: the model may lean on something correlated with the cause.</li>
+<li>Correlated features share, split or hide credit; one-at-a-time perturbations create unrealistic inputs.</li>
+<li>Explanations describe the <b>model</b>, mistakes included. A faithful explanation shows a shortcut: that's how shortcuts are found.</li>
+<li>Different methods answer different questions: say which one you report.</li>
+</ul>
+<div class="sticky"><b>Support calls and churn</b><br>A PDP shows churn rising with support calls. Calls don't necessarily <i>cause</i> churn: unhappy customers call <u>and</u> leave.</div>
+<p>For high stakes, consider a model that's simple enough to read directly (a short tree, a sparse linear model, a scorecard).</p>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: when features are correlated</h3>
+
+<h4>Three methods, three answers</h4>
+<p>Target depends on <i>a</i> (weight 3) and <i>c</i> (weight 1); <i>b</i> is a near-copy of <i>a</i>. <b>Drop-column importance</b> retrains without each feature: "what would we lose without it?"</p>
+<div class="eg"><b>Example from the lesson</b><br>Permutation: a <b>1.045</b>, b 0.129 (the forest uses both).<br>Drop-column: a <b>0.004</b>, b <b>0</b> (drop one, the model uses the other); c <b>0.117</b> (unique information).</div>
+<p>Permutation asks "does the model use it?"; drop-column asks "is the information replaceable?". With correlated features, report or shuffle/drop them <b>as a group</b>.</p>
+
+<h4>Exact SHAP for linear models</h4>
+<p class="fx">$\phi_j=w_j\,(x_j-\bar x_j)$</p>
+<p>(weight × how far this row is from average, for independent features). Averaging $|\phi_j|$ over rows gives a <b>global</b> importance in prediction units.</p>
+<div class="eg"><b>Example</b><br>The linear model split the near-duplicates as a <b>2.75</b>, b <b>0.24</b>, an arbitrary split that could flip with different noise. Mean |SHAP|: 2.31, 0.20, 0.79. Efficiency holds: baseline + contributions = prediction exactly (3.9815).</div>
+
+<h4>Interventional vs conditional SHAP</h4>
+<ul><li><b>Interventional</b> (the default): treats features as independent, explains the <b>model</b>.</li><li><b>Conditional</b>: respects correlations, closer to the data-generating relationship, harder to compute, and can credit features the model never uses.</li></ul>
+</div>
+<div class="sign">✎ in one line: shuffle-and-see for global importance, SHAP for local credit, group correlated features, and never read importance as cause.</div>
+</article>

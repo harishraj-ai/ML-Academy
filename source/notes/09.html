@@ -1,0 +1,125 @@
+<article class="hn" id="n09">
+<div class="hn-tag">Part 2 · Lesson 9</div>
+<h2>Evaluating models</h2>
+
+<h3><span class="n">1</span>Why accuracy isn't enough</h3>
+<p>Accuracy = the share of correct predictions. But if a disease affects 1 in 100 people, a "model" that says <i>healthy</i> to everyone is <mark>99% accurate</mark> and never finds a single sick person.</p>
+<ul><li>Flag everyone instead → finds every sick person, 1% accurate.</li><li>If half were sick, "always healthy" would score 50%.</li></ul>
+<p>How good an accuracy is depends on the <b>base rate</b>.</p>
+
+<h3><span class="n">2</span>The confusion matrix</h3>
+<div class="twocol"><div>
+<svg class="sk" viewBox="0 0 320 230" aria-label="Sketch of the confusion matrix: TP 8, FN 2, FP 10, TN 80.">
+ <text x="120" y="18">predicted</text><text x="95" y="40">sick</text><text x="210" y="40">healthy</text>
+ <text x="0" y="95">actually</text><text x="10" y="115">sick</text><text x="0" y="175">actually</text><text x="0" y="195">healthy</text>
+ <rect class="hl2" x="80" y="55" width="105" height="75" rx="8"/><rect x="190" y="55" width="105" height="75" rx="8" style="fill:var(--margin);opacity:.55"/>
+ <rect x="80" y="135" width="105" height="75" rx="8" style="fill:var(--margin);opacity:.55"/><rect class="hl2" x="190" y="135" width="105" height="75" rx="8"/>
+ <path class="k" d="M80 55 H295 V210 H80 Z M187 55 V210 M80 132 H295"/>
+ <text x="100" y="90">TP = 8</text><text x="100" y="115">caught ✓</text><text x="210" y="90">FN = 2</text><text x="210" y="115">missed ✗</text>
+ <text x="100" y="170">FP = 10</text><text x="95" y="195">false alarm</text><text x="210" y="170">TN = 80</text><text x="210" y="195">fine ✓</text>
+</svg></div><div>
+<p><b>P / N</b> = what the model <i>said</i>.</p>
+<p><b>T / F</b> = was that right?</p>
+<p>So a <b class="red">false positive</b> (Type I error) is a wrong "yes", a false alarm. A <b class="red">false negative</b> (Type II error) is a wrong "no", a miss.</p>
+</div></div>
+<div class="eg"><b>The lesson's screening test</b><br>100 patients, 10 really sick. The model flags 18, of whom 8 are sick → TP 8, FN 2, FP 10, TN 80.</div>
+
+<h3><span class="n">3</span>Accuracy, precision, recall, specificity</h3>
+<div class="sticky"><b>The airport scanner</b><br>Beep at everything: never misses a threat, delays thousands. Beep at nothing: smooth queues, real danger. Precision and recall put numbers on that trade-off.</div>
+<ul>
+<li><b class="pen">Accuracy</b> $=\frac{TP+TN}{\text{all}}=\frac{88}{100}=$ <b>0.88</b></li>
+<li><b class="pen">Precision</b> $=\frac{TP}{TP+FP}=\frac{8}{18}\approx$ <b>0.44</b>: when it says "yes", can I trust it?</li>
+<li><b class="pen">Recall</b> (sensitivity, TPR) $=\frac{TP}{TP+FN}=\frac{8}{10}=$ <b>0.80</b>: does it find what it should?</li>
+<li><b class="pen">Specificity</b> (TNR) $=\frac{TN}{TN+FP}=\frac{80}{90}\approx$ <b>0.89</b>: of the healthy, how many left alone?</li>
+</ul>
+<div class="sticky"><b>Trick to remember</b><br><b>P</b>recision looks at the <b>P</b>redictions. <b>R</b>ecall looks at the <b>R</b>eal positives.</div>
+
+<h3><span class="n">4</span>The F1 score</h3>
+<p class="fx">$F_1=2\cdot\dfrac{P\cdot R}{P+R}=\dfrac{2TP}{2TP+FP+FN}=\dfrac{16}{28}\approx0.57$</p>
+<p>The <b>harmonic mean</b> is dragged down by the smaller value, so great recall can't hide terrible precision: precision 1.0 + recall 0.01 → ordinary average ≈ 0.5, but F1 ≈ <b>0.02</b>.</p>
+<p>$F_\beta$ weights recall β times as much: <b>F2</b> favours recall (screening), <b>F0.5</b> favours precision (spam filters).</p>
+
+<h3><span class="n">5</span>The threshold trade-off</h3>
+<svg class="sk" viewBox="0 0 640 110" aria-label="Sketch: a dial from low threshold to high threshold. Low threshold gives more alarms and higher recall; high threshold gives fewer alarms and higher precision.">
+ <path class="k" d="M40 55 H600"/><path class="p" d="M300 30 V80"/><circle class="dot" cx="300" cy="55" r="7"/>
+ <text x="20" y="25">low threshold</text><text x="500" y="25">high threshold</text>
+ <text x="20" y="95">flag more → recall ↑, precision ↓</text><text x="370" y="95">flag less → precision ↑, recall ↓</text>
+</svg>
+<p>No threshold is "correct" in general: choose it from <mark>what each kind of mistake costs</mark>.</p>
+
+<h3><span class="n">6</span>The threshold demo</h3>
+<p>The scores of real positives and negatives <b>overlap</b> (as in real life), so no threshold is perfect. Drag it and watch the confusion matrix, the metrics and the ROC point change together.</p>
+
+<h3><span class="n">7</span>ROC curve and AUC</h3>
+<p>Look at <b>all</b> thresholds at once: plot TPR (recall) against FPR $=\frac{FP}{FP+TN}$.</p>
+<svg class="sk" viewBox="0 0 300 220" aria-label="Sketch: ROC curve bowing towards the top-left corner, above the diagonal of random guessing.">
+ <path class="k" d="M40 190 H270 M40 190 V20"/><path class="k" d="M40 190 L260 30" style="stroke-dasharray:5 5"/>
+ <path class="p" d="M40 190 C45 80 110 40 260 30"/><text x="150" y="150">random = diagonal</text><text x="80" y="60">good model</text>
+ <text x="200" y="212">FPR →</text><text x="2" y="30">TPR</text>
+</svg>
+<ul>
+<li>(0, 0) = flag nothing; (1, 1) = flag everything; top-left (0, 1) = perfect.</li>
+<li><b>AUC</b> = the chance the model ranks a random positive above a random negative: <b>0.5 = guessing, 1 = perfect</b>.</li>
+</ul>
+
+<h3><span class="n">8</span>Precision–recall curves</h3>
+<p>When positives are rare (fraud, disease, defects), plot precision vs recall. Its summary, <b>average precision (AP)</b>, has a baseline equal to the share of positives (0.01 for 1% fraud), much lower than ROC's 0.5, so differences show up more clearly.</p>
+
+<h3><span class="n">9</span>More than two classes</h3>
+<p>The confusion matrix becomes $K\times K$ (rows = true, columns = predicted); off-diagonal cells show which classes get mixed up (a "3" read as an "8"). Compute precision/recall per class, then average:</p>
+<ul><li><b>Macro</b>: every class counts equally.</li><li><b>Weighted</b>: by how many examples each class has.</li></ul>
+
+<h3><span class="n">10</span>Metrics for regression</h3>
+<ul>
+<li><b>MAE</b> $=\frac1n\sum|e_i|$: in the target's units, robust to outliers.</li>
+<li><b>MSE</b> $=\frac1n\sum e_i^2$ and <b>RMSE</b> $=\sqrt{\text{MSE}}$: punish big misses.</li>
+<li><b>R²</b>: share of variance explained (Lesson 6).</li>
+</ul>
+<div class="eg"><b>Example</b><br>True 3, 5, 2, 7; predicted 2.5, 5, 4, 8 → errors −0.5, 0, 2, 1. MAE = <b>0.875</b>, MSE = 1.3125, RMSE ≈ <b>1.15</b>, $R^2=1-5.25/14.75\approx$ <b>0.64</b>. RMSE &gt; MAE because the single error of 2 counts extra.</div>
+
+<h3><span class="n">11</span>Choosing the metric</h3>
+<ul>
+<li>Balanced classes, equal costs → <b>accuracy</b>.</li>
+<li>Missing a positive is costly (disease, fraud) → <b>recall</b>, F2.</li>
+<li>False alarms are costly (spam, legal flags) → <b>precision</b>, F0.5.</li>
+<li>One number for imbalanced data → F1, average precision.</li>
+<li>Threshold-free comparison → ROC-AUC (or AP if positives are rare).</li>
+<li>Regression → MAE (all errors equal) or RMSE (big errors worse).</li>
+</ul>
+<div class="sticky"><b>Always compare with a dumb baseline</b><br>95% accuracy is unimpressive if "always predict the most common class" gets 94%. And always measure on unseen data.</div>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: comparing models honestly</h3>
+
+<h4>Every score needs an error bar</h4>
+<p>A test set is a sample. With 171 test cases, one unusual case moves accuracy by about 0.6 points. Accuracy has a formula, $\sqrt{p(1-p)/n}$; for AUC, F1 or precision use the <b>bootstrap</b>. When comparing two models, bootstrap the <b>difference</b> on the same resampled cases (their scores move together).</p>
+<div class="eg"><b>Example from the lesson</b><br>Logistic regression AUC <b>0.996</b>, depth-3 tree <b>0.904</b>. 95% interval for the difference: 0.046 to 0.15. It excludes 0, so it's not a fluke. If it had crossed 0: "no clear winner".</div>
+
+<h4>Paired tests: McNemar</h4>
+<p>Only the cases where the two models <b>disagree</b> matter. If they were equally good, each disagreement would be a coin flip.</p>
+<div class="eg"><b>Example</b><br>Logistic regression right / tree wrong: 11 cases; the reverse: 1. A split this lopsided has probability <b>0.0063</b> if they were equal → logistic regression really is more accurate here.</div>
+<p>With cross-validation the folds overlap, so plain t-tests are over-confident; use the corrected resampled t-test or the 5×2 CV test.</p>
+
+<h4>Choosing the threshold from costs</h4>
+<p>Flagging costs $c_{FP}(1-p)$ on average, not flagging costs $c_{FN}\,p$. Flag when</p>
+<p class="fx">$p&gt;\dfrac{c_{FP}}{c_{FP}+c_{FN}}$</p>
+<p>(only valid with calibrated probabilities).</p>
+<div class="eg"><b>Example from the lesson</b><br>Missing a malignant tumour costs 20, a false alarm 1 → threshold $1/21\approx0.048$. At 0.5: 3 cancers missed, total cost <b>64</b>. At 0.05: none missed, 18 false alarms, cost <b>18</b>. (Choose it on validation data in real projects.)</div>
+
+<h4>ROC-AUC vs average precision for rare positives</h4>
+<p>TPR and FPR are rates within each class, so the ROC curve <b>doesn't change</b> when positives become rarer. Precision does: a small FPR then means many false alarms.</p>
+<div class="eg"><b>Example</b><br>Same model, positives from 50% down to 1%: ROC-AUC stays about <b>0.86</b>; average precision falls from <b>0.855 to 0.136</b>.</div>
+<p>ROC-AUC asks "does it rank positives above negatives?"; AP asks "<mark>when it raises an alert, how often is it right?</mark>", which is what the people receiving the alerts experience.</p>
+
+<h4>A reporting checklist</h4>
+<ul>
+<li>The metric, chosen <b>before</b> seeing results.</li>
+<li>A simple baseline.</li>
+<li>A confidence interval.</li>
+<li>A <b>paired</b> comparison (overlapping intervals don't prove "no difference").</li>
+<li>The threshold and why.</li>
+<li>Results by subgroup (averages can hide groups the model fails, Lesson 21).</li>
+</ul>
+</div>
+<div class="sign">✎ in one line: accuracy hides rare classes; ask "how many caught?" and "how many false alarms?", and put an error bar on every score.</div>
+</article>

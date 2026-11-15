@@ -1,0 +1,124 @@
+<article class="hn" id="n04">
+<div class="hn-tag">Part 1 · Lesson 4</div>
+<h2>Probability &amp; statistics</h2>
+
+<h3><span class="n">1</span>Why?</h3>
+<p>Real data is messy: two same-size houses sell for different prices. Models live with this uncertainty, so they speak probability: a spam filter says <mark>"97% likely spam"</mark>, not just "spam". Statistics gives the summaries (averages, spread) used in nearly every lesson.</p>
+
+<h3><span class="n">2</span>Probability basics</h3>
+<p>A number from 0 (impossible) to 1 (certain). With equally likely outcomes: $P(A)=\frac{\text{outcomes where }A}{\text{all outcomes}}$.</p>
+<div class="eg"><b>Example: a die</b><br>$P(6)=1/6\approx0.167$; $P(\text{even})=3/6=0.5$. Over 600 rolls expect about 100 sixes. At least one 6 in two tries: $1-(5/6)^2\approx$ <b>0.31</b>; in six tries about 0.67, not 1.</div>
+<ul><li>"Not A": $1-P(A)$.</li><li>Independent events multiply: 3 heads in a row $=0.5^3=1/8$.</li></ul>
+
+<h3><span class="n">3</span>Conditional probability</h3>
+<p>$P(A\mid B)$ = chance of A <b>among the cases where B happened</b>:</p>
+<p class="fx">$P(A\mid B)=\dfrac{P(A\text{ and }B)}{P(B)}$</p>
+<div class="eg"><b>Example</b><br>100 emails, 30 spam. 20 contain "free", 15 of those are spam. $P(\text{spam})=0.30$, but $P(\text{spam}\mid\text{"free"})=15/20=$ <b>0.75</b>. The word is strong evidence (×2.5). This is the idea behind Naive Bayes (Lesson 12).</div>
+<div class="sticky"><b>The big trap</b><br>$P(A\mid B)$ is <u>not</u> $P(B\mid A)$.</div>
+
+<h3><span class="n">4</span>Bayes' theorem</h3>
+<p class="fx">$P(A\mid B)=\dfrac{P(B\mid A)\,P(A)}{P(B)}$</p>
+<ul><li>$P(A)$ = <b>prior</b>: belief before the evidence.</li><li>$P(B\mid A)$ = <b>likelihood</b>: how probable the evidence is if A is true.</li><li>$P(A\mid B)$ = <b>posterior</b>: updated belief.</li></ul>
+<div class="eg"><b>The surprising medical test</b><br>Disease in 1% of people; test catches 90%, false-positive rate 5%. $P(+)=0.90\times0.01+0.05\times0.99=0.0585$, so $P(\text{sick}\mid+)=0.009/0.0585\approx$ <b>15%</b>, not 90%!</div>
+
+<h3><span class="n">5</span>The 1,000-people demo</h3>
+<svg class="sk" viewBox="0 0 640 170" aria-label="Sketch: 1000 people split into 10 sick and 990 healthy; 9 sick test positive and about 49.5 healthy test positive.">
+ <text x="250" y="22">1,000 people</text><path class="k" d="M290 30 L150 60 M300 30 L440 60"/>
+ <text x="100" y="80">10 sick</text><text x="400" y="80">990 healthy</text>
+ <path class="k" d="M130 88 L130 115 M440 88 L440 115"/>
+ <rect class="hl2" x="80" y="118" width="120" height="30" rx="6"/><text x="90" y="140">9 test +</text>
+ <rect x="370" y="118" width="160" height="30" rx="6" style="fill:var(--margin);opacity:.6"/><text x="378" y="140">≈ 49.5 test +</text>
+ <text x="190" y="166">only 9 of ≈ 58.5 positives are really sick</text>
+</svg>
+<p>The disease is <b>rare</b>, so false alarms from the huge healthy group swamp the true cases. <mark>Always check the base rate.</mark></p>
+
+<h3><span class="n">6</span>Random variables and expected value</h3>
+<p>A number that depends on chance (a die roll, tomorrow's temperature). Its <b>expected value</b> = the long-run average:</p>
+<p class="fx">$\mathbb{E}[X]=\sum_x x\cdot P(X=x)$</p>
+<div class="eg"><b>Example</b><br>A fair die: $21/6=$ <b>3.5</b>. You can never roll 3.5, but 1,000 rolls pay about 3,500.</div>
+
+<h3><span class="n">7</span>Mean, variance, standard deviation</h3>
+<div class="sticky"><b>Two coffee shops</b><br>Both average 5 minutes per order. One always takes 4–6 minutes, the other 1 to 15. Same centre, very different experience: you need the <b>spread</b> too.</div>
+<p class="fx">$\mu=\frac1n\sum x_i,\qquad\sigma^2=\frac1n\sum(x_i-\mu)^2,\qquad\sigma=\sqrt{\sigma^2}$</p>
+<div class="eg"><b>Example</b><br>Scores 4, 6, 8, 10, 12 → mean 8 → gaps −4, −2, 0, 2, 4 → squared 16, 4, 0, 4, 16 → variance 40/5 = 8 → $\sigma\approx$ <b>2.83</b>.</div>
+<p>Skewed data (incomes)? A few huge values drag the mean; the <b>median</b> is more representative.</p>
+
+<h3><span class="n">8</span>z-scores (standardisation)</h3>
+<p class="fx">$z=\dfrac{x-\mu}{\sigma}$</p>
+<p>Score 12 above → $z=(12-8)/2.83\approx1.41$. Turning every feature into z-scores (mean 0, sd 1) is <b>standardisation</b> (<code>StandardScaler</code>), because many algorithms struggle when features have wildly different scales.</p>
+
+<h3><span class="n">9</span>Distributions</h3>
+<ul>
+<li><b>Bernoulli</b>: one yes/no with probability $p$. A classifier's "spam?" output.</li>
+<li><b>Normal (Gaussian)</b>: the bell curve, set by its centre $\mu$ and width $\sigma$.</li>
+</ul>
+<svg class="sk" viewBox="0 0 460 150" aria-label="Sketch: a bell curve with bands at one, two and three standard deviations labelled 68, 95 and 99.7 percent.">
+ <path class="k" d="M20 130 H440"/><rect class="hl" x="170" y="25" width="120" height="105" opacity=".6"/>
+ <path class="p" d="M30 129 C130 128 170 20 230 20 C290 20 330 128 430 129"/>
+ <path class="k" d="M110 130 V95 M350 130 V95" style="stroke-dasharray:4 4"/>
+ <text x="200" y="80">68%</text><text x="115" y="148">95% within ±2σ</text><text x="330" y="148">99.7%: ±3σ</text>
+</svg>
+<p>Rule of thumb: <mark>68% / 95% / 99.7%</mark> within 1 / 2 / 3 standard deviations.</p>
+
+<h3><span class="n">10</span>Sampling demo</h3>
+<p>Draw random samples into a histogram: ragged with few samples, settling into the bell curve with many.</p>
+
+<h3><span class="n">11</span>How it connects to ML</h3>
+<ul>
+<li>Classifiers output probabilities ($P(y=1\mid\mathbf{x})$ in logistic regression).</li>
+<li>Naive Bayes is Bayes' theorem on features.</li>
+<li>Data = true pattern + noise (often assumed normal), which is why squared error is so natural.</li>
+<li>Evaluation reports means and standard deviations of scores; preprocessing standardises features.</li>
+</ul>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: statistical inference</h3>
+
+<h4>More distributions worth knowing</h4>
+<ul>
+<li><b>Binomial</b>($n,p$): number of yeses in $n$ tries (clicks out of 10 visitors). P(8 or more of 10 at $p=0.5$) = 0.0547.</li>
+<li><b>Poisson</b>($\lambda$): counts in a fixed time (calls per hour). At 3/hour, an hour with none: $e^{-3}\approx0.0498$.</li>
+<li><b>Exponential</b>: waiting time until the next event. Average wait 20 min → over 30 min: $e^{-1.5}\approx0.2231$. Used in survival models.</li>
+<li><b>Normal</b>: sums of many small effects → squared-error loss.</li>
+</ul>
+
+<h4>Maximum likelihood (MLE)</h4>
+<p>Pick the parameters that make the observed data <mark>least surprising</mark>. 7 heads in 10 flips: $\log L(p)=7\log p+3\log(1-p)$; set the derivative to 0 → $p=0.7$.</p>
+<p>The same recipe gives least squares (normal noise) and log loss (yes/no outcomes).</p>
+<div class="sticky"><b>Why variance divides by n − 1</b><br>The MLE of the variance divides by $n$ and is biased low: with $n=5$ and true variance 4 it averages 3.21 (theory: 3.2). Dividing by $n-1$ fixes it (4.012).</div>
+
+<h4>Bayesian estimation and MAP</h4>
+<p>Combine a prior belief with the data: posterior ∝ likelihood × prior. For a probability, a <b>Beta</b>($a,b$) prior = "$a$ imaginary heads, $b$ imaginary tails".</p>
+<div class="eg"><b>Example from the lesson</b><br>Prior Beta(2, 2) + 7 heads, 3 tails → posterior <b>Beta(9, 5)</b>. Mean 9/14 ≈ 0.643 (pulled towards 0.5), MAP peak ≈ 0.667, 95% credible interval 0.386 to 0.861. Honest: 10 flips don't tell you much.</div>
+<p><b>MAP = regularization in disguise</b>: a normal prior on weights gives <b>ridge</b>, a Laplace prior gives <b>lasso</b>. Believing "weights are probably small" is the same as penalising big weights.</p>
+
+<h4>Central limit theorem and standard error</h4>
+<p>Average $n$ independent values of <i>anything</i> (mean $\mu$, sd $\sigma$): for large $n$ the average is roughly normal, with</p>
+<p class="fx">$\text{SE}=\dfrac{\sigma}{\sqrt n}$</p>
+<div class="eg"><b>Example from the lesson</b><br>A very skewed variable: skewness 1.98 for single values, 0.37 for averages of 30, 0.15 for averages of 200. To <b>halve</b> an error bar you need <b>4×</b> the data.</div>
+
+<h4>Confidence intervals and the bootstrap</h4>
+<p>For a mean: $\bar{x}\pm1.96\,\text{SE}$. For anything without a formula (median, correlation, F1 score): the <b>bootstrap</b>. Resample your data <b>with replacement</b> thousands of times, recompute the statistic each time, and take the middle 95%.</p>
+<div class="eg"><b>Example from the lesson</b><br>60 house prices: median 72.6 lakh, 95% bootstrap interval 58.0 to 78.7. Not symmetric, because prices are skewed; the bootstrap captures that automatically. (Bagging in Lesson 14 uses the same resampling.)</div>
+
+<h4>Hypothesis tests and A/B testing</h4>
+<p>2,400 visitors see old page A, 2,400 see new page B. B converts 6.5%, A 5.0%. Real or luck?</p>
+<ol>
+<li><b>Null hypothesis</b> $H_0$: the pages convert equally.</li>
+<li><b>Test statistic</b>: the difference in standard-error units, $z=\frac{\hat p_B-\hat p_A}{\sqrt{\hat p(1-\hat p)(1/n_A+1/n_B)}}$.</li>
+<li><b>p-value</b>: chance of a difference at least this big <i>if $H_0$ were true</i>. Below α (usually 0.05) → reject $H_0$.</li>
+</ol>
+<div class="eg"><b>Result</b><br>$z=2.23$, $p=0.0256$ → at α = 0.05, B is better.</div>
+<ul>
+<li><b>Type I error</b> (false positive): a "difference" that isn't real; its rate is α.</li>
+<li><b>Type II error</b> (false negative): missing a real difference. <b>Power</b> = chance of catching a real effect; it grows with sample size.</li>
+</ul>
+<div class="sticky"><b>Plan first</b><br>Fix the number of visitors before starting, and don't stop early the moment p dips below 0.05.</div>
+
+<h4>Multiple testing</h4>
+<p>Test 20 features with no real effect at α = 0.05, and the chance that at least one looks "significant" is $1-0.95^{20}\approx$ <b>0.64</b>. Trying many things and reporting only the winner (p-hacking) is why many findings fail to replicate.</p>
+<ul><li><b>Bonferroni</b>: use α / m for m tests (overall false-alarm rate back under 5%).</li><li><b>Benjamini–Hochberg</b>: a gentler option that controls the false discovery rate.</li></ul>
+<p>In ML the same trap is overfitting the validation set by trying many models, which is why an untouched test set matters.</p>
+</div>
+<div class="sign">✎ in one line: probabilities measure uncertainty, Bayes updates beliefs, and averages get predictably more precise with more data.</div>
+</article>

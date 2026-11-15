@@ -1,0 +1,69 @@
+<article class="hn" id="n32">
+<div class="hn-tag">Part 7 · Lesson 32</div>
+<h2>Semi-supervised &amp; active learning</h2>
+
+<h3><span class="n">1</span>When labels are scarce</h3>
+<p>Data is cheap, labels are expensive: millions of scans but few annotated by a radiologist; thousands of tickets but a few hundred tagged.</p>
+<ul><li><b>Semi-supervised</b>: use the unlabelled data too, assuming its structure carries information about the labels.</li><li><b>Active learning</b>: choose <i>which</i> examples to label, so each label teaches as much as possible.</li></ul>
+<p>The lesson uses scikit-learn's 1,797 handwritten digits, pretending only a few are labelled.</p>
+
+<h3><span class="n">2</span>The baseline: 50 labels</h3>
+<div class="eg"><b>Example</b><br>30% held out for testing; of the 1,257 "pool" images only 50 random ones labelled → logistic regression <b>81.1%</b>. With all 1,257: <b>97.2%</b>. How much of that gap can we close?</div>
+
+<h3><span class="n">3</span>Why unlabelled data can help</h3>
+<ul>
+<li><b>Smoothness</b>: nearby points tend to share a label.</li>
+<li><b>Cluster</b>: points form clusters, each mostly one label, so boundaries should pass through the <mark>empty gaps</mark>.</li>
+<li><b>Manifold</b>: data lies near a lower-dimensional surface along which labels change slowly.</li>
+</ul>
+<p>When these hold (images, text, sensors), unlabelled points help draw the boundary. When they don't, it can make things worse, so always compare with the labelled-only baseline.</p>
+
+<h3><span class="n">4</span>Self-training with pseudo-labels</h3>
+<ol><li>Train on the labels.</li><li>Predict the unlabelled data.</li><li>Add the <b>confident</b> predictions as <b>pseudo-labels</b>, retrain, repeat.</li></ol>
+<div class="eg"><b>Example from the lesson</b><br>Threshold 0.99: only 66 added → <b>81.9%</b> (barely moves).<br>Threshold 0.9: 1,008 added, 5.8% wrong → <b>91.1%</b>.<br>Threshold 0.6: 13% wrong → falls back to <b>87.2%</b>.</div>
+<div class="sticky"><b>Confirmation bias</b><br>Too low a threshold and the model learns its own mistakes. Tune it on a labelled validation set.</div>
+
+<h3><span class="n">5</span>Label spreading on a graph</h3>
+<svg class="sk" viewBox="0 0 440 130" aria-label="Sketch: a chain of connected points; a labelled point passes its colour along the links to its neighbours.">
+ <path class="k" d="M40 70 L110 40 L180 75 L250 45 L320 80 L390 50"/>
+ <circle class="rdot" cx="40" cy="70" r="9"/><circle class="r" cx="110" cy="40" r="8"/><circle class="r" cx="180" cy="75" r="8"/>
+ <circle class="k" cx="250" cy="45" r="8"/><circle class="k" cx="320" cy="80" r="8"/><circle class="dot" cx="390" cy="50" r="9"/>
+ <text x="20" y="115">labels flow along nearest-neighbour links</text>
+</svg>
+<p>Connect each point to its nearest neighbours; let the known labels flow along the edges until they settle. The smoothness assumption as an algorithm.</p>
+<div class="eg"><b>Example</b><br>From 50 labels, spreading labels <b>87.6%</b> of the pool correctly; a classifier trained on them reaches <b>88.1%</b>.</div>
+<p>Needs a good distance and scaling; slow on very large datasets.</p>
+
+<h3><span class="n">6</span>Active learning</h3>
+<p>Let the model pick what a person labels. <b>Uncertainty sampling</b>: the examples it's least sure about, e.g. the smallest <b>margin</b> between its top two class probabilities (torn between two digits).</p>
+<div class="eg"><b>Example from the lesson</b><br>Start with 20 random labels, then 10 rounds of 15. With the same 170 labels: uncertainty <b>94.7%</b> vs random <b>91.7%</b>.</div>
+<div class="sticky"><b>Careful</b><br>Pure uncertainty sampling can fill the set with weird outliers: mix in random picks, and start with a few labels of every class.</div>
+
+<h3><span class="n">7</span>The demo</h3>
+<p>Two classes, 300 points, 4 labelled. Ask for 5 more at a time, uncertain or random, and compare the boundary and accuracy for the same number of labels.</p>
+
+<h3><span class="n">8</span>Choosing an approach</h3>
+<ul>
+<li>Lots of unlabelled data, clear clusters → <b>label spreading</b> or self-training with a high threshold.</li>
+<li>A labelling budget and a person available → <b>active learning</b> (uncertainty + some random).</li>
+<li>Labels can be roughly produced by rules → <b>weak supervision</b>: combine noisy rules, train on the result.</li>
+<li>Huge unlabelled image/text sets → <b>self-supervised pretraining</b> + fine-tuning.</li>
+<li>A related task has many labels → <b>transfer learning</b>.</li>
+</ul>
+<div class="box red">Always keep a properly labelled test set the method never touches. Never evaluate on pseudo-labels: they carry the model's own mistakes.</div>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: misleading geometry, committees</h3>
+
+<h4>A wrong distance breaks label spreading</h4>
+<p>The label depends only on feature 1; feature 2 is irrelevant noise on a scale 50× larger.</p>
+<div class="eg"><b>Example from the lesson</b><br>Logistic regression on 20 labels: <b>91.9%</b> (learns to ignore the noise).<br>Label spreading, raw features: <b>55.7%</b>, near guessing (neighbours decided by the noise).<br>After scaling: <b>86.4%</b>, still below supervised (feature 2 still adds noise to distances).</div>
+<p><mark>Unlabelled data helps only when the geometry matches how the labels vary.</mark> Scale, choose features carefully, compare with the baseline.</p>
+
+<h4>Query-by-committee</h4>
+<p>Train a committee of models on bootstrap samples; label the points where they <b>disagree</b> most.</p>
+<div class="eg"><b>Example</b><br>5 logistic regressions, 15 picks per round, 170 labels: committee <b>88.6%</b> vs random <b>88.3%</b>, barely ahead on easy, well-separated digits.</div>
+<p>Active learning pays off most with imbalanced classes or complex boundaries. Its gain varies by problem, so measure it on a pilot before committing the labelling budget.</p>
+</div>
+<div class="sign">✎ in one line: borrow structure from unlabelled data when the geometry is right, ask for the most useful labels, and test on real labels.</div>
+</article>

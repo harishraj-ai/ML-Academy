@@ -1,0 +1,87 @@
+<article class="hn" id="n11">
+<div class="hn-tag">Part 3 · Lesson 11</div>
+<h2>k-nearest neighbours</h2>
+
+<h3><span class="n">1</span>The simplest idea in ML</h3>
+<div class="sticky"><b>Picture it</b><br>New in town and wondering if a restaurant is good? Ask the three people who live closest. "Tell me who your neighbours are, and I'll tell you who you are."</div>
+<p>To classify a new example, find the $k$ most similar training examples and let them vote. No equations, no weights, and yet it can draw <b>curved</b> boundaries linear models can't. It teaches two big lessons: <mark>feature scaling</mark> and the <mark>curse of dimensionality</mark>.</p>
+
+<h3><span class="n">2</span>The algorithm</h3>
+<p><b>Training</b>: just store the data (a <b>lazy learner</b>: the work happens at prediction time).</p>
+<p><b>Predicting</b> for a point $\mathbf{q}$:</p>
+<ol><li>Distance from $\mathbf{q}$ to every training example.</li><li>Take the $k$ smallest.</li><li>Classification: majority vote. Regression: average of their $y$.</li></ol>
+<svg class="sk" viewBox="0 0 360 200" aria-label="Sketch: a query cross with a dashed circle containing its three nearest points, two green and one violet, so it is predicted green.">
+ <circle class="k" cx="180" cy="100" r="62" style="stroke-dasharray:6 5"/><text x="172" y="107" style="font-size:22px">✚</text>
+ <circle class="dot" cx="150" cy="70" r="6"/><circle class="dot" cx="215" cy="130" r="6"/><circle class="rdot" cx="140" cy="140" r="6"/>
+ <circle class="dot" cx="60" cy="40" r="6"/><circle class="rdot" cx="300" cy="60" r="6"/><circle class="rdot" cx="290" cy="170" r="6"/><circle class="rdot" cx="40" cy="170" r="6"/>
+ <text x="235" y="30">k = 3: 2 blue vs 1 red → blue</text>
+</svg>
+<p>kNN is <b>non-parametric</b>: the training data itself is the model.</p>
+
+<h3><span class="n">3</span>Measuring distance</h3>
+<ul>
+<li><b>Euclidean</b> $\sqrt{\sum(a_j-b_j)^2}$: straight line (default).</li>
+<li><b>Manhattan</b> $\sum|a_j-b_j|$: city blocks; less dominated by one big difference.</li>
+<li><b>Minkowski</b> $(\sum|a_j-b_j|^p)^{1/p}$: $p=1$ Manhattan, $p=2$ Euclidean (scikit-learn's default).</li>
+<li><b>Cosine</b>: the angle between vectors; popular for text.</li>
+</ul>
+<div class="eg"><b>Example</b><br>Query (2, 2): red A (1, 1) at 1.414, red B (2, 1) at 1.000, blue C (4, 3) at 2.236 … With k = 3, count the votes of the three closest.<br>(1, 2) to (4, 6): $\sqrt{3^2+4^2}=$ <b>5</b> (Manhattan: 7).</div>
+
+<h3><span class="n">4</span>Choosing k</h3>
+<svg class="sk" viewBox="0 0 520 150" aria-label="Sketch: with k equals 1 the boundary is jagged with islands; with a large k the boundary is smooth.">
+ <g><rect class="k" x="10" y="10" width="220" height="110" rx="8"/><path class="r" d="M60 10 C70 40 40 50 80 60 C120 70 90 90 130 95 C150 98 140 70 170 60 C200 50 190 100 220 120"/><circle class="r" cx="160" cy="35" r="10"/><text x="40" y="142">k = 1: jagged, overfits</text></g>
+ <g transform="translate(270,0)"><rect class="k" x="10" y="10" width="220" height="110" rx="8"/><path class="g" d="M50 10 C90 60 150 70 220 115"/><text x="30" y="142">bigger k: smooth ✓</text></g>
+</svg>
+<ul>
+<li><b>Small k</b>: follows every point, even mislabelled ones → islands → high variance. With $k=1$ training accuracy is always 100% (each point is its own neighbour), which means nothing.</li>
+<li><b>Large k</b>: smooth, but too large blurs real structure and ends up predicting the majority class → high bias.</li>
+<li>Pick k by <b>cross-validation</b>; odd values avoid ties with two classes.</li>
+</ul>
+<p><b>Distance-weighted voting</b> (<code>weights="distance"</code>, weight $1/d$): closer neighbours count more, and the exact k matters less.</p>
+
+<h3><span class="n">5</span>The demo</h3>
+<p>Three classes; the background shows kNN's prediction everywhere. Change k and watch the regions go from jagged to smooth. Click to see a query's neighbours and their vote.</p>
+
+<h3><span class="n">6</span>Feature scaling is essential</h3>
+<div class="eg"><b>Example: age vs income</b><br>P: 30 years, 50,000. Q: 60, 51,000. R: 31, 70,000.<br>$d(P,Q)\approx1000.4$, $d(P,R)\approx20000$. So Q looks "much closer", even though Q is twice P's age. Income (thousands) swamps age (tens); age is ignored.</div>
+<p>After standardising (mean 0, sd 1), each gap is measured relative to how much that feature normally varies, so <b>both count</b>.</p>
+
+<h3><span class="n">7</span>kNN for regression</h3>
+<p class="fx">$\hat y(\mathbf{q})=\dfrac1k\sum_{i\in N_k(\mathbf{q})}y_i$</p>
+<p>Nearest houses sold for 300k, 320k, 340k → predict <b>320k</b>. With distance weighting it's a weighted average.</p>
+
+<h3><span class="n">8</span>The curse of dimensionality</h3>
+<p>A cube-shaped neighbourhood holding 10% of evenly spread data needs side length $0.1^{1/d}$:</p>
+<div class="eg"><b>Example from the lesson</b><br>d = 1: 0.10 · d = 2: 0.32 · d = 3: 0.46 · d = 10: <b>0.79</b> · d = 100: <b>0.98</b>.<br>In 10 dimensions the "neighbourhood" spans 79% of each feature's range: the nearest neighbours aren't near at all.</div>
+<p>kNN works best with <mark>fewer, relevant features</mark>.</p>
+
+<h3><span class="n">9</span>Strengths and weaknesses</h3>
+<div class="twocol"><div class="box"><b class="grn">+</b> simple to explain<br><b class="grn">+</b> no training time<br><b class="grn">+</b> curved boundaries<br><b class="grn">+</b> classification and regression</div><div class="box"><b class="red">−</b> slow predictions (compares to every point)<br><b class="red">−</b> stores the whole training set<br><b class="red">−</b> needs scaling<br><b class="red">−</b> struggles with many / irrelevant features</div></div>
+<p>Speed-ups: <b>KD-trees</b> and <b>ball trees</b> skip whole regions that can't hold a nearer point (<code>algorithm="auto"</code> chooses for you).</p>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: distances, dimensions, fast search</h3>
+
+<h4>The curse, measured</h4>
+<p>In high dimensions <b>distances concentrate</b>: every point ends up about the same distance away.</p>
+<div class="eg"><b>Example from the lesson</b><br>1,000 random points, one query. In 2 dimensions the farthest point is <b>136×</b> farther than the nearest. In 1,000 dimensions only <b>1.11×</b>: the "nearest" neighbour carries little information.</div>
+<p>Why: each dimension adds a small random difference, and sums of many random differences are all close to their average (CLT). Real data is rescued by the <b>manifold hypothesis</b>: images, text and sensor data lie near a much lower-dimensional surface. So reduce dimensions first (PCA) or use learned embeddings.</p>
+
+<h4>Which distance and weighting?</h4>
+<ul><li><b>Euclidean</b>: standardised measurements.</li><li><b>Manhattan</b>: many features or outliers.</li><li><b>Cosine</b> ($1-\cos\theta$): text and embeddings, where a document twice as long shouldn't be "farther".</li></ul>
+<div class="eg"><b>Example</b><br>Breast-cancer data, k = 15: all six distance/weighting combinations score between 0.954 and 0.963, within CV noise.</div>
+<div class="sticky"><b>What matters most, in order</b><br>1. scale the features · 2. choose k by CV · 3. use meaningful features. Tune the metric mainly for text, images or mixed types.</div>
+
+<h4>Finding neighbours fast</h4>
+<ul>
+<li><b>Brute force</b>: $O(nd)$ per query, too slow for millions of points.</li>
+<li><b>k-d trees / ball trees</b>: nested boxes or balls; exact and fast in low dimensions (about $O(\log n)$), but the benefit fades above ~20 dimensions.</li>
+<li><b>Approximate (ANN)</b>: graph methods like <b>HNSW</b>, or clustering/quantization (<b>FAISS</b>). Find over 95% of the true neighbours, thousands of times faster. <mark>Vector databases and LLM retrieval</mark> are built on them.</li>
+</ul>
+<p>On 200,000 points in 3 dimensions, a k-d tree finds exactly the same neighbours as brute force, much faster.</p>
+
+<h4>How good can kNN get?</h4>
+<p>Cover and Hart (1967): with enough data, 1-NN's error is at most <b>twice the Bayes error</b> (the best possible). If $k$ grows slowly with $n$ ($k\to\infty$, $k/n\to0$), kNN's error approaches the Bayes error itself: it's <b>consistent</b>. The catch: "enough data" can be enormous in many dimensions.</p>
+</div>
+<div class="sign">✎ in one line: vote among the k most similar examples; scale first, pick k by CV, keep the features few and relevant.</div>
+</article>

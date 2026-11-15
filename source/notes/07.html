@@ -1,0 +1,95 @@
+<article class="hn" id="n07">
+<div class="hn-tag">Part 2 · Lesson 7</div>
+<h2>Gradient descent</h2>
+
+<h3><span class="n">1</span>Why we need it</h3>
+<p>Linear regression had a formula for the best weights. That's a lucky special case: logistic regression, neural networks and most of modern ML have <b>no formula</b>, and even linear regression's gets slow with many features. Gradient descent only needs to know <mark>which way is downhill</mark>, and it trains almost every model from here on, including the biggest networks.</p>
+<p class="fx">$\mathbf{w}\leftarrow\mathbf{w}-\eta\,\nabla L(\mathbf{w})$</p>
+<p>new parameters ← current parameters − learning rate × gradient (the gradient points uphill, so we subtract).</p>
+
+<h3><span class="n">2</span>A hiker in the fog</h3>
+<p>You can't see the valley, but you can feel the slope under your feet: step the steepest way down, feel again, repeat. Position = the <b>parameters</b>, altitude = the <b>loss</b>, feeling the slope = computing the <b>gradient</b>.</p>
+
+<h3><span class="n">3</span>The algorithm</h3>
+<ol>
+<li>Initialise the parameters (zeros or small random numbers).</li>
+<li>Predict and compute the loss.</li>
+<li>Compute the gradient for every parameter.</li>
+<li>Update: subtract learning rate × its partial derivative.</li>
+<li>Repeat 2–4 until the loss stops improving.</li>
+</ol>
+
+<h3><span class="n">4</span>The gradient for linear regression</h3>
+<p class="fx">$\dfrac{\partial L}{\partial w}=\dfrac2n\sum(\hat y_i-y_i)\,x_i\qquad\dfrac{\partial L}{\partial b}=\dfrac2n\sum(\hat y_i-y_i)$</p>
+<p>Each example "votes" in proportion to its error. Predictions too high on average → the $b$ gradient is positive → $b$ goes down. Too high where $x$ is large → lower the slope.</p>
+
+<h3><span class="n">5</span>Three steps by hand</h3>
+<div class="eg"><b>Example from the lesson</b><br>Same data as Lesson 6 (answer: $w=0.6$, $b=2.2$). Start $w=b=0$, $\eta=0.05$.<br><b>Step 1</b>: errors −2, −4, −5, −4, −5, loss 17.2. Gradients −26.4 and −8 → $w=1.32$, $b=0.4$.<br><b>Step 2</b>: loss <b>1.646</b>. Gradients now +5.04 and +0.72 (we overshot a little) → $w=1.068$, $b=0.364$.<br><b>Step 3</b>: loss <b>1.105</b>, and it keeps creeping towards the answer.</div>
+
+<h3><span class="n">6</span>The landscape demo</h3>
+<p>A contour map of the loss over $(w,b)$, like height lines on a hiking map. Try: learning rate above about <b>0.085 → diverges</b>; very small → crawls; tick "standardise x" → the long narrow valley turns round and descent is much faster.</p>
+
+<h3><span class="n">7</span>Choosing the learning rate</h3>
+<svg class="sk" viewBox="0 0 660 160" aria-label="Sketch: three bowls. Too small: many tiny steps. Just right: a few steps reach the bottom. Too big: steps bounce outwards.">
+ <g><path class="k" d="M20 20 C60 150 160 150 200 20"/><circle class="dot" cx="35" cy="55" r="4"/><circle class="dot" cx="42" cy="72" r="4"/><circle class="dot" cx="49" cy="86" r="4"/><circle class="dot" cx="56" cy="97" r="4"/><text x="30" y="150">too small: slow</text></g>
+ <g transform="translate(225,0)"><path class="k" d="M20 20 C60 150 160 150 200 20"/><path class="g" d="M35 55 L85 112 L108 117"/><circle class="dot" cx="35" cy="55" r="4"/><circle class="dot" cx="85" cy="112" r="4"/><circle class="dot" cx="108" cy="117" r="4"/><text x="45" y="150">just right ✓</text></g>
+ <g transform="translate(450,0)"><path class="k" d="M20 20 C60 150 160 150 200 20"/><path class="r" d="M70 100 L160 85 L40 50 L195 25"/><text x="25" y="150">too big: explodes</text></g>
+</svg>
+<p>It's your <b>stride length</b>: tiny shuffles are safe but slow; giant leaps can jump over the valley onto the other slope, and if big enough each bounce goes higher (<b>divergence</b>).</p>
+<div class="eg"><b>Example: $L(w)=w^2$</b><br>Gradient $2w$, so each step multiplies $w$ by $(1-2\eta)$. From $w=1$:<br>$\eta=0.1$ → ×0.8: 0.8, 0.64, 0.51… steady ✓<br>$\eta=0.5$ → ×0: lands on 0 in one step.<br>$\eta=0.9$ → ×(−0.8): bounces side to side but shrinks.<br>$\eta=1.1$ → ×(−1.2): bounces <u>outwards</u> → explodes.</div>
+<div class="sticky"><b>Loss rising → nan?</b><br>The learning rate is too big. Lower it, and check the feature scaling.</div>
+
+<h3><span class="n">8</span>Why feature scaling matters</h3>
+<p>One feature 0–1, another 0–100,000 → the loss becomes a <b>long, narrow valley</b>. A rate safe for the steep direction is far too small for the flat one, so descent zigzags. Standardising makes the bowl <mark>round</mark>.</p>
+<div class="eg"><b>Example</b><br>Even $x$ = 1–5 (not centred) stretches the valley: at $\eta=0.05$, standardising cuts the steps needed from <b>190 to 47</b>.</div>
+
+<h3><span class="n">9</span>When to stop</h3>
+<ul>
+<li><b>Fixed budget</b>: a set number of steps or <b>epochs</b> (full passes over the data).</li>
+<li><b>Tolerance</b>: the loss improves by less than a tiny amount.</li>
+<li><b>Early stopping</b>: stop when the validation loss starts rising (overfitting).</li>
+</ul>
+<p>Linear regression's loss is one bowl (convex), so every path ends at the same minimum. Neural networks have many valleys (<b>local minima</b>); in large networks these are usually good enough, but the start point and learning rate matter.</p>
+
+<h3><span class="n">10</span>Batch, stochastic, mini-batch</h3>
+<ul>
+<li><b>Batch</b>: all $n$ examples per step. Exact gradient, smooth path, slow per step on big data.</li>
+<li><b>Stochastic (SGD)</b>: 1 random example. Very cheap, noisy zigzag; the noise can help escape bad spots.</li>
+<li><b>Mini-batch</b>: e.g. 32–256. Best of both and efficient on GPUs: <mark>the standard for neural networks</mark>.</li>
+</ul>
+<p>Why noisy steps still work: a random sample's gradient points the right way <b>on average</b>, like asking a few random people for directions instead of polling the whole town.</p>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: modern optimisers and schedules</h3>
+
+<h4>Why plain GD is slow: the condition number</h4>
+<p>The learning rate must stay below $2/\lambda_{\max}$ (steepest curvature), but then the gentlest direction shrinks only by about $1-1/\kappa$ per step, where $\kappa=\lambda_{\max}/\lambda_{\min}$. With $\kappa=1000$ you need thousands of steps. Scaling fixes the cause; the optimisers below work around it.</p>
+
+<h4>Momentum: a ball rolling downhill</h4>
+<p class="fx">$\mathbf{v}\leftarrow\beta\mathbf{v}+\nabla L,\qquad\mathbf{w}\leftarrow\mathbf{w}-\eta\mathbf{v}$</p>
+<p>In the steep direction the gradients flip sign and cancel (less zigzag); along the valley they agree and add up (speeds up). Typical $\beta=0.9$. <b>Nesterov</b> looks ahead to where the velocity is taking you.</p>
+
+<h4>Adaptive rates: RMSProp and Adam</h4>
+<p><b>RMSProp</b> divides each weight's step by a running average of its recent gradient sizes. <b>Adam</b> = that + momentum, with a <b>bias correction</b> because the averages start at zero. Defaults: $\eta=0.001$, $\beta_1=0.9$, $\beta_2=0.999$, $\epsilon=10^{-8}$.</p>
+<div class="eg"><b>Example from the lesson</b> (steps to get within 0.001)<br>Mildly narrow valley: GD 47, <b>momentum 17</b>, Adam 310 (Adam crawls the final stretch unless its rate decays).<br>1,000× narrower valley: GD <b>5,113</b>, momentum 2,977, Adam still <b>310</b>. Adam hardly notices bad conditioning, which is why it's the deep-learning default.</div>
+<p><b>AdamW</b>: an L2 penalty mixes badly with Adam's scaling, so AdamW applies weight decay directly to the weights. Standard for transformers.</p>
+
+<h4>Learning-rate schedules</h4>
+<p>With noisy mini-batch gradients a constant rate never settles: the weights keep wobbling. Theory (Robbins–Monro): the rates should add up to infinity but their squares to a finite number, e.g. $\eta_t=\eta_0/(1+t/T)$.</p>
+<div class="eg"><b>Example</b><br>Constant rate: ends 0.0074 above the best loss, wobbling ±0.0047. Decaying: only 0.0019 above, wobble 0.0001.</div>
+<ul><li><b>Step decay</b>: ÷10 every few epochs.</li><li><b>Cosine decay</b>: smoothly down to near zero.</li><li><b>Warm-up</b>: start tiny, increase, then decay (standard for transformers).</li><li><b>Reduce on plateau</b>: cut when validation loss stalls.</li></ul>
+
+<h4>Gradient clipping</h4>
+<p>One enormous gradient (a cliff, a bad batch, an RNN) can throw the weights away and cause NaNs. Clip by norm: $\mathbf{g}\leftarrow\mathbf{g}\cdot\min(1,c/\|\mathbf{g}\|)$. A gradient of length 500 with $c=1$ keeps its direction but has length 1. In PyTorch: <code>clip_grad_norm_(params, 1.0)</code>.</p>
+
+<h4>Choosing an optimiser</h4>
+<ul>
+<li>Small/medium convex problem → L-BFGS (scikit-learn's choice).</li>
+<li>Huge data, simple model → mini-batch SGD + momentum + decaying schedule.</li>
+<li>Deep network, first try → Adam/AdamW, rate about $10^{-3}$, warm-up and decay.</li>
+<li>Image models for the best final accuracy → SGD, momentum 0.9, cosine decay.</li>
+<li>Loss suddenly NaN → lower the rate, clip gradients, check the inputs.</li>
+</ul>
+</div>
+<div class="sign">✎ in one line: step downhill, pick the step size carefully, scale the features, and use momentum/Adam and a schedule for big models.</div>
+</article>

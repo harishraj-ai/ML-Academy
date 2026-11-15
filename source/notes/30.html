@@ -1,0 +1,83 @@
+<article class="hn" id="n30">
+<div class="hn-tag">Part 7 · Lesson 30</div>
+<h2>MLOps: deploying &amp; monitoring</h2>
+
+<h3><span class="n">1</span>From notebook to production</h3>
+<p>A model in a notebook helps nobody. It creates value when it runs reliably, every day, on new data, inside a product, and keeps working as the world changes. <b>MLOps</b>: packaging and versioning, checking inputs, serving, monitoring drift, retraining, and testing ML code like any software.</p>
+<div class="sticky"><b>The core idea</b><br>Treat a model as a <b>product that decays</b>. Make every version reproducible and traceable, and watch it once it's live.</div>
+
+<h3><span class="n">2</span>The life cycle</h3>
+<svg class="sk" viewBox="0 0 600 120" aria-label="Sketch: a loop from develop to package, validate, serve, monitor and back to retraining.">
+ <text x="10" y="40">develop</text><path class="k" d="M70 35 H95"/><text x="100" y="40">package</text><path class="k" d="M165 35 H190"/><text x="195" y="40">validate</text><path class="k" d="M265 35 H290"/><text x="295" y="40">serve</text><path class="k" d="M340 35 H365"/><rect class="hl" x="368" y="17" width="90" height="30" rx="6"/><text x="378" y="40">monitor</text>
+ <path class="r" d="M420 50 C420 105 30 105 30 50"/><text x="150" y="100">drift → retrain &amp; redeploy</text>
+</svg>
+<ol>
+<li><b>Develop</b>: data, features, model, offline evaluation.</li>
+<li><b>Package and version</b>: the fitted pipeline + metadata (data, code and library versions, metrics).</li>
+<li><b>Validate inputs</b> against the expected schema.</li>
+<li><b>Serve</b>: batch (score everyone nightly) or online (an API in milliseconds).</li>
+<li><b>Monitor</b>: input drift, prediction drift, real performance once labels arrive.</li>
+<li><b>Retrain and redeploy</b>: on a schedule or a trigger, with tests and a gradual rollout.</li>
+</ol>
+
+<h3><span class="n">3</span>Packaging and versioning</h3>
+<ul>
+<li>Save the <mark>whole pipeline</mark>, never just the model. Re-implementing preprocessing in production is a classic bug.</li>
+<li>Store metadata: version, expected features, test metrics, <b>library versions</b>, and a <b>fingerprint</b> (hash) to prove which model made a prediction.</li>
+<li>After saving, reload and check the predictions are <b>identical</b>.</li>
+<li>Pin versions (requirements.txt or a container): a model saved with one scikit-learn may not load with another.</li>
+</ul>
+<p>Model registries (MLflow) keep files, metadata and stages ("staging", "production").</p>
+
+<h3><span class="n">4</span>Validating inputs</h3>
+<p>Live data is messier: missing fields, wrong types, units changed upstream, impossible values. A model happily returns a confident prediction for nonsense.</p>
+<div class="eg"><b>Example from the lesson</b><br>Caught before the model: a missing debt value, a negative income, a number sent as text, an age of <b>230</b>.</div>
+<p>Decide in advance: reject, use a safe default, or send to a person. Log bad rows: a sudden rise means something broke upstream.</p>
+
+<h3><span class="n">5</span>Data drift</h3>
+<ul>
+<li><b>PSI</b> (population stability index): bin by training quantiles, sum $(a-e)\ln(a/e)$. Below 0.1 stable · 0.1–0.25 watch · <b>above 0.25 major shift</b>.</li>
+<li><b>Kolmogorov–Smirnov</b>: the biggest gap between the two cumulative distributions. With big samples tiny shifts look "significant", so look at its size too.</li>
+</ul>
+<div class="eg"><b>Example</b><br>Live incomes have fallen: PSI <b>0.612</b> (major), KS statistic 0.312.</div>
+
+<h3><span class="n">6</span>The drift demo</h3>
+<p>Shift the live data's mean or change only its spread: a change in spread with the same average is caught too.</p>
+
+<h3><span class="n">7</span>Concept drift and retraining</h3>
+<p>Inputs look the same but the <b>input → outcome relationship</b> changes (after an economic shock, the same income means different risk). Only real outcomes reveal it.</p>
+<div class="eg"><b>Example</b><br>From month 5 the effect of income fades then reverses. Never-retrained model: AUC <b>0.82 → 0.41</b> (worse than guessing). Retrained monthly: recovers to <b>0.83</b>, a month behind.</div>
+<p>Retrain on a schedule, or on triggers (drift or performance crossing a threshold). Validate the new model against the current one on recent data, and keep a rollback ready.</p>
+
+<h3><span class="n">8</span>Testing ML code</h3>
+<ul>
+<li><b>Unit tests</b>: does the feature function handle missing values?</li>
+<li><b>Minimum quality</b>: the metric stays above a bar on a fixed test set.</li>
+<li><b>Directional</b>: "more debt should never <u>lower</u> the predicted risk".</li>
+<li><b>Invariance</b>: something that shouldn't matter (or mustn't, like a protected attribute) doesn't change the prediction much.</li>
+</ul>
+<p>Run them automatically (pytest in CI) on every change to code, data or model; a failing test blocks deployment.</p>
+
+<h3><span class="n">9</span>Serving and rollout</h3>
+<ul>
+<li><b>Batch scoring</b>: daily churn lists, weekly forecasts.</li>
+<li><b>Online API</b> (FastAPI, Flask): fraud checks at checkout, recommendations.</li>
+<li><b>Shadow</b>: the new model scores live traffic silently, for comparison.</li>
+<li><b>Canary / A/B</b>: a small share of traffic first, increased if it performs.</li>
+</ul>
+<div class="sticky"><b>Log every prediction</b><br>Input, output, model version, timestamp: for debugging, monitoring, joining with outcomes for retraining, and audits.</div>
+
+<div class="deeper">
+<h3 class="dh"><span class="n">★</span>Going deeper: drift alarms, champion vs challenger</h3>
+
+<h4>Significant ≠ important</h4>
+<div class="eg"><b>Example from the lesson</b><br>A tiny, harmless shift of 0.03 standard deviations. KS test with 500 rows: p = 0.158 (nothing). With 50,000 rows: p ≈ <b>10⁻⁶</b>, an "alarm" about nothing. PSI stays below 0.03 throughout, because it measures the <i>size</i> of the shift.</div>
+<p>Alert on <b>effect sizes</b> (PSI, the KS statistic, mean change in sd) with thresholds tied to impact, not on p-values, or every big feature alarms daily.</p>
+
+<h4>Is the challenger really better?</h4>
+<p>Bootstrap the test set (paired, same rows) to get an interval for the improvement.</p>
+<div class="eg"><b>Example</b><br>Challenger's AUC is <b>0.003</b> higher, but the 95% interval runs from <b>−0.022 to 0.027</b>: can't tell them apart. Switching adds risk for no proven gain.</div>
+<p>Get stronger evidence from more test data, paired comparisons, and a shadow or canary deployment that measures the <b>business outcome</b>, not just the offline metric.</p>
+</div>
+<div class="sign">✎ in one line: ship the whole versioned pipeline, validate inputs, watch drift and real performance, and roll out gradually.</div>
+</article>
