@@ -205,8 +205,6 @@ MAE per fold: [14.4  8.9 14.5 20. ]  mean: 14.4</code></pre></div><div class="bo
 <p>You'll need: k-fold cross-validation and data leakage from this lesson. New words are explained as they come.</p></div>
 <div class="box def"><div class="box-title">New words for this section</div><ul><li><strong>Fold</strong>: one slice of the data used for validation in cross-validation.</li><li><strong>Hyperparameter / setting</strong>: a choice you make before training, like C or the number of trees.</li><li><strong>Independent rows</strong>: knowing one row tells you nothing about another.</li><li><strong>Distribution shift</strong>: new data that looks different from the training data.</li><li><strong>AUC</strong>: 0.5 = guessing, 1 = perfect separation.</li></ul></div>
 
-<p>The lesson above gives you the core habits: split your data, cross-validate, avoid leakage. This section covers the situations where those habits quietly break: when tuning itself inflates your score, when your rows aren't independent (time series, repeated customers), when you need to know whether more data would help, and when tomorrow's data no longer looks like yesterday's. Each one is a common cause of models that look great in testing and disappoint in production.</p>
-<p>You'll need: k-fold cross-validation and data leakage from this lesson.</p></div>
 
 <h3 id="deeper-nested">Tuning inflates scores: nested cross-validation</h3>
 <div class="box intuition"><div class="box-title">Picture it</div><p>Twenty students take the same practice test and you hire the top scorer. Part of their score was luck, so they'll probably do a little worse on the real exam. Picking the best of many settings has the same effect on validation scores.</p></div>

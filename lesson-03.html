@@ -186,8 +186,6 @@ for w in [0.4, 0.65, 0.9]:
 <p>You'll need: partial derivatives and the gradient from this lesson, and eigenvalues from Lesson 2's Going deeper. New words are explained as they come.</p></div>
 <div class="box def"><div class="box-title">New words for this section</div><ul><li><strong>Curvature</strong>: how fast the slope changes: a sharp bend has high curvature, a gentle one low.</li><li><strong>Second derivative</strong>: the derivative of the derivative; it measures curvature.</li><li><strong>Saddle point</strong>: flat like a mountain pass: up in one direction, down in another.</li><li><strong>Local / global minimum</strong>: the bottom of one valley / the lowest point of all.</li><li><strong>Constraint</strong>: a rule the answer must obey, such as "the vector has length 1".</li></ul></div>
 
-<p>The lesson above gives you derivatives, the chain rule and the gradient: enough to understand gradient descent. This section adds the tools that explain <em>how well</em> optimisation works: derivatives of whole vector functions (the Jacobian, used in backpropagation), curvature (the Hessian), why some losses have one clean minimum (convexity), a much faster method that uses curvature (Newton's method), how to test your own gradients, and how to optimise with constraints (Lagrange multipliers, used by SVMs and PCA).</p>
-<p>You'll need: partial derivatives and the gradient from this lesson, and eigenvalues from Lesson 2's "Going deeper".</p></div>
 
 <h3 id="deeper-jacobian">The Jacobian: derivatives of vector functions</h3>
 <div class="box intuition"><div class="box-title">Picture it</div><p>A gradient is a single row of slopes for one output. A layer has many outputs, so you stack one row per output: that table of slopes is the Jacobian.</p></div>
