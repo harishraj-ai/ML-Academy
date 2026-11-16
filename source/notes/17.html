@@ -59,31 +59,15 @@
 <div class="box red"><b>Reading t-SNE safely</b><br>Cluster sizes mean nothing; distances between separated clusters may mean nothing; low perplexity can make pure noise look clustered; different runs differ.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: components and curved maps</h3>
-
-<h4>How many components? Reconstruction error</h4>
-<p>Keeping $k$ components has an exact cost: the reconstruction error equals the variance you dropped, and the top $k$ PCs give the smallest error of any $k$-dimensional flat subspace (Eckart–Young).</p>
-<div class="eg"><b>Example: 8×8 digits (64 pixels)</b><br>2 components keep only <b>28.5%</b>; <b>29</b> are needed for 95%. At 30 components 0.959 is kept and the relative error is 0.041 = 1 − 0.959.</div>
-<p>Side job: <b>anomaly detection</b>, since points the main components can't reconstruct don't follow the usual pattern.</p>
-
-<h4>Kernel PCA</h4>
-<p>PCA finds only flat directions. Kernel PCA uses the kernel trick to find components in a high-dimensional feature space.</p>
-<div class="eg"><b>Example: concentric circles</b><br>Ordinary PCA's one component: <b>0.450</b> (worse than guessing). RBF kernel PCA's first component: <b>1.000</b>; "distance from the centre" becomes a straight direction.</div>
-<p>Needs the $n\times n$ kernel matrix, so it doesn't scale to huge data, and its components are hard to interpret.</p>
-
-<h4>t-SNE and UMAP: maps for looking</h4>
-<p>t-SNE turns distances into neighbour probabilities (a normal curve whose width is set by the perplexity in the original space; a heavier-tailed $t$-distribution on the map) and moves the map points until they match. UMAP keeps more of the global layout.</p>
-<div class="eg"><b>Example</b><br>A digit's 5 nearest map neighbours share its label <b>97.6%</b> of the time with t-SNE vs <b>60.3%</b> with a flat PCA projection: hence t-SNE's ten neat islands.</div>
-<ul><li>Distances between clusters and cluster sizes mean little.</li><li>Try several perplexities and seeds.</li><li><b>For looking, not modelling</b>: no transform for new points, meaningless axes. Use PCA (or UMAP) for features.</li></ul>
-
-<h4>Practical notes</h4>
-<ul>
-<li>Fit PCA <b>inside the pipeline</b> on training data only.</li>
-<li>Standardise first when units differ.</li>
-<li><b>Whitening</b> rescales components to variance 1, but amplifies noise in small components.</li>
-<li>Huge or sparse data: <code>TruncatedSVD</code> (on TF-IDF it's latent semantic analysis), <code>IncrementalPCA</code>, randomized SVD.</li>
-<li>A linear <b>autoencoder</b> with squared error learns the same subspace as PCA.</li>
-</ul>
+<h3 class="dh"><span class="n">★</span>Going deeper: choosing components, and non-linear maps</h3>
+<h4>How many components?</h4>
+<p>Shrinking a photo: keep enough pixels to recognise the face and drop the rest. With PCA, what you lose is exactly the spread (variance) of the components you drop.</p>
+<div class="eg"><b>Explained variance by hand</b><br>Component variances 6, 3, 1 (total 10).<br>Keep 1: $6/10=60\%$ kept, 40% lost.<br>Keep 2: $9/10=90\%$ kept; reconstruction error = the dropped 1, i.e. 10%.</div>
+<h4>Kernel PCA: principal components in a curved space</h4>
+<p>Points on two rings, one inside the other: no straight direction separates them. Lift them into a richer space with a kernel and "distance from the centre" becomes a straight direction that PCA can find.</p>
+<h4>t-SNE and UMAP: maps for looking, not features</h4>
+<p>t-SNE is like a seating plan for a wedding: friends sit at the same table, but the distance between tables means very little, and table sizes are rearranged to fit the room. Great for seeing who belongs together; misleading if you measure the room.</p>
+<div class="sticky"><b>In one breath</b><br>Keep enough components to explain most of the variance (what you drop is exactly the error), use kernel PCA for curved structure, use t-SNE or UMAP only to look at data, and always fit PCA on training data after standardising.</div>
 </div>
 <div class="sign">✎ in one line: rotate to the directions of most spread, keep the top few, standardise first, and use t-SNE only for looking.</div>
 </article>

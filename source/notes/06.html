@@ -67,54 +67,30 @@
 </ul>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: the statistics behind it</h3>
-
-<h4>The four assumptions: LINE</h4>
-<ul>
-<li><b>L</b>inearity: the average of $y$ is a straight-line function of the features. Check residuals vs predictions for curves.</li>
-<li><b>I</b>ndependence: one error says nothing about the next. Broken by time series and repeated measurements → standard errors too small.</li>
-<li><b>N</b>ormality: errors follow a bell curve. Only matters for exact p-values in small datasets.</li>
-<li><b>E</b>qual spread (homoscedasticity): errors are as big for large predictions as small ones. If they fan out, the weights are fine but the standard errors are wrong.</li>
-</ul>
-<p>The features and $y$ themselves don't need to be normal. And if you only care about test-set predictions, none of this is strictly needed; it matters when you claim "this feature has a real effect".</p>
-
-<h4>Why squared error?</h4>
-<ul>
-<li>It's the <b>maximum-likelihood</b> answer when noise is normal (with Laplace noise you'd get absolute error / median regression).</li>
-<li><b>Gauss–Markov</b>: with zero-mean, uncorrelated, equal-spread errors, OLS has the smallest variance among unbiased linear estimators ("BLUE"). But a slightly <i>biased</i> method like ridge can predict better.</li>
-</ul>
-
-<h4>How sure is each weight?</h4>
-<p>Fit on a different sample and the weights wobble. The <b>standard error</b> measures how much: $\text{Var}(\hat{\mathbf{w}})=\sigma^2(X^\top X)^{-1}$, with $\hat\sigma^2=\text{SS}_{\text{res}}/(n-d-1)$.</p>
-<ul><li>$t=\hat w/\text{SE}$: how many SEs from zero.</li><li><b>p-value</b>: chance of a $|t|$ this big if the true weight were 0.</li><li>95% interval: $\hat w\pm t^*\text{SE}$ (about ±1.97 SE here).</li></ul>
-<div class="eg"><b>Example: diabetes data (442 patients)</b><br><b>bmi</b>: 7.81 SEs from zero, interval 389 to 651 → clearly real. <b>age</b>: p = 0.867, interval −127 to +107 → can't even tell the direction. <b>s1</b>: big weight (−792) yet p = 0.058, because its SE (416.7) is huge.</div>
-<div class="sticky"><b>A p-value is not…</b><br>…the chance the feature is useless. A large p doesn't prove "no effect" (maybe too little data). A tiny p doesn't mean big, useful or causal.</div>
-
-<h4>Overlapping features: the VIF</h4>
-<p>s1 (total cholesterol) and s2 (LDL) correlate about 0.9, so the model can't decide how to split the credit. The <b>variance inflation factor</b>: predict feature $j$ from the others, then</p>
-<p class="fx">$\text{VIF}_j=\dfrac{1}{1-R_j^2}$</p>
-<p>VIF 1 = no inflation; 10 = the others explain 90%. SE grows by $\sqrt{\text{VIF}}$. Investigate above 5–10.</p>
-<div class="eg"><b>Example</b><br>s1's VIF = 59.2 (SE ×7.7). Drop s2 → s1's SE falls from 416.7 to 114.0, while $R^2$ barely moves (0.5177 → 0.5155).</div>
-<p><mark>Multicollinearity hurts interpretation, not prediction.</mark></p>
-
-<h4>Adjusted R² and cross-validation</h4>
-<p>Training $R^2$ never goes down when you add a feature, even pure noise. Adjusted $R^2=1-(1-R^2)\frac{n-1}{n-d-1}$ penalises each feature.</p>
-<div class="eg"><b>Example</b><br>Adding random noise columns: training $R^2$ climbs 0.518 → 0.633; adjusted stays about 0.51; <b>cross-validated</b> $R^2$ actually falls 0.482 → 0.277. CV tells the truth.</div>
-
-<h4>Errors that fan out: the log transform</h4>
-<p>Money-like targets vary in proportion to their size, so residuals fan out (senior salaries 3.4× more spread than juniors). Model $\log y$ instead: "±25%" becomes a constant "±0.25".</p>
-<p>Reading it: +1 in $x$ multiplies $y$ by $e^w$. $e^{0.0591}=1.061$ → each extra year ≈ <b>6.1% higher</b> salary (for small $w$, read $100w$ as a %). Converting back with $e^{\hat y}$ gives roughly the median. Alternatives: robust standard errors (HC3) or weighted least squares.</p>
-
-<h4>Points that bend the line</h4>
-<ul>
-<li><b>Outlier</b>: $y$ far from the line.</li>
-<li><b>High leverage</b>: $x$ far from the others (the hat-matrix diagonal $h_{ii}$; average $(d+1)/n$).</li>
-<li><b>Influential</b> = both. <b>Cook's distance</b> measures how much all predictions move if the point is deleted; flag above 1 (or 4/n).</li>
-</ul>
-<p>Robust regression (e.g. Huber loss) limits how much any single point can pull.</p>
-
-<h4>Categories: the dummy-variable trap</h4>
-<p>One-hot encode a category with $k$ values and keep only $k-1$ columns when there's an intercept. All $k$ columns add up to the 1s column, so $X^\top X$ can't be inverted. The dropped category becomes the baseline the others are compared to.</p>
+<h3 class="dh"><span class="n">★</span>Going deeper: the statistics behind linear regression</h3>
+<h4>The four assumptions, and what each one buys you</h4>
+<p>A line always fits; the question is whether its numbers can be trusted. The four assumptions are like a car's safety check: the car may still drive if one fails, but you shouldn't trust the speedometer.</p>
+<h4>Why squared error? Two classic answers</h4>
+<p>If errors follow a bell curve, the most believable line is the one with the smallest total squared miss. Squared error isn't an arbitrary choice; it falls out of the bell curve.</p>
+<h4>How sure are we about each weight? Standard errors, p-values and intervals</h4>
+<p>Ask ten different samples of patients and you'd get ten slightly different weights. The standard error says how much they would typically differ; a weight many standard errors from zero is very unlikely to be luck.</p>
+<div class="eg"><b>Bmi's row by hand</b><br>Weight about 520 with SE about 66.6.<br>$t\approx520/66.6\approx7.81$: almost eight wobbles from zero.<br>Interval $\approx520\pm1.97\times66.6$: about 389 to 651, nowhere near 0.</div>
+<h4>When features overlap: multicollinearity and the VIF</h4>
+<p>Two friends always arrive at parties together. If the party gets louder, you can't tell which one caused it. s1 and s2 (two cholesterol measures) are like that: the model knows their joint effect, not each one's.</p>
+<div class="eg"><b>VIF by hand</b><br>Predict s1 from the other features: suppose $R^2=0.9$. VIF $=1/(1-0.9)=10$.<br>If $R^2=0.98$: VIF $=1/0.02=50$.<br>s1's actual VIF is 59.2, so its SE is $\sqrt{59.2}\approx7.7$× larger than it would be alone.<br>Drop s2: SE falls from 416.7 to 114.0, while $R^2$ barely moves (0.5177 → 0.5155).</div>
+<h4>Adjusted $R^2$, and why cross-validation is better still</h4>
+<p>Adding a column of random noise is like adding a student who guesses answers to a study group. Training $R^2$ always says the group got "better"; adjusted $R^2$ and cross-validation see through it.</p>
+<div class="eg"><b>The charge in numbers ($n=442$)</b><br>10 features, $R^2=0.518$: $1-0.482\times441/431\approx0.507$.<br>Suppose 30 features gave $R^2=0.560$: $1-0.440\times441/411\approx0.528$.<br>A feature must beat chance to raise adjusted $R^2$.</div>
+<h4>When errors fan out: unequal spread and the log transform</h4>
+<p>A guess of a junior's salary might be off by ₹1 lakh; a senior's by ₹5 lakh. Errors that grow with size are natural for money. Taking the log turns "± 25%" into one constant error size.</p>
+<div class="eg"><b>Reading a log weight</b><br>Weight for experience: $w=0.0591$.<br>$e^{0.0591}\approx1.061$, so each extra year means about <strong>6.1% higher</strong> salary.<br>Shortcut for small $w$: $100w\approx$ the percentage, here 5.9%.</div>
+<h4>Points that bend the line: leverage, Cook's distance and robust regression</h4>
+<p>A see-saw: a child sitting far from the middle moves it much more than one near the centre. A point far out on the $x$ axis (high leverage) can tilt the whole line, especially if it's also off the line.</p>
+<div class="eg"><b>What the diagnostics say</b><br>With the far point: slope 0.75 instead of about 2.<br>Its leverage 0.576 is about 9× the median.<br>Cook's distance 12.73, far above 1; all other points below 0.1.<br>Huber regression keeps the slope at 1.85, close to the truth.</div>
+<h4>Categorical features and the dummy-variable trap</h4>
+<p>If every house is exactly one of Central, Suburb or Outskirts, then knowing two of the yes/no columns tells you the third. Keeping all three plus the bias term says the same thing twice.</p>
+<div class="eg"><b>Why the three dummies are redundant</b><br>Central row: (1, 0, 0). Suburb: (0, 1, 0). Outskirts: (0, 0, 1).<br>Each row sums to 1, exactly the bias column.<br>So Central = 1 − Suburb − Outskirts: one column says nothing new.</div>
+<div class="sticky"><b>In one breath</b><br>Check the LINE assumptions, read each weight with its standard error and interval, use VIF to spot overlapping features, log money-like targets, hunt for high-leverage points with Cook's distance (or use Huber), drop one dummy per category, and prefer cross-validated $R^2$ over training $R^2$.</div>
 </div>
 <div class="sign">✎ in one line: the line that minimises squared gaps, judged by R² against the mean, read carefully and checked for assumptions.</div>
 </article>

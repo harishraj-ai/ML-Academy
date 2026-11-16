@@ -60,17 +60,14 @@
 <p><code>networkx</code> for small and medium graphs; graph databases and PyTorch Geometric for big ones.</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: PageRank and the Laplacian</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: PageRank as an eigenvector, and the graph Laplacian</h3>
 <h4>PageRank is an eigenvector</h4>
-<p>The surfer's matrix $G=\frac{1-d}{n}\mathbf{1}\mathbf{1}^\top+dM$; PageRank is $r$ with $rG=r$, an eigenvector with eigenvalue 1. All entries of $G$ are positive, so <b>Perron–Frobenius</b> guarantees it's the largest eigenvalue with a unique positive eigenvector, which is why <b>power iteration</b> (multiply again and again) finds it.</p>
-<div class="eg"><b>Example from the lesson</b><br>60-node directed graph: largest eigenvalue exactly 1; power iteration converges in <b>27</b> steps, matching to $10^{-11}$. Errors shrink by about $d$ per step. PageRank correlates with <b>in-degree (0.724)</b>, not out-degree (−0.208).</div>
-
+<p>Pour water into a network of pipes and let it flow for a long time. Eventually the amount in each tank stops changing: water flowing in equals water flowing out. That steady state is PageRank.</p>
+<div class="eg"><b>Two pages, by hand ($d=0.85$)</b><br>A links to B and B links to A. Start $r=(0.9,0.1)$.<br>Step: each page gets $0.15/2=0.075$ plus $0.85\times$ the other's share.<br>A: $0.075+0.85\times0.1=0.16$; B: $0.075+0.85\times0.9=0.84$.<br>Repeating, the swing shrinks by 0.85 each step and settles at $(0.5,0.5)$.</div>
 <h4>The graph Laplacian</h4>
-<p class="fx">$L=D-A,\qquad f^\top Lf=\sum_{\text{edges }ij}(f_i-f_j)^2$</p>
-<p>Small when connected nodes get similar values. The smallest eigenvalue is 0 (a constant vector); the eigenvector of the second-smallest, the <b>Fiedler vector</b>, is the smoothest non-constant labelling, and tends to split the graph along its weakest cut.</p>
-<div class="eg"><b>Example</b><br>Eigenvalues 0, then 2.091; splitting nodes by the sign of the Fiedler vector recovers the two planted communities <b>exactly</b>.</div>
-<p>Spectral clustering = several eigenvectors + k-means. The same Laplacian appears in label spreading and in graph neural networks.</p>
+<p>Give every node a number so that linked nodes get similar numbers. The smoothest pattern that isn't "everyone the same" naturally changes sign across the graph's weakest bridge, splitting it into two communities.</p>
+<div class="eg"><b>A path of three nodes A–B–C</b><br>Values $f=(1,0,-1)$: $(1-0)^2+(0-(-1))^2=2$.<br>Values $f=(1,1,1)$: 0, the constant pattern, always eigenvalue 0.<br>The smoothest non-constant pattern changes sign once, splitting the path into two sides.</div>
+<div class="sticky"><b>In one breath</b><br>PageRank is the steady state of the random surfer, the eigenvector with eigenvalue 1, found reliably by power iteration; and the Laplacian's second eigenvector gives the smoothest split of a graph, the basis of spectral clustering.</div>
 </div>
 <div class="sign">✎ in one line: store it sparsely, measure who matters, find the communities, and use neighbours as features.</div>
 </article>

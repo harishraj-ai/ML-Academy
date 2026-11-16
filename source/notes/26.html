@@ -64,17 +64,14 @@
 <div class="box red"><b>Trees can't extrapolate</b>: a tree never predicts above values it has seen. On a rising trend, model the changes or detrend first.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: lags and honest intervals</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: choosing lags and honest prediction intervals</h3>
 <h4>Autocorrelation: which lags matter?</h4>
-<p>Autocorrelation at lag $k$ = correlation of the series with itself shifted by $k$. Compute it on the <b>changes</b> (a trend makes every lag look correlated). Peaks reveal the seasonal period.</p>
-<div class="eg"><b>Example</b><br>Daily sales changes: about <b>0.6</b> at lags 7, 14 and 21, barely anything at lags 1–6 → use multiples of 7. (A negative value at lag 2 is a typical side effect of differencing.)</div>
-<p>A standard first look: <code>plot_acf</code> up to two seasons.</p>
-
+<p>Shop sales on a Monday look a lot like last Monday's, and less like yesterday's Sunday. Autocorrelation measures this: how much the series resembles itself shifted back by 1 day, 2 days, 7 days, and so on. The peaks tell you which "days ago" to give the model.</p>
+<div class="eg"><b>Reading the numbers</b><br>Lags 7, 14, 21: about 0.6, strongly similar. A weekly cycle.<br>Lags 1–6: small. Yesterday tells you little once the weekday is known.<br>Lag 2: −0.32, a typical side effect of differencing, not a real pattern.<br><i>So give the model "value 7, 14 and 21 days ago".</i></div>
 <h4>Prediction intervals from held-out errors</h4>
-<p>A point forecast says nothing about how wrong it might be. Forecast a calibration period, take the 5th and 95th percentiles of the errors, add them to future forecasts: the idea of <b>split conformal prediction</b>.</p>
-<div class="eg"><b>Example</b><br>Built for 90%, it covers only <b>85.6%</b> on the test period: sales (and errors) keep growing, so older errors understate newer ones.</div>
-<p>Fixes: model the log (relative errors), use only recent errors, or recompute at each backtest step. Always report the coverage you actually achieve, by horizon.</p>
+<p>A weather forecast of "25°C" is less useful than "22 to 28°C". To get a range, look at how wrong your recent forecasts were and assume future misses will be similar.</p>
+<div class="eg"><b>Building a 90% interval</b><br>Calibration errors: 5th percentile −40, 95th percentile +50.<br>Forecast 1,000 → interval 960 to 1,050.<br>Later, count how often the truth landed inside: ideally about 90%.</div>
+<div class="sticky"><b>In one breath</b><br>Pick lags where the autocorrelation of the changes peaks (here multiples of 7), and build prediction intervals from recent held-out errors, then check their real coverage, especially when the series is trending.</div>
 </div>
 <div class="sign">✎ in one line: beat seasonal naive, build features only from the past, backtest in time order, and check your interval coverage.</div>
 </article>

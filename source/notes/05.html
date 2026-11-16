@@ -108,60 +108,19 @@
 </ol>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: validation you can trust</h3>
-<p>The habits above (split, cross-validate, avoid leakage) quietly break in four common situations. Each one makes a model look great in testing and disappoint in production.</p>
-
-<h4>1. Tuning inflates the score → nested CV</h4>
-<p>Try many settings and keep the best cross-validated score, and that score is <mark>optimistic</mark>: some settings won partly by luck on these particular folds (like the best of 20 coin-flippers looking "skilled").</p>
-<p><b class="pen">Nested cross-validation</b> fixes it with two loops:</p>
-<ul>
-<li><b>Inner loop</b>: chooses the settings, using only the training part of each outer fold.</li>
-<li><b>Outer loop</b>: scores the whole "tune, then fit" recipe on data the tuning never saw.</li>
-</ul>
-<div class="eg"><b>Example from the lesson</b><br>An SVM tuned over 25 settings on a small, noisy dataset: the search reports <b>0.633</b>, nested CV says <b>0.608</b>. The gap grows with more settings and shrinks with more data.</div>
-<p>To build the final model you still run the normal search on all the data; nested CV tells you how well that recipe will do.</p>
-
-<h4>2. Rows that aren't independent: time and groups</h4>
-<ul>
-<li><b>Time series</b>: neighbouring days look alike. A shuffled split puts Tuesday in training and Wednesday in validation, so the model just "remembers" the nearby level.</li>
-<li><b>Groups</b>: several rows per customer, patient or house. If one customer is on both sides, the model learns <i>that person</i>, not the pattern.</li>
-</ul>
-<div class="eg"><b>Example from the lesson</b><br>Slowly drifting daily sales, random forest. Shuffled k-fold: $R^2=$ <b>0.957</b> (looks superb). Time-ordered split (<code>TimeSeriesSplit</code>): $R^2=$ <b class="red">−0.609</b>, worse than predicting the average! The forest can't follow a drifting trend, and shuffling hid it.</div>
-<p>For groups use <code>GroupKFold</code> (all of one group's rows on the same side).</p>
-<div class="sticky"><b>Rule</b><br>Split the way the model will be <b>used</b>.</div>
-
-<h4>3. Would more data help? Learning curves</h4>
-<p>Train on growing subsets and plot training and validation scores against training-set size.</p>
-<svg class="sk" viewBox="0 0 460 180" aria-label="Sketch: learning curve. Training accuracy stays high, validation accuracy rises with more data and the gap closes.">
- <path class="k" d="M40 150 H430 M40 150 V15"/><text x="250" y="172">training-set size →</text><text x="5" y="20">score</text>
- <path class="p" d="M50 28 C150 32 300 34 420 35"/><text x="360" y="25">train</text>
- <path class="g" d="M50 110 C120 60 220 50 420 45"/><text x="330" y="70">validation</text>
-</svg>
-<div class="eg"><b>Example from the lesson</b><br>Breast-cancer data, logistic regression: validation accuracy climbs from <b>0.916</b> (22 examples) to <b>0.981</b> (455), and the gap to training (0.989) is now small.</div>
-<ul>
-<li><b>Big gap, validation still rising</b> (high variance) → more data will probably help.</li>
-<li><b>Both low and close</b> (high bias) → more data won't help much; use a more flexible model or better features.</li>
-<li><b>Both high, flat and close</b> → you're near the limit for this model and these features.</li>
-</ul>
-
-<h4>4. When the world changes: distribution shift</h4>
-<ul>
-<li><b>Covariate shift</b>: the inputs change, the relationship stays (a new city with bigger homes).</li>
-<li><b>Label shift</b>: the class balance changes (more fraud in the holiday season).</li>
-<li><b>Concept drift</b>: the relationship itself changes (after a rule change, the same features mean something else). Needs fresh labels to detect.</li>
-</ul>
-<p><b class="pen">Adversarial validation</b> spots the first kind: label training rows 0 and new rows 1, then train a classifier to tell them apart. AUC near 0.5 → they look alike. Clearly higher → real shift, and the feature importances show where.</p>
-<div class="eg"><b>Example from the lesson</b><br>No shift: AUC <b>0.540</b>, importances evenly spread. One feature drifted by 0.8 standard deviations: AUC <b>0.695</b>, and that feature's importance jumps to <b>0.59</b>, pointing straight at the culprit.</div>
-
-<h4>A validation checklist</h4>
-<ul>
-<li>Reporting a tuned model → <b>nested CV</b>, or a test set used once.</li>
-<li>Data ordered in time → <b>time-ordered splits</b>, never shuffle.</li>
-<li>Several rows per person, item or place → <b>GroupKFold</b>.</li>
-<li>Rare classes → <b>stratified</b> splits.</li>
-<li>Should we collect more data? → a <b>learning curve</b>.</li>
-<li>New data might differ → <b>adversarial validation</b> and drift monitoring.</li>
-</ul>
+<h3 class="dh"><span class="n">★</span>Going deeper: validation that you can trust</h3>
+<h4>Tuning inflates scores: nested cross-validation</h4>
+<p>Twenty students take the same practice test and you hire the top scorer. Part of their score was luck, so they'll probably do a little worse on the real exam. Picking the best of many settings has the same effect on validation scores.</p>
+<div class="eg"><b>Reading the gap</b><br>Best score inside the search: 0.633 (best of 25 tries, so lucky).<br>Nested estimate: 0.608 (honest).<br>The 0.025 gap is the luck. It grows with more settings tried, shrinks with more data.</div>
+<h4>When rows aren't independent: time and groups</h4>
+<p>Predicting tomorrow's weather with a shuffled split is like being shown Monday and Wednesday and asked to guess Tuesday: easy. Real use is guessing next week from the past, which is much harder.</p>
+<div class="eg"><b>Reading the result</b><br>Shuffled k-fold: $R^2=0.957$, looks superb.<br>Time-ordered split: $R^2=-0.609$, worse than predicting the average.<br>Same model, same data. Only the split changed: it should match how the model will be used.</div>
+<h4>Learning curves: would more data help?</h4>
+<p>Before buying more ingredients, check whether the recipe is the problem. A learning curve shows whether more data still improves the model or whether it has stopped improving.</p>
+<h4>When the world changes: distribution shift</h4>
+<p>Train a model on summer shoppers and use it in December. Adversarial validation asks a simple question: can a model tell the old rows from the new ones? If yes, they're different.</p>
+<div class="eg"><b>Reading adversarial validation</b><br>No shift: AUC 0.540, about guessing → the data looks alike.<br>Feature 0 drifts: AUC 0.695 → the data really changed.<br>Feature 0's importance 0.59 → that is where the change is.</div>
+<div class="sticky"><b>In one breath</b><br>Report tuned models with nested CV or a once-only test set, split the way the model will be used (time order, groups), use learning curves before buying data, and watch for new data drifting away from the training data.</div>
 </div>
 <div class="sign">✎ in one line: fit on train, choose with validation or CV, judge once on test, and never let the test data leak in.</div>
 </article>

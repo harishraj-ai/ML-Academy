@@ -66,25 +66,17 @@
 <div class="sticky"><b>The golden rule</b><br>Put the time condition <b>inside the join</b>, so every feature uses only data from before that row's prediction time.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: indexes, NULL logic, rolling features</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: indexes, NULL logic and rolling features</h3>
 <h4>Indexes and query plans</h4>
-<p>Without an index, "find house 42's viewings" reads every row (a <b>full scan</b>). An index (usually a B-tree) jumps there in about $\log n$ steps. <code>EXPLAIN QUERY PLAN</code> shows the strategy.</p>
-<div class="eg"><b>Example</b><br>200,000 viewings: <code>SCAN</code> → <code>SEARCH … USING COVERING INDEX</code> (straight to house 42's 37 rows; "covering" = the index alone holds every needed column).</div>
-<p>Index what you filter and join on; indexes cost space and slow inserts. In warehouses (BigQuery, Snowflake) the equivalents are partitioning and clustering, and you pay per data scanned.</p>
-
+<p>Finding every mention of "tax" in a book: read every page (a full scan) or look it up in the index at the back and jump straight to the right pages. A database index works the same way.</p>
+<div class="eg"><b>Scan vs index</b><br>200,000 viewings. A full scan checks all 200,000 rows.<br>A B-tree index halves the search at each level: about $\log_2(200{,}000)\approx18$ steps to reach house 42.<br>Then it reads just that house's 37 rows.</div>
 <h4>NULL: three-valued logic</h4>
-<p>A comparison with NULL is <b>unknown</b>, and WHERE keeps only <b>true</b> rows.</p>
-<div class="eg"><b>Example</b><br>Discounts 10, NULL, 2, NULL: <code>NOT (discount &gt; 5)</code> returns only the row with 2, not the NULLs. <code>COUNT(discount)</code> = 2, not 4; <code>AVG</code> = 5.0 (treating missing as 0 would give 2.5).</div>
-<p>Use <code>COALESCE(x, 0)</code> only when missing truly means zero.</p>
-
+<p>Ask "is the unknown discount bigger than 5?" The honest answer is "don't know". Ask "is it NOT bigger than 5?" Still "don't know". SQL keeps only rows where the answer is a definite yes, so rows with unknown values drop out of both questions.</p>
+<div class="eg"><b>Reading each line</b><br><code>discount &gt; 5</code>: row 1 (10). Rows 2 and 4 are unknown, so dropped.<br><code>NOT (discount &gt; 5)</code>: only row 3. "Not unknown" is still unknown, so rows 2 and 4 vanish again.<br><code>discount = NULL</code>: nothing, ever. Use <code>IS NULL</code>: rows 2 and 4.<br><code>AVG(discount)</code> $=(10+0)/2=5.0$: the NULLs are skipped. Treating missing as 0 would give $(10+0+0+0)/4=2.5$.</div>
 <h4>Rolling features with window frames</h4>
-<p><code>ROWS BETWEEN 6 PRECEDING AND CURRENT ROW</code> = a rolling 7-day total; <code>LAG</code> = yesterday's value.</p>
-<div class="eg"><b>Example</b><br>Day 9's views_7d = 1 + 0 + 3 + 1 + 0 + 0 + 4 = <b>9</b> (days 3–9). Day 1 has no yesterday → NULL.</div>
-<ul>
-<li>Predicting at the <b>start</b> of day $d$? End the frame at <code>1 PRECEDING</code>, or that day's views leak in.</li>
-<li><code>ROWS</code> counts rows, not days: with missing days use <code>RANGE</code> on a numeric day, or fill the gaps.</li>
-</ul>
+<p>A 7-day rolling total is a sliding window: today plus the six days before. Slide it forward one day and the oldest day falls out while the newest comes in. <code>LAG</code> simply looks one row back.</p>
+<div class="eg"><b>Day 9's 7-day total</b><br>Window = days 3 to 9.<br>Views: $1+0+3+1+0+0+4=9$.<br>Day 1 has no previous day, so <code>views_yesterday</code> is NULL (NaN in pandas).</div>
+<div class="sticky"><b>In one breath</b><br>Index the columns you filter and join on and read the query plan; remember NULL makes comparisons unknown, so handle missing values explicitly; and build rolling features with window frames that only look at the past.</div>
 </div>
 <div class="sign">✎ in one line: LEFT JOIN to keep everyone, aggregate before joining, mind the NULLs, and use only the past.</div>
 </article>

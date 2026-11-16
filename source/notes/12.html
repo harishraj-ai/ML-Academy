@@ -42,29 +42,19 @@
 <div class="sticky"><b>A great baseline</b><br>Quick to try, hard to break. If a complex model can't beat it, the complexity isn't earning its keep.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: smoothing, text, generative models</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: smoothing, text pipelines and generative models</h3>
 <h4>Where smoothing comes from</h4>
-<div class="eg"><b>Example from the lesson</b><br>Two messages with words seen in only one class. Almost no smoothing (α = 10⁻¹⁰): answers of exactly <b>0 and 1</b>, decided by a single word. With α = 1: a sensible <b>0.184 and 0.735</b>.</div>
-<p class="fx">$P(\text{word }j\mid c)=\dfrac{\text{count}_{j,c}+\alpha}{\text{total}_c+\alpha V}$</p>
-<p>It's not a hack: it's the Bayesian posterior mean with a symmetric <b>Dirichlet prior</b> (the many-category Beta), like having seen every word α extra times. α is a regularization strength: tune by CV (0.01–1 is common for text).</p>
-
-<h4>Reading what it learned</h4>
-<p>Each word adds $\log P(w\mid\text{spam})-\log P(w\mid\text{ham})$ to the spam log-odds every time it appears.</p>
-<div class="eg"><b>Example</b><br>"win", "cash", "now", "prize": <b>+1.07</b> each. "monday", "meeting": <b>−1.12</b>.</div>
-<p>So the log-odds is a weighted sum of word counts: multinomial NB is a <mark>linear classifier</mark>, like logistic regression, with weights set by counting instead of optimisation.</p>
-
+<p>Naive Bayes multiplies one probability per word. If any word has probability 0, the whole product is 0, whatever the other words say. One unseen word acts like a veto. Smoothing removes the veto by giving every word a small starting count.</p>
+<div class="eg"><b>Add-one smoothing</b><br>"meeting" appeared 0 times among 20 spam words; vocabulary $V=10$.<br>Without smoothing: $0/20=0$, a veto.<br>With $\alpha=1$: $(0+1)/(20+10)=1/30\approx0.033$.<br>A word seen 4 times: $(4+1)/30\approx0.17$ instead of $4/20=0.20$, pulled slightly towards average.</div>
+<h4>Reading what the model learned</h4>
+<p>Think of a spam score that starts at a fixed value. Each word in the message adds or subtracts its own fixed amount. Reading those amounts tells you exactly why a message was flagged.</p>
+<div class="eg"><b>Scoring a message</b><br>Message: "win cash monday".<br>Start from the prior log-odds, say 0 (equal classes).<br>Add $1.07+1.07-1.12=1.02$. Positive → leans spam.<br>Odds $e^{1.02}\approx2.8$, so about $2.8/3.8\approx74\%$ spam.</div>
 <h4>A realistic text pipeline</h4>
-<ul>
-<li><b>Bigrams</b> (word pairs), so "not good" isn't "not" + "good".</li>
-<li><b>TF-IDF</b>: term frequency × inverse document frequency; down-weights words in every document ("the", "to").</li>
-<li><b>Complement NB</b>: more stable with imbalanced classes, often beats standard multinomial on text.</li>
-</ul>
-<p>Even on 8 messages it classifies both new ones correctly with 47 features. Also try a linear SVM or logistic regression on the same TF-IDF features; modern alternatives use embeddings or a fine-tuned transformer.</p>
-
-<h4>Generative vs discriminative</h4>
-<div class="twocol"><div class="box"><b>Generative</b> (NB, LDA, mixtures)<br>learns how each class <i>produces</i> data, $P(\mathbf{x}\mid y)$<br>· good with little data<br>· handles missing features naturally<br>· can generate examples<br>· probabilities often badly calibrated</div><div class="box"><b>Discriminative</b> (logistic regression, SVM, neural nets)<br>learns the boundary $P(y\mid\mathbf{x})$ directly<br>· needs more data<br>· usually more accurate with lots of data<br>· better calibrated</div></div>
-<p>Ng and Jordan (2001): NB reaches its best error with far fewer examples (about logarithmic in the number of features), logistic regression needs more (about linear) but ends lower when independence is wrong. Today's generative AI is the generative idea at enormous scale.</p>
+<p>Single words lose meaning: "not good" becomes "not" + "good", which sounds positive. And words like "the" appear everywhere, so they tell you nothing. A real pipeline fixes both.</p>
+<div class="eg"><b>The IDF part</b><br>1,000 documents. "the" is in all 1,000: IDF $=\log(1000/1000)=0$, ignored.<br>"refund" is in 10: IDF $=\log(1000/10)=\log100\approx4.6$, a strong signal.</div>
+<h4>Generative vs discriminative models</h4>
+<p>Two ways to tell spam from real mail. A <strong>generative</strong> model learns how each kind of email is <em>written</em> (what words spammers use, what words colleagues use), then asks which writer more likely wrote this one. A <strong>discriminative</strong> model never learns how emails are written; it only learns where to draw the line between them.</p>
+<div class="sticky"><b>In one breath</b><br>Smoothing removes the veto of unseen words and is really a Bayesian prior; each word adds a fixed amount to the spam score, so the model is easy to read; real pipelines add bigrams and TF-IDF; and naive Bayes learns fast from little data, while logistic regression wins with more.</div>
 </div>
 <div class="sign">✎ in one line: prior × word likelihoods, with smoothing and logs; fast, simple and a strong text baseline.</div>
 </article>

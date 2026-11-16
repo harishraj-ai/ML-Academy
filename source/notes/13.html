@@ -66,28 +66,16 @@
 <p>The fix for instability: many trees combined (Lesson 14).</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: pruning, honest importance, instability</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: pruning, honest importances and instability</h3>
 <h4>Cost-complexity pruning</h4>
-<p>Depth limits stop growth early, but a useless-looking split can enable a very useful one below it. Pruning grows the full tree, then removes the "weakest links" one at a time as α grows, giving a nested sequence of smaller trees.</p>
-<div class="eg"><b>Example from the lesson</b><br>Full tree: 16 leaves, perfect on training, <b>0.906</b> on test. Pruned to 6 leaves: test <b>0.918</b>. Pruned to 3: too far (0.889). CV on the training set picks α ≈ 0.0088, the 6-leaf tree.</div>
-
-<h4>Impurity vs permutation importance</h4>
-<p>The default <code>feature_importances_</code> is measured on <b>training</b> data (memorised noise still earns credit) and favours many-valued features.</p>
-<div class="eg"><b>Example from the lesson</b><br>Add a pure-noise column with a different value on every row (like a customer ID). Impurity importance ranks it <b>6th of 31</b>, ahead of 25 real measurements. Permutation importance on test data: exactly <b>0</b>.</div>
-<p><mark>Report permutation importance (or SHAP) instead.</mark> Correlated features can still hide each other, and "used" ≠ "causes".</p>
-
+<p>Grow a hedge freely, then trim it back. Every leaf has a "price", and you keep a branch only if it fixes enough mistakes to pay for its leaves. Raise the price and more branches get cut.</p>
+<div class="eg"><b>Keep or cut this branch?</b><br>A branch adds 3 leaves and reduces the training error rate by 0.06.<br>At $\alpha=0.01$: cost $3\times0.01=0.03$; saving 0.06 &gt; 0.03 → keep.<br>At $\alpha=0.03$: cost 0.09 &gt; 0.06 → cut.<br><i>As $\alpha$ rises, the weakest branches go first ("weakest-link" pruning), giving a sequence of smaller and smaller trees.</i></div>
+<h4>Feature importance: impurity vs permutation</h4>
+<p>To find out how much a football team depends on a player, replace them with a random stranger and watch what happens to the score. Permutation importance does this for features: shuffle one column and see how much worse the model gets on new data.</p>
+<div class="eg"><b>Reading it</b><br>Impurity importance ranks the noise column 6th of 31, ahead of 25 real medical measurements.<br>Permutation importance on test data: exactly 0. Shuffling noise changes nothing.</div>
 <h4>Trees are unstable</h4>
-<div class="eg"><b>Example from the lesson</b><br>100 bootstrap samples of the same data: <b>5 different features</b> end up at the root ("worst perimeter" 52 times, "worst concave points" 30, three others).</div>
-<p>Explaining a decision by one tree's structure is fragile. This high variance is exactly what bagging and random forests average away, keeping the low bias.</p>
-
-<h4>Practical details</h4>
-<ul>
-<li>Regression trees <b>can't extrapolate</b> beyond the training range.</li>
-<li>Categories: one-hot works; LightGBM and CatBoost split categories directly.</li>
-<li>Missing values: recent scikit-learn trees learn which side they go.</li>
-<li>Finding the smallest accurate tree is NP-hard, hence greedy growing.</li>
-</ul>
+<p>In a guessing game, the first question decides which questions come after. Change a few people in the room and a different first question may look best, and then every later question changes too. A tree is built the same way, one greedy split at a time.</p>
+<div class="sticky"><b>In one breath</b><br>Grow the tree fully and prune it with a price per leaf chosen by cross-validation; trust permutation importance on test data, not impurity importance; and remember a small change in the data can reshape a whole tree, which is why forests average many.</div>
 </div>
 <div class="sign">✎ in one line: ask the question that makes the purest groups, repeat, prune before it memorises, and trust permutation importance.</div>
 </article>

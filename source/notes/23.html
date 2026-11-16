@@ -46,24 +46,12 @@
 
 <div class="deeper">
 <h3 class="dh"><span class="n">★</span>Going deeper: Bayesian optimisation from scratch</h3>
-
 <h4>The surrogate: a Gaussian process</h4>
-<p>A GP is a probability distribution over smooth functions. Given a few results it predicts a mean $\mu(x)$ and an uncertainty $\sigma(x)$ everywhere: confident near tried points, unsure far away. Its smoothness comes from a kernel (here Matérn), with the length scale learned from the data.</p>
-
+<p>You've measured the temperature at a few spots in a field and want to guess it everywhere else. Near your measurements you can be confident; far away you can only guess roughly. A Gaussian process draws a smooth best-guess curve with a band of uncertainty that's thin near measurements and wide far from them.</p>
 <h4>Choosing the next trial: expected improvement</h4>
-<p>With best-so-far $f^*$ and $z=(\mu-f^*)/\sigma$:</p>
-<p class="fx">$\text{EI}(x)=(\mu-f^*)\,\Phi(z)+\sigma\,\phi(z)$</p>
-<p>First term: a high predicted score (<b>exploitation</b>). Second: high uncertainty (<b>exploration</b>). Each round: fit the GP, pick the largest EI, evaluate, repeat.</p>
-<div class="eg"><b>Example from the lesson</b> (gap to the true best, average of 20 runs; a narrow peak over log learning rate)<br>5 trials: BO <b>0.130</b> vs random 0.119 (no better yet: 3 are random starts).<br>10 trials: BO <b>0.0103</b> vs random 0.0510 (5× closer).<br>15 trials: BO finds the peak every time; random still 0.026 away.</div>
-<p>Best when trials are expensive, you can afford only tens of them, and the space is low-dimensional.</p>
-
-<h4>In practice</h4>
-<ul>
-<li><b>Dimensions</b>: GPs up to ~10–20 hyperparameters; Optuna's <b>TPE</b> copes better with many, categorical and conditional ones ("number of layers", then a width per layer).</li>
-<li><b>Noise</b>: model it (white-noise term / <code>alpha</code>) or it chases lucky trials.</li>
-<li><b>Parallelism</b>: random search parallelises trivially; BO is sequential and needs tricks.</li>
-<li><b>Pruning</b>: a smart sampler + early stopping of bad trials (Optuna pruners, Hyperband) gives the biggest savings.</li>
-</ul>
+<p>Drilling for oil: drill next to your best well (likely good, small upside) or somewhere unexplored (could be terrible, could be a gusher). Expected improvement scores both kinds of spot on one scale: how much better than your best well you can expect to do.</p>
+<div class="eg"><b>A safe spot vs an uncertain spot (best so far 0.78)</b><br>Safe: $\mu=0.80$, $\sigma=0.05$. $z=0.4$, EI $\approx0.02\times0.66+0.05\times0.37\approx0.032$.<br>Uncertain: $\mu=0.70$ (worse on average!), $\sigma=0.15$. $z\approx-0.53$, EI $\approx-0.08\times0.30+0.15\times0.35\approx0.028$.<br>Nearly as attractive: big uncertainty means a real chance of a big win.</div>
+<div class="sticky"><b>In one breath</b><br>Bayesian optimisation fits a cheap surrogate (a Gaussian process) that gives a best guess and an uncertainty for every setting, then tries the setting with the highest expected improvement, balancing exploring and exploiting; it shines when trials are few and expensive.</div>
 </div>
 <div class="sign">✎ in one line: tune with CV on a log scale, prefer random or Bayesian search, report nested CV, pick the simplest good model.</div>
 </article>

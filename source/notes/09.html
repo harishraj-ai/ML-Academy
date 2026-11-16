@@ -90,36 +90,19 @@
 
 <div class="deeper">
 <h3 class="dh"><span class="n">★</span>Going deeper: comparing models honestly</h3>
-
 <h4>Every score needs an error bar</h4>
-<p>A test set is a sample. With 171 test cases, one unusual case moves accuracy by about 0.6 points. Accuracy has a formula, $\sqrt{p(1-p)/n}$; for AUC, F1 or precision use the <b>bootstrap</b>. When comparing two models, bootstrap the <b>difference</b> on the same resampled cases (their scores move together).</p>
-<div class="eg"><b>Example from the lesson</b><br>Logistic regression AUC <b>0.996</b>, depth-3 tree <b>0.904</b>. 95% interval for the difference: 0.046 to 0.15. It excludes 0, so it's not a fluke. If it had crossed 0: "no clear winner".</div>
-
-<h4>Paired tests: McNemar</h4>
-<p>Only the cases where the two models <b>disagree</b> matter. If they were equally good, each disagreement would be a coin flip.</p>
-<div class="eg"><b>Example</b><br>Logistic regression right / tree wrong: 11 cases; the reverse: 1. A split this lopsided has probability <b>0.0063</b> if they were equal → logistic regression really is more accurate here.</div>
-<p>With cross-validation the folds overlap, so plain t-tests are over-confident; use the corrected resampled t-test or the 5×2 CV test.</p>
-
+<p>A test set is like one exam paper. A student who scores 92% might score 89% or 95% on a different paper with similar questions. A model's test score wobbles in the same way, and the error bar says by how much.</p>
+<div class="eg"><b>How much one case is worth</b><br>171 test cases.<br>One case $=1/171\approx0.6$ percentage points of accuracy.<br>So 95.3% vs 94.7% can be a single case's difference.<br>Formula for accuracy's wobble: $\sqrt{p(1-p)/n}=\sqrt{0.95\times0.05/171}\approx0.017$, about ±1.7 points.</div>
+<h4>Paired tests: McNemar's test</h4>
+<p>To find out which of two judges is better, only look at the cases where they disagreed. If they were equally good, each disagreement would be like a coin flip: sometimes one is right, sometimes the other.</p>
+<div class="eg"><b>McNemar by hand</b><br>Disagreements: 11 only logistic right, 1 only the tree right; 12 in total.<br>If equally good, it's 12 coin flips. Chance of 11 or more heads: $(12+1)/2^{12}=13/4096\approx0.0032$.<br>Either direction counts (two-sided): $2\times0.0032\approx$ <strong>0.0063</strong>, the p-value shown.<br>So logistic regression is very likely more accurate here.</div>
 <h4>Choosing the threshold from costs</h4>
-<p>Flagging costs $c_{FP}(1-p)$ on average, not flagging costs $c_{FN}\,p$. Flag when</p>
-<p class="fx">$p&gt;\dfrac{c_{FP}}{c_{FP}+c_{FN}}$</p>
-<p>(only valid with calibrated probabilities).</p>
-<div class="eg"><b>Example from the lesson</b><br>Missing a malignant tumour costs 20, a false alarm 1 → threshold $1/21\approx0.048$. At 0.5: 3 cancers missed, total cost <b>64</b>. At 0.05: none missed, 18 false alarms, cost <b>18</b>. (Choose it on validation data in real projects.)</div>
-
-<h4>ROC-AUC vs average precision for rare positives</h4>
-<p>TPR and FPR are rates within each class, so the ROC curve <b>doesn't change</b> when positives become rarer. Precision does: a small FPR then means many false alarms.</p>
-<div class="eg"><b>Example</b><br>Same model, positives from 50% down to 1%: ROC-AUC stays about <b>0.86</b>; average precision falls from <b>0.855 to 0.136</b>.</div>
-<p>ROC-AUC asks "does it rank positives above negatives?"; AP asks "<mark>when it raises an alert, how often is it right?</mark>", which is what the people receiving the alerts experience.</p>
-
-<h4>A reporting checklist</h4>
-<ul>
-<li>The metric, chosen <b>before</b> seeing results.</li>
-<li>A simple baseline.</li>
-<li>A confidence interval.</li>
-<li>A <b>paired</b> comparison (overlapping intervals don't prove "no difference").</li>
-<li>The threshold and why.</li>
-<li>Results by subgroup (averages can hide groups the model fails, Lesson 21).</li>
-</ul>
+<p>Missing a tumour is far worse than sending someone for an extra test. So a doctor should order the test even when the chance of a tumour is fairly small. The threshold is a business (or medical) decision, not a statistics one.</p>
+<div class="eg"><b>Threshold for missed tumour = 20, false alarm = 1</b><br>Threshold $=1/(1+20)=1/21\approx0.048$.<br>A case with probability 0.1: flagging costs $1\times0.9=0.9$; not flagging costs $20\times0.1=2$. Flag it.<br>A case with 0.03: flagging costs 0.97; not flagging costs 0.6. Don't flag.</div>
+<h4>ROC-AUC vs average precision when positives are rare</h4>
+<p>An alarm that wrongly rings for 1 in 100 innocent people sounds good. But if only 1 in 1,000 people is guilty, almost every alarm is false. ROC-AUC doesn't notice this; precision does.</p>
+<div class="eg"><b>Why precision collapses</b><br>10,000 people, 1% positive: 100 positives, 9,900 negatives.<br>The model catches 80 positives and wrongly flags 5% of negatives: 495.<br>Precision $=80/(80+495)\approx0.14$: only 1 alert in 7 is real.<br>Same model with 50% positives: 4,000 caught vs 250 false → precision 0.94.</div>
+<div class="sticky"><b>In one breath</b><br>Every score is an estimate, so give it an error bar; compare models on the same cases with a paired bootstrap or McNemar's test; set the threshold from the cost of each mistake; with rare positives report average precision next to its baseline; and always include a simple baseline.</div>
 </div>
 <div class="sign">✎ in one line: accuracy hides rare classes; ask "how many caught?" and "how many false alarms?", and put an error bar on every score.</div>
 </article>

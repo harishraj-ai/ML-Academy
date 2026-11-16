@@ -55,19 +55,13 @@
 
 <div class="deeper">
 <h3 class="dh"><span class="n">★</span>Going deeper: when features are correlated</h3>
-
 <h4>Three methods, three answers</h4>
-<p>Target depends on <i>a</i> (weight 3) and <i>c</i> (weight 1); <i>b</i> is a near-copy of <i>a</i>. <b>Drop-column importance</b> retrains without each feature: "what would we lose without it?"</p>
-<div class="eg"><b>Example from the lesson</b><br>Permutation: a <b>1.045</b>, b 0.129 (the forest uses both).<br>Drop-column: a <b>0.004</b>, b <b>0</b> (drop one, the model uses the other); c <b>0.117</b> (unique information).</div>
-<p>Permutation asks "does the model use it?"; drop-column asks "is the information replaceable?". With correlated features, report or shuffle/drop them <b>as a group</b>.</p>
-
-<h4>Exact SHAP for linear models</h4>
-<p class="fx">$\phi_j=w_j\,(x_j-\bar x_j)$</p>
-<p>(weight × how far this row is from average, for independent features). Averaging $|\phi_j|$ over rows gives a <b>global</b> importance in prediction units.</p>
-<div class="eg"><b>Example</b><br>The linear model split the near-duplicates as a <b>2.75</b>, b <b>0.24</b>, an arbitrary split that could flip with different noise. Mean |SHAP|: 2.31, 0.20, 0.79. Efficiency holds: baseline + contributions = prediction exactly (3.9815).</div>
-
-<h4>Interventional vs conditional SHAP</h4>
-<ul><li><b>Interventional</b> (the default): treats features as independent, explains the <b>model</b>.</li><li><b>Conditional</b>: respects correlations, closer to the data-generating relationship, harder to compute, and can credit features the model never uses.</li></ul>
+<p>Two witnesses who saw exactly the same thing. Ask "how much does the case rely on witness A?" (shuffle A) and the answer is "a lot". Ask "how much would we lose without witness A?" (drop A) and the answer is "nothing, B can say the same". Both answers are true.</p>
+<div class="eg"><b>Reading the two rows</b><br>Permutation: a 1.045, b 0.129. The forest uses both, a much more.<br>Drop-column: a 0.004, b 0. Remove either and the model uses the other.<br>c: 0.117 when dropped, because its information is unique.</div>
+<h4>Exact SHAP for linear models, and global SHAP</h4>
+<p>For a straight-line model, a feature's share of a prediction is simple: its weight times how far this row's value is from average. Sum those shares, add the average prediction, and you get exactly the prediction.</p>
+<div class="eg"><b>One house</b><br>Weight for size $w=3$; this house's size 5, average 3: $\phi=3\times2=+6$.<br>Weight for age $w=-1$; this house 4, average 2: $\phi=-1\times2=-2$.<br>Average prediction 100 → this prediction $100+6-2=104$. Exactly the model's output.</div>
+<div class="sticky"><b>In one breath</b><br>With correlated features, permutation, drop-column and SHAP answer different questions, so say which one you used and report correlated features as a group; for linear models SHAP is simply weight × distance from average, and the shares always add up to the prediction.</div>
 </div>
 <div class="sign">✎ in one line: shuffle-and-see for global importance, SHAP for local credit, group correlated features, and never read importance as cause.</div>
 </article>

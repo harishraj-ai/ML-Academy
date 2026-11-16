@@ -57,31 +57,22 @@
 <div class="eg"><b>Example</b><br>Scores cat 2, dog 1, rabbit 0 → $e^z$ = 7.39, 2.72, 1 (total 11.11) → <b>66.5% / 24.5% / 9%</b>.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: a probability model</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: logistic regression as a probability model</h3>
 <h4>Why the loss is convex</h4>
-<p>Gradient $X^\top(\mathbf{p}-\mathbf{y})$; Hessian $H=X^\top SX$ with $S=\text{diag}(p_i(1-p_i))$. Every $p_i(1-p_i)&gt;0$, so $H$ is positive semi-definite everywhere: <mark>one valley, no bad local minima</mark>. Note $p(1-p)$ is largest (0.25) near the boundary and tiny for confident points, so confident points hardly shape the curvature.</p>
-
-<h4>How libraries solve it: Newton / IRLS</h4>
-<p>With a moderate number of features the Hessian is cheap, so use Newton's method; each step is a weighted least-squares problem, hence <b>IRLS</b> (iteratively reweighted least squares). An L2 penalty adds $\lambda\mathbf{w}$ to the gradient and $\lambda I$ to the Hessian.</p>
-<div class="eg"><b>Example from the lesson</b><br>Breast-cancer data, 5 features: step sizes $6\times10^{-4}$ → $1.5\times10^{-7}$ → $8\times10^{-15}$. Correct digits roughly double each step (quadratic convergence); 9 steps match scikit-learn to 4 decimals.</div>
-<div class="sticky"><b>scikit-learn's C</b><br>$C=1/\lambda$: <b>smaller C = stronger regularization</b>. It's on by default. Without it, perfectly separable data sends the weights to infinity.</div>
-
-<h4>Calibration: can you trust the probabilities?</h4>
-<p>Well calibrated = of all cases scored 0.8, about 80% are positive. Accuracy and AUC ignore this (they only care about order). Check with a <b>reliability table</b> (bin predictions, compare with the actual rate) and the <b>Brier score</b> = mean of $(p_i-y_i)^2$.</p>
-<div class="eg"><b>Example from the lesson</b><br>Logistic regression: bins line up (0.02 → 0%, 0.98 → 99%), Brier <b>0.018</b>. Gaussian naive Bayes: 107 cases at 0.00 but 10% positive, Brier <b>0.071</b> (4× worse), because it counts correlated evidence several times.</div>
-<p>Fix a badly calibrated model with <code>CalibratedClassifierCV</code>: <b>Platt scaling</b> or <b>isotonic regression</b>, on held-out data.</p>
-
+<p>Imagine the loss as a landscape and training as a marble rolling downhill. If the landscape is a single smooth bowl, the marble always ends at the same lowest point, wherever it starts. Log loss for logistic regression is exactly such a bowl.</p>
+<div class="eg"><b>How much each row bends the bowl</b><br>A row the model is unsure about, $p=0.5$: $0.5\times0.5=0.25$ (the most possible).<br>Fairly sure, $p=0.9$: $0.9\times0.1=0.09$.<br>Very sure, $p=0.99$: $0.99\times0.01\approx0.01$.<br><i>So the shape of the bowl is set mainly by the hard cases near the boundary. Easy cases hardly matter.</i></div>
+<h4>How libraries solve it: Newton's method (IRLS)</h4>
+<p>Gradient descent feels the slope and takes small careful steps. Newton's method also measures how curved the bowl is, works out where the bottom of that bowl should be, and jumps there. Near the answer, each jump roughly doubles the number of correct digits.</p>
+<h4>Can you trust the probabilities? Calibration</h4>
+<p>A weather forecaster who says "80% chance of rain" should see rain on about 8 of every 10 such days. If it rains on only 5, their percentages can't be trusted, even if they're good at saying which days are wetter. Calibration checks a classifier in the same way.</p>
+<div class="eg"><b>The Brier score for three cases</b><br>Predicted 0.9, truly positive (1): $(0.9-1)^2=0.01$.<br>Predicted 0.2, truly negative (0): $(0.2-0)^2=0.04$.<br>Predicted 0.7, truly negative (0): $(0.7-0)^2=0.49$, a confident mistake costs a lot.<br>Brier score = average $=(0.01+0.04+0.49)/3=0.18$.</div>
 <h4>When one class is rare</h4>
-<div class="eg"><b>Example from the lesson</b><br>5% positives. Default model: recall only <b>7.5%</b>, but honest probabilities (average 0.055 vs true 0.054). With <code>class_weight="balanced"</code> (each positive counts ~19×): recall <b>82.2%</b>, precision 0.187, and the average prediction is 0.314, nowhere near 5%.</div>
-<ul>
-<li>Need trustworthy probabilities (pricing, expected cost)? Keep the model unweighted and <b>move the threshold</b>.</li>
-<li>Only need decisions? Either works.</li>
-<li>Oversampling / SMOTE acts like reweighting, and must happen only inside training folds.</li>
-</ul>
-
-<h4>Softmax gradient</h4>
-<p>$\nabla_WL=\mathbf{x}(\mathbf{p}-\mathbf{y})^\top$ with $\mathbf{y}$ one-hot. "Prediction minus truth, times input" appears in linear regression, logistic regression, softmax and a network's output layer, because all are <b>generalised linear models</b> trained by maximum likelihood with their natural link.</p>
+<p>Looking for 5 needles in 100 handfuls of hay. Always answering "hay" is 95% accurate and completely useless. To find needles you must accept looking at some hay too.</p>
+<div class="eg"><b>Where "about 19 times" comes from</b><br>5% positives, 95% negatives.<br>Balanced weights make both classes count equally: $95/5=19$.<br>So one missed positive now hurts as much as 19 false alarms.</div>
+<h4>More than two classes: the softmax gradient</h4>
+<p>With several classes the model gives each class a score, and softmax turns the scores into probabilities that add up to 1. The learning rule stays exactly the same: push each class's probability towards its true value.</p>
+<div class="eg"><b>One row, three classes</b><br>Predicted $\mathbf{p}=(0.7,0.2,0.1)$; true class is the 2nd, so $\mathbf{y}=(0,1,0)$.<br>$\mathbf{p}-\mathbf{y}=(0.7,-0.8,0.1)$.<br>Training lowers class 1's score (too high by 0.7), raises class 2's (too low by 0.8), lowers class 3's a little.</div>
+<div class="sticky"><b>In one breath</b><br>Log loss is a single bowl, so training always finds the best weights; libraries use Newton steps and converge in a few iterations; check calibration (reliability table, Brier score) before trusting probabilities; with rare positives prefer moving the threshold to keep honest probabilities; and the softmax gradient is still prediction minus truth times input.</div>
 </div>
 <div class="sign">✎ in one line: a linear score squashed into a probability, trained with log loss, turned into a decision by a threshold you choose.</div>
 </article>

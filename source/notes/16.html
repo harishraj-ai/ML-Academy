@@ -68,29 +68,16 @@
 </ul>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: mixtures, density, hierarchy</h3>
-
-<h4>Gaussian mixtures and EM</h4>
-<p>Each point comes from cluster $k$ (probability $\pi_k$), drawn from a normal with mean $\boldsymbol\mu_k$ and covariance $\Sigma_k$, so clusters can be <b>stretched and tilted</b>. Fitted by <b>EM</b>:</p>
-<ul><li><b>E-step</b>: for every point, the probability ("responsibility") each cluster produced it (Bayes).</li><li><b>M-step</b>: re-estimate $\pi_k,\boldsymbol\mu_k,\Sigma_k$ weighted by responsibilities.</li></ul>
-<p>Never lowers the likelihood; can hit local optima, so restart. k-means = EM with round equal clusters and hard 0/1 responsibilities.</p>
-<div class="eg"><b>Example from the lesson</b><br>Three stretched, tilted blobs: k-means ARI <b>0.58</b>, Gaussian mixture <b>1.0</b>. Bonus: <b>soft</b> assignments show which points are genuinely ambiguous.</div>
-
-<h4>Any shape: DBSCAN and linkage</h4>
-<div class="eg"><b>Example: two half-moons</b><br>DBSCAN <b>1.000</b>, single linkage <b>1.000</b> (follow dense regions). k-means 0.253, Gaussian mixture 0.495, Ward 0.559 (assume compact groups, cut each moon in half).</div>
-<ul><li>Single linkage risks <b>chaining</b>: a thin bridge of noise merges two clusters.</li><li>DBSCAN is sensitive to eps and struggles with very different densities → <b>HDBSCAN</b> tries many densities.</li><li>Dendrograms help when the right level of detail is unknown (segments, taxonomies).</li></ul>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: mixture models, density and hierarchy</h3>
+<h4>Gaussian mixture models and the EM algorithm</h4>
+<p>k-means draws circles around groups. A mixture model draws stretched, tilted ovals, and instead of a hard "this point is in group 2" it says "70% group 2, 30% group 3". It learns by repeating two steps: guess who belongs where, then redraw the ovals.</p>
+<div class="eg"><b>One E-step for one point</b><br>Two clusters, equal sizes. The point's density under cluster A is 0.06, under B 0.02.<br>Responsibility of A: $0.06/(0.06+0.02)=0.75$; B: 0.25.<br>In the M-step this point counts as 0.75 of a point for A's new centre and 0.25 for B's.</div>
+<h4>Clusters of any shape: DBSCAN and linkage</h4>
+<p>Think of islands on a map. Land connected by crowded ground forms one island, whatever its shape; lone rocks in the sea are noise. DBSCAN finds clusters this way, by following dense regions.</p>
 <h4>Choosing the number of clusters</h4>
-<ul><li><b>Silhouette</b>: higher is better.</li><li><b>BIC</b> (mixtures): $-2\log L+p\log n$; penalises extra clusters; lower is better.</li></ul>
-<div class="eg"><b>Example</b><br>4 true clusters: silhouette peaks at k = 4 (<b>0.811</b>), BIC is lowest at k = 4 (<b>5133</b>). On real data signals are weaker: also ask whether each segment is useful.</div>
-
-<h4>Which method?</h4>
-<ul>
-<li><b>k-means</b>: round, similar blobs; needs k; scale first.</li>
-<li><b>Gaussian mixture</b>: elliptical, soft membership; choose k by BIC.</li>
-<li><b>DBSCAN / HDBSCAN</b>: any shape, marks noise; tune eps / min_samples.</li>
-<li><b>Agglomerative</b>: a hierarchy; ~$O(n^2)$ memory; chaining with single linkage.</li>
-</ul>
+<p>A good grouping has points close to their own group and far from the next one. More clusters always make groups tighter, so a fair score must also penalise splitting for the sake of it.</p>
+<div class="eg"><b>One point's silhouette</b><br>Average distance to its own cluster $a=2$, to the nearest other cluster $b=6$.<br>$s=(6-2)/6\approx0.67$: clearly in the right place.<br>If $a=5$, $b=4$: $s=(4-5)/5=-0.2$, probably mis-assigned.</div>
+<div class="sticky"><b>In one breath</b><br>Use a Gaussian mixture (fitted by EM) for stretched or overlapping clusters and soft membership, DBSCAN or single linkage for odd shapes and noise, and the silhouette or BIC, together with common sense about usefulness, to choose how many clusters.</div>
 </div>
 <div class="sign">✎ in one line: k-means for round groups, mixtures for stretched ones, DBSCAN for odd shapes and outliers, and check that the groups are useful.</div>
 </article>

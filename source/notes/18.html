@@ -68,34 +68,19 @@
 
 <div class="deeper">
 <h3 class="dh"><span class="n">★</span>Going deeper: making deep networks trainable</h3>
-
-<h4>Initialisation keeps the signal alive</h4>
-<p>With $n$ inputs of variance 1 and weight variance $s^2$, a unit's sum has variance about $ns^2$: above 1 it grows layer by layer, below 1 it shrinks.</p>
-<ul><li><b>Xavier (Glorot)</b>: variance $1/n$, for tanh-like activations.</li><li><b>He</b>: variance $2/n$, for ReLU (which zeroes half its inputs).</li></ul>
-<div class="eg"><b>Example: 20 layers of width 256</b><br>std 0.01 → spread <b>10⁻¹⁶</b> by layer 20 (vanished).<br>std 1 with tanh → 86.6% of units saturated beyond ±0.99 (almost no gradient).<br>Xavier + ReLU fades (0.000893); <b>He + ReLU stays steady (0.674)</b>.</div>
-
+<h4>Initialisation: keeping the signal alive</h4>
+<p>Whisper a message down a line of 20 people. If each person speaks a little louder than they heard, it ends as a shout; a little quieter, and it ends as silence. Good initialisation makes each layer pass the signal on at the same volume.</p>
+<div class="eg"><b>Width 256</b><br>Weights with std 0.01: $256\times0.01^2=0.0256$ per layer. After 20 layers: $0.0256^{20}$, effectively 0.<br>Xavier: $256\times(1/256)=1$. Steady (for tanh).<br>He: $256\times(2/256)=2$, and ReLU halves it back to about 1. Steady.</div>
 <h4>Vanishing gradients, measured</h4>
-<p>Sigmoid's slope is at most 0.25, so 20 layers can shrink a gradient by $0.25^{20}\approx10^{-12}$.</p>
-<div class="eg"><b>Example</b><br>Sigmoid: the first layer's gradient is <b>4 × 10⁻¹¹</b> (early layers never learn). ReLU + He: same order of magnitude throughout (197 at the end, 524 at the start).</div>
-<p>This, plus good initialisation and <b>residual connections</b> ($\mathbf{h}+f(\mathbf{h})$), made deep networks trainable around 2010–2012.</p>
-
+<p>Backpropagation passes the error backwards, multiplying by each layer's slope. Multiply by 0.25 again and again and almost nothing is left by the time you reach the first layer. Multiply by 1 and the message arrives intact.</p>
+<div class="eg"><b>20 sigmoid layers</b><br>Sigmoid's steepest slope is 0.25.<br>$0.25^{20}\approx9\times10^{-13}$, about a trillionth.<br>ReLU's slope is exactly 1 where active: $1^{20}=1$.</div>
 <h4>Batch normalisation</h4>
-<p class="fx">$\hat z=\dfrac{z-\mu_{\text{batch}}}{\sqrt{\sigma^2_{\text{batch}}+\epsilon}},\qquad\text{out}=\gamma\hat z+\beta$</p>
-<p>Keeps each layer's inputs in a steady range → bigger learning rates, less sensitivity to initialisation. At prediction time it uses running averages. <b>Layer norm</b> normalises within one example (no batch dependence): the standard in transformers.</p>
-
+<p>Before mixing a song, every microphone is set to the same level, so one loud singer doesn't drown the rest. Batch norm resets each unit's values to a standard level before the next layer, however the earlier layers change.</p>
+<div class="eg"><b>Normalising one unit</b><br>Batch values 2, 4, 6: mean 4, std about 1.63.<br>$\hat z$: $-1.22, 0, +1.22$.<br>With $\gamma=2$, $\beta=1$: $-1.45, 1, 3.45$. The network chooses the final level.</div>
 <h4>Dropout</h4>
-<p>Randomly switch off each hidden unit with probability $p$ during training, so the network can't lean on any single unit; like averaging a huge ensemble of thinned networks. <b>Inverted dropout</b> scales survivors by $1/(1-p)$ so nothing changes at prediction time.</p>
-<div class="eg"><b>Example</b><br>p = 0.5: about half survive (0.498), average activation stays ≈ 1 (0.995).</div>
-<div class="box red">In PyTorch, forgetting <code>model.eval()</code> before predicting (dropout and batch norm still in training mode) is a classic bug.</div>
-
-<h4>A recipe for a new network</h4>
-<ul>
-<li>Activation: ReLU (GELU in transformers). Initialisation: framework default.</li>
-<li>Normalisation: batch norm for CNNs, layer norm for transformers.</li>
-<li>Optimiser: AdamW, ~$10^{-3}$, warm-up then decay.</li>
-<li>Regularization: weight decay, dropout 0.1–0.5, early stopping, augmentation.</li>
-<li><b>First check</b>: overfit a tiny batch (~10 examples) to near-zero loss. If you can't, there's a bug.</li>
-</ul>
+<p>A team where random players sit out each practice. Nobody can rely on one star player, so everyone learns to contribute. At the real match, everyone plays.</p>
+<div class="eg"><b>Why scale by $1/(1-p)$</b><br>$p=0.5$: about half the units survive.<br>Without scaling, the next layer would receive about half its usual total.<br>Multiply survivors by $1/(1-0.5)=2$: the total is back to normal.</div>
+<div class="sticky"><b>In one breath</b><br>Start weights at the right scale (Xavier for tanh, He for ReLU), prefer ReLU so gradients don't vanish, normalise layers to keep them stable, use dropout and weight decay against memorising, remember model.eval(), and start from a proven recipe.</div>
 </div>
 <div class="sign">✎ in one line: layers of weighted sums plus non-linearities, trained by passing the error backwards, kept trainable by good initialisation and normalisation.</div>
 </article>

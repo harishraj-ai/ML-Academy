@@ -63,31 +63,23 @@
 
 <div class="deeper">
 <h3 class="dh"><span class="n">★</span>Going deeper: regularization in practice</h3>
-
 <h4>Measuring bias and variance</h4>
-<p>Simulate: draw many training sets, fit each, look at the predictions at fixed points. Their average vs the truth → bias²; their spread → variance.</p>
-<div class="eg"><b>Example from the lesson</b><br>Degree-9 polynomial with ridge, 20 noisy sine points, 300 repeats:<br>almost no penalty: bias² <b>0.001</b>, variance <b>1.133</b> (wildly different curves).<br>λ = 10: variance 0.025, bias² 0.335 (all curves flat).<br>Best total <b>0.240</b> at λ = 0.1, in between.</div>
-
+<p>Throw darts many times. <strong>Bias</strong> is how far the <em>average</em> landing spot is from the bullseye. <strong>Variance</strong> is how scattered the darts are. A model trained on many different training sets is like many darts.</p>
+<div class="eg"><b>Reading the rows</b><br>$\lambda=10^{-6}$ (almost no penalty): bias² 0.001, variance 1.133. Every curve is different and wild.<br>$\lambda=10$ (strong penalty): variance 0.025, but bias² 0.335. Every curve is flat and wrong.<br>$\lambda=0.1$: bias² 0.100 + variance 0.050 + noise 0.09 = <strong>0.240</strong>, the best total.<br><i>This is the U-shaped trade-off from the lesson, with real numbers.</i></div>
 <h4>Why lasso gives exact zeros: soft-thresholding</h4>
-<p>If least squares alone would set a weight to $z$ (standardised features):</p>
-<p class="fx">ridge: $w=\dfrac{z}{1+\lambda}\qquad$ lasso: $w=\text{sign}(z)\max(|z|-\lambda,\,0)$</p>
-<div class="eg"><b>Example</b><br>λ = 1: lasso turns 3.0 → 2.0, but 0.8 and −0.3 → <b>exactly 0</b>. Ridge just halves everything.</div>
-<p>Solvers use <b>coordinate descent</b>: apply this rule to each weight in turn, repeat. Fast enough to fit a whole "regularization path" of λ values.</p>
-
+<p>Ridge turns every weight's volume down by the same percentage: loud stays fairly loud, quiet becomes quieter, but nothing goes silent. Lasso subtracts a fixed amount from every weight: anything quieter than that amount becomes completely silent.</p>
+<div class="eg"><b>The four rows with $\lambda=1$</b><br>3.0: lasso $3-1=2.0$; ridge $3/2=1.5$.<br>0.8: lasso $\max(0.8-1,0)=0$; ridge $0.4$.<br>−0.3: lasso 0; ridge −0.15.<br>−2.5: lasso $-(2.5-1)=-1.5$; ridge −1.25.<br><i>Ridge never gives exactly 0; lasso does for every $|z|&lt;1$.</i></div>
 <h4>Choosing the penalty automatically</h4>
-<p><code>RidgeCV</code>, <code>LassoCV</code>, <code>ElasticNetCV</code> fit a grid of penalties and pick by CV. <b>Elastic net</b> mixes both: $\lambda(\rho\|\mathbf{w}\|_1+\frac{1-\rho}2\|\mathbf{w}\|_2^2)$, with $\rho$ = <code>l1_ratio</code>.</p>
-<div class="eg"><b>Example</b><br>Diabetes data: lasso picks α ≈ 0.079 and keeps 9 of 10 weights; elastic net picks ρ = 0.9 and keeps 8. With 442 patients and 10 features, little regularization is needed.</div>
-
-<h4>Lasso + correlated features → elastic net</h4>
-<p>With two near-duplicate features, lasso keeps one and drops the other, and which one flips with small data changes.</p>
-<div class="eg"><b>Example</b><br>200 bootstrap refits: only <i>a</i> kept 47 times, only <i>b</i> 63 times, both 90 times. Elastic net spreads the weight evenly (0.89 each).</div>
-<ul><li>Few features matter and they're not correlated → <b>lasso</b>.</li><li>Features come in correlated groups (genes, pixels, words) → <b>elastic net</b>.</li><li>Never trust one lasso fit's selection: check on bootstrap samples.</li></ul>
-
+<p>Try a whole ladder of penalty strengths, score each with cross-validation, and keep the best. The CV versions of ridge and lasso do this for you, reusing work between steps so it's barely slower than one fit.</p>
+<h4>Lasso and correlated features: why elastic net exists</h4>
+<p>Two equally good twins apply for one job. Lasso hires exactly one of them, almost at random, and the choice can flip if you ask again. Elastic net hires both and splits the salary.</p>
+<div class="eg"><b>Reading the counts</b><br>Only a kept: 47 times. Only b kept: 63 times. Both: 90 times.<br>So "lasso picked a" from one fit is close to a coin flip.<br>Elastic net gives both 0.89: the credit is shared evenly.</div>
 <h4>Early stopping is regularization too</h4>
-<p>Starting from zero, weights grow gradually during gradient descent; stopping early keeps them small. For linear regression, $k$ steps at rate $\eta$ act roughly like ridge with $\lambda\approx1/(k\eta)$. In boosting, the number of trees plays the role of steps.</p>
-
-<h4>Double descent</h4>
-<p>Keep adding parameters past the point where the model fits the training data exactly (about parameters = data points): test error <b>peaks there, then falls again</b>. With far more parameters than needed, gradient descent picks the smoothest of the many perfect fits (smallest weights), an <b>implicit regularizer</b>. It helps explain why huge neural networks generalise. A well-tuned ridge penalty largely removes the peak.</p>
+<p>Training starts with all weights at zero, and they grow step by step. Stop early and they haven't had time to grow big, just as if a penalty had held them back.</p>
+<div class="eg"><b>Steps as a penalty</b><br>$\eta=0.01$, $k=100$ steps: $\lambda\approx1/(100\times0.01)=1$.<br>$k=1{,}000$ steps: $\lambda\approx0.1$, a weaker penalty.<br>So more steps = less regularization.</div>
+<h4>Double descent: when bigger models get better again</h4>
+<p>Test error first falls as the model grows, then rises as it starts fitting noise, peaking where it can <em>just barely</em> fit every training point. Keep growing it and, surprisingly, the error falls again.</p>
+<div class="sticky"><b>In one breath</b><br>Bias is the average miss and variance the wobble, and you can measure both; lasso subtracts and so zeroes small weights while ridge only shrinks; choose the penalty by cross-validation; use elastic net for correlated features; early stopping acts like a penalty; and very large models can improve again past the interpolation peak.</div>
 </div>
 <div class="sign">✎ in one line: balance bias against variance; a penalty on weights trades a little bias for much less variance.</div>
 </article>

@@ -54,18 +54,14 @@
 </ul>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: ALS and popularity bias</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: alternating least squares and popularity bias</h3>
 <h4>Alternating least squares</h4>
-<p>Fix the item factors $Q$, and each user's vector is a small ridge regression with a closed form, $\mathbf{p}_u=(Q_u^\top Q_u+\lambda I)^{-1}Q_u^\top\mathbf{r}_u$ (only the items that user rated). Then fix $P$ and solve each item. Repeat.</p>
-<div class="eg"><b>Example</b><br>3 true factors, 20% observed: test RMSE <b>1.635</b> after one sweep → <b>0.762</b> after eight.</div>
-<p>Each user's and item's update is independent, so ALS parallelises well (Spark's recommender). A weighted version (Hu, Koren, Volinsky) handles implicit feedback, treating unobserved pairs as weak zeros.</p>
-
+<p>Solving for two unknowns at once is hard; solving for one while the other is held still is easy. So fix the items and work out every user's tastes, then fix the users and work out every item's, and keep alternating.</p>
+<div class="eg"><b>One user with one factor</b><br>Items rated have factors 1, 2, 3; the user rated them 2, 4, 6. $\lambda=0$.<br>$Q^\top Q=1+4+9=14$; $Q^\top r=2+8+18=28$.<br>$p_u=28/14=2$: this user's taste is 2, and $2\times$ each item's factor reproduces the ratings exactly.</div>
 <h4>Measuring popularity bias</h4>
-<p>Accuracy metrics reward popular items (they're most likely to appear in anyone's held-out set). Track:</p>
-<ul><li><b>Catalogue coverage</b>: share of items ever recommended.</li><li><b>Average popularity</b> of recommended items.</li></ul>
-<div class="eg"><b>Example</b><br>Most-popular lists: only <b>30%</b> coverage, average popularity 38.7 users (catalogue average 29.2). Matrix factorisation: <b>85%</b> coverage, popularity 30.4.</div>
-<p>A change that slightly raises precision but halves coverage can make the product worse for users and for item suppliers.</p>
+<p>A bookshop that only puts bestsellers in the window. Sales look fine, but most of the books are never shown, niche readers are ignored, and new authors never get a chance.</p>
+<div class="eg"><b>Reading the rows</b><br>Popularity baseline: reaches only 30% of the catalogue; recommended items are liked by 38.7 users on average vs 29.2 overall.<br>Matrix factorisation: 85% coverage, popularity 30.4, close to average.</div>
+<div class="sticky"><b>In one breath</b><br>ALS fits matrix factorisation by alternating simple ridge regressions for users and items, which parallelises well; and always check coverage and popularity of recommendations, not just accuracy.</div>
 </div>
 <div class="sign">✎ in one line: beat popularity, factorise the big table, judge rankings on a time split, and watch coverage.</div>
 </article>

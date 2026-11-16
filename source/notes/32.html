@@ -53,17 +53,14 @@
 <div class="box red">Always keep a properly labelled test set the method never touches. Never evaluate on pseudo-labels: they carry the model's own mistakes.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: misleading geometry, committees</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: when unlabelled data misleads, and committees</h3>
 <h4>A wrong distance breaks label spreading</h4>
-<p>The label depends only on feature 1; feature 2 is irrelevant noise on a scale 50× larger.</p>
-<div class="eg"><b>Example from the lesson</b><br>Logistic regression on 20 labels: <b>91.9%</b> (learns to ignore the noise).<br>Label spreading, raw features: <b>55.7%</b>, near guessing (neighbours decided by the noise).<br>After scaling: <b>86.4%</b>, still below supervised (feature 2 still adds noise to distances).</div>
-<p><mark>Unlabelled data helps only when the geometry matches how the labels vary.</mark> Scale, choose features carefully, compare with the baseline.</p>
-
+<p>Asking neighbours for directions only helps if "neighbour" means someone who knows the area. If you choose neighbours by the colour of their car instead of where they live, their advice is useless. Label spreading is only as good as its notion of "near".</p>
+<div class="eg"><b>Reading the three numbers</b><br>Logistic regression on 20 labels: 91.9%. It learns to ignore feature 2.<br>Label spreading, raw features: 55.7%, near guessing. Neighbours are chosen by the noise.<br>After scaling: 86.4%. Better, but feature 2 still adds noise to every distance.</div>
 <h4>Query-by-committee</h4>
-<p>Train a committee of models on bootstrap samples; label the points where they <b>disagree</b> most.</p>
-<div class="eg"><b>Example</b><br>5 logistic regressions, 15 picks per round, 170 labels: committee <b>88.6%</b> vs random <b>88.3%</b>, barely ahead on easy, well-separated digits.</div>
-<p>Active learning pays off most with imbalanced classes or complex boundaries. Its gain varies by problem, so measure it on a pilot before committing the labelling budget.</p>
+<p>Ask a panel of judges about every case, and call in the expensive expert only for the cases where the judges argue the most. Those are the cases the expert's answer will teach the most.</p>
+<div class="eg"><b>Measuring disagreement</b><br>5 models vote on an image: "3, 3, 3, 3, 3" → full agreement; skip it.<br>Another image: "3, 8, 8, 3, 5" → strong disagreement; send it for labelling.</div>
+<div class="sticky"><b>In one breath</b><br>Unlabelled data helps only when distances reflect how labels change, so scale and choose features and compare with a labelled-only baseline; query-by-committee sends for labelling the cases the models disagree on most, which helps most on hard, imbalanced problems.</div>
 </div>
 <div class="sign">✎ in one line: borrow structure from unlabelled data when the geometry is right, ask for the most useful labels, and test on real labels.</div>
 </article>

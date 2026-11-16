@@ -65,31 +65,19 @@
 <div class="twocol"><div class="box"><b>Random forest</b><br>trees in parallel, deep<br>cuts variance<br>more trees never overfit<br>little tuning · very good</div><div class="box"><b>Gradient boosting</b><br>trees in sequence, shallow<br>cuts bias<br>can overfit: tune the number of trees<br>moderate tuning · often the best</div></div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: tuning ensembles, inside XGBoost</h3>
-
-<h4>Correlation is the limit</h4>
-<p class="fx">$\text{Var}(\text{average})=\rho\sigma^2+\dfrac{1-\rho}{B}\sigma^2$</p>
-<p>The second term vanishes with more trees $B$; the first doesn't. <mark>Correlation sets the floor</mark>: 1,000 identical trees = one tree.</p>
-<div class="eg"><b>Example from the lesson</b><br>All features per split (plain bagging): tree correlation 0.83, accuracy <b>0.930</b>. √30 ≈ 5 features: correlation 0.80, accuracy <b>0.953</b>. 1 feature: correlation 0.70 but each tree too weak, accuracy 0.936. "sqrt" is a good middle.</div>
-<p>The <b>out-of-bag</b> score (on rows each tree didn't see) gives a free validation estimate.</p>
-
-<h4>Learning rate + early stopping</h4>
-<div class="eg"><b>Example</b><br>Rate 1.0: stops after 35 trees at 0.924. Rate 0.1: 83 trees, <b>0.947</b>. Rate 0.03: 203 trees, no better here.</div>
-<div class="sticky"><b>Recipe</b><br>Rate 0.05–0.1 → early stopping chooses the trees → then tune tree size and regularization. Halving the rate ≈ doubles the trees.</div>
-
-<h4>What XGBoost, LightGBM, CatBoost add</h4>
-<ul>
-<li><b>Second-order (Newton) steps</b>: each point's gradient $g_i$ and curvature $h_i$; best leaf value $w^*=-\frac{\sum g_i}{\sum h_i+\lambda}$.</li>
-<li><b>Built-in regularization</b>: a split is made only if its gain exceeds γ (automatic pruning).</li>
-<li><b>Engineering</b>: learned direction for missing values, parallel, sparse data.</li>
-<li><b>LightGBM</b>: histograms (~255 bins) and <b>leaf-wise</b> growth.</li>
-<li><b>CatBoost</b>: categories natively with ordered target statistics (no leakage), symmetric trees.</li>
-</ul>
-<p>On most problems they're close; tuning matters more than the library.</p>
-
-<h4>Stacking</h4>
-<p>Train different models, then a simple blender (often logistic regression) on their <b>out-of-fold</b> predictions (otherwise it leaks).</p>
-<div class="eg"><b>Example</b><br>Forest + boosting + kNN stacked: <b>0.942</b>, no better than the forest alone (0.953). Stacking helps most when base models are strong and make different mistakes; often not worth the complexity in production.</div>
+<h3 class="dh"><span class="n">★</span>Going deeper: tuning ensembles and how XGBoost works</h3>
+<h4>Why averaging works: correlation is the limit</h4>
+<p>Asking 100 people to guess a jar of sweets works because their errors cancel out. But if they all copied the same person, you just have one guess written 100 times. Averaging only helps as much as the guessers think independently.</p>
+<div class="eg"><b>The floor in numbers ($\sigma^2=1$, 100 trees)</b><br>Independent trees ($\rho=0$): $0+1/100=0.01$.<br>$\rho=0.83$ (plain bagging here): $0.83+0.17/100\approx0.83$.<br>$\rho=0.70$: $\approx0.70$. Lower correlation, lower floor.<br><i>That's why a random forest lets each split look at only a random subset of features (<code>max_features</code>): it makes trees disagree more.</i></div>
+<h4>Tuning gradient boosting: learning rate and early stopping</h4>
+<p>Correcting an essay with many small careful edits usually beats a few big rewrites. A smaller learning rate keeps only part of each tree's correction, so you need more trees, but the result is usually better. Early stopping tells you when to stop adding them.</p>
+<div class="eg"><b>Reading the rows</b><br>Rate 1.0: stops after 35 trees, 0.924.<br>Rate 0.1: 83 trees, 0.947.<br>Rate 0.03: 203 trees, 0.936 (differences this small are within test-set noise).<br><i>Rule of thumb: halving the learning rate roughly doubles the trees needed.</i></div>
+<h4>What XGBoost, LightGBM and CatBoost add</h4>
+<p>Plain boosting knows which way is downhill (the slope). XGBoost also knows how curved the ground is, so it knows how far to step. And it charges a fee for every new leaf, so it only grows branches that clearly pay off.</p>
+<div class="eg"><b>One leaf value</b><br>Three rows in a leaf with slopes $g=-2, -1, 0$ (sum −3) and curvatures $h=1,1,1$ (sum 3). Penalty $\lambda=1$.<br>$w^*=-(-3)/(3+1)=0.75$.<br>Without the penalty it would be $3/3=1$; $\lambda$ shrinks leaf values, like ridge.</div>
+<h4>Stacking: combining different models</h4>
+<p>A team captain who listens to several experts and learns how much to trust each. To judge them fairly, the captain must test them on questions they didn't prepare for, otherwise everyone looks brilliant.</p>
+<div class="sticky"><b>In one breath</b><br>Averaging helps only as much as trees disagree, so forests randomise features; use a modest learning rate with early stopping; XGBoost-style libraries add Newton steps and a price per leaf; and stack only strong models that make different mistakes, using out-of-fold predictions.</div>
 </div>
 <div class="sign">✎ in one line: forests average many different deep trees; boosting adds shallow trees that fix the leftover errors.</div>
 </article>

@@ -74,33 +74,19 @@
 </ol>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: the impossibility, measured</h3>
-
-<h4>The identity</h4>
-<p>From the confusion matrix alone: equal PPV, TPR <i>and</i> FPR can hold together only if base rates are equal or the classifier is perfect. Kleinberg, Mullainathan and Raghavan (2016) proved a similar result for calibration. <mark>It's arithmetic, not a flaw of one model.</mark></p>
-
-<h4>A perfectly calibrated model, still unequal</h4>
-<p>Scores = true probabilities, so calibrated in both groups. Base rates: A 0.287, B 0.500. One threshold, 0.5:</p>
-<div class="eg"><b>Example from the lesson</b><br>Precision similar (A 0.607, B 0.636), but TPR A <b>0.232</b> vs B <b>0.631</b>, and FPR A <b>0.060</b> vs B <b>0.362</b>. A's true positives are far less likely to be flagged; B's negatives far more likely to be wrongly flagged.</div>
-<p>Which matters more depends on what being flagged means (a loan refused, an extra test, a police stop): a decision for people, not the metric.</p>
-
-<h4>Group-specific thresholds: gains and costs</h4>
-<div class="eg"><b>Example</b><br>Lower A's threshold to about 0.305 → A's TPR <b>0.634</b> matches B's 0.631; FPRs closer (0.320 vs 0.362). But A's accuracy falls <b>0.736 → 0.667</b>, and precision equality is lost.</div>
-<p>Every option moves along the trade-off; none removes it. Alternatives: better data for under-served groups, more informative features, or a different decision (a review instead of a refusal).</p>
-
-<h4>Small groups need error bars</h4>
-<div class="eg"><b>Example</b><br>Group A's TPR on 400 people (106 positives): <b>0.226</b>, but the 95% bootstrap interval is <b>0.151 to 0.311</b>, wider than many gaps people call "unfair" or "fixed".</div>
-<p>Report intervals for every group, check <b>intersections</b> (older women, not just women and older people), and treat big gaps in small groups as a reason to gather more evidence.</p>
-
-<h4>An audit checklist</h4>
-<ul>
-<li>Decide what harm matters (miss or false alarm?).</li>
-<li>Pick the metric <b>before</b> looking.</li>
-<li>Measure every group and intersection, with bootstrap intervals, on held-out data.</li>
-<li>Check calibration within each group.</li>
-<li>Compare mitigations with their costs.</li>
-<li>Document (model card) and re-check as data drifts.</li>
-</ul>
+<h3 class="dh"><span class="n">★</span>Going deeper: the impossibility result, measured</h3>
+<h4>The identity behind the conflict</h4>
+<p>Imagine three dials joined by one gear: the base rate, precision and the two error rates. Turn one and the others must move. If two groups start with different base rates, you can't set all the other dials equal for both. It isn't a bad model; it's arithmetic.</p>
+<div class="eg"><b>Same precision and TPR, different base rates</b><br>Precision 0.6 and TPR 0.7 in both groups.<br>Group with $p=0.3$: FPR $=\frac{0.3}{0.7}\cdot\frac{0.4}{0.6}\cdot0.7=0.20$.<br>Group with $p=0.5$: FPR $=1\cdot\frac{0.4}{0.6}\cdot0.7\approx0.47$.<br>Equal precision and TPR force very different false-alarm rates.</div>
+<h4>A perfectly calibrated model can still have unequal error rates</h4>
+<p>Two honest weather forecasters, one for a dry city and one for a wet city. Both are calibrated: "70% rain" really means rain 70% of the time. Yet with the same "carry an umbrella above 50%" rule, people in the two cities get very different numbers of false alarms and misses.</p>
+<h4>Group-specific thresholds: what they buy and what they cost</h4>
+<p>Lowering the bar for one group catches more of its real positives, but also flags more of its people wrongly. Every adjustment trades one kind of fairness or accuracy for another.</p>
+<div class="eg"><b>What moved</b><br>Group A's threshold 0.5 → 0.305: TPR 0.232 → 0.634, matching B's 0.631.<br>FPRs closer too: 0.320 vs 0.362.<br>Cost: group A's accuracy 0.736 → 0.667, and equal precision is lost.</div>
+<h4>Small groups: put error bars on fairness metrics</h4>
+<p>A survey of 10 people can swing wildly; one of 1,000 barely moves. A fairness gap measured on a small group might be mostly noise.</p>
+<div class="eg"><b>The wobble of a TPR on 106 positives</b><br>TPR 0.226 on 106 people.<br>Rough wobble: $\sqrt{0.226\times0.774/106}\approx0.041$.<br>95% range ≈ $0.226\pm2\times0.041$: about 0.14 to 0.31.</div>
+<div class="sticky"><b>In one breath</b><br>When base rates differ, equal precision and equal error rates can't all hold, by simple arithmetic; even a perfectly calibrated model has unequal error rates; group thresholds trade one metric for another; small groups need error bars; and the choice of which harm matters most is a human decision made before measuring.</div>
 </div>
 <div class="sign">✎ in one line: measure every metric per group with error bars, choose a fairness goal with the people affected, and build checks around the model.</div>
 </article>

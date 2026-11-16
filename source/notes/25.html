@@ -51,18 +51,14 @@
 </ul>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: fixing probabilities, how isolation works</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: correcting probabilities and how isolation works</h3>
 <h4>Undoing class weights: the prior correction</h4>
-<p>Balanced weights make the model act as if positives were 50%, so its probabilities are far too high. With the real positive rate $\pi$:</p>
-<p class="fx">$\text{odds}_{\text{real}}=\dfrac{p}{1-p}\cdot\dfrac{\pi}{1-\pi},\qquad p_{\text{real}}=\dfrac{\text{odds}_{\text{real}}}{1+\text{odds}_{\text{real}}}$</p>
-<div class="eg"><b>Example from the lesson</b><br>Balanced model: average risk <b>0.372</b> vs true rate 0.020, Brier 0.1702. After the correction: average <b>0.017</b>, Brier <b>0.0178</b>, almost matching an unweighted model (0.0169).</div>
-<p>Apply it (or recalibrate with <code>CalibratedClassifierCV</code>) before using outputs as risks: pricing, expected loss, telling a patient their risk.</p>
-
+<p>If you train a model as if half of all transactions were fraud, it learns that fraud is common, and its probabilities are wildly too high. The prior correction tells it the real rate again, using Bayes' theorem.</p>
+<div class="eg"><b>Correcting one prediction (real rate 2%)</b><br>Balanced model says $p=0.6$: odds $0.6/0.4=1.5$.<br>Real prior odds: $0.02/0.98\approx0.0204$.<br>Corrected odds $1.5\times0.0204\approx0.031$, so $p\approx0.030$.<br>"60% risk" really means about 3%: higher than average (2%), but far from likely.</div>
 <h4>Why random splits isolate anomalies</h4>
-<p>Each tree picks a random feature and a random split value until every point is alone. A far-away point is cut off by one of the first few splits.</p>
-<div class="eg"><b>Example</b><br>Among 500 points: the far point is isolated in <b>2.3</b> splits on average, typical points in <b>14.6</b>.</div>
-<p>The path length becomes a 0–1 score, normalised by the expected path for $n$ points (about $2\ln n$). No distances are computed, so it scales linearly and copes with many features. Settings: number of trees and subsample size (256 by default is enough, since anomalies stand out even in small samples).</p>
+<p>Play "guess who" with random yes/no questions. In a crowded room it takes many questions to single someone out. A person standing alone in the corner is singled out in one or two. Anomalies are the people in the corner.</p>
+<div class="eg"><b>Turning path length into a score</b><br>Far point: 2.3 splits on average; typical point: 14.6.<br>The expected path for $n=500$ points is roughly $2\ln 500\approx12.4$.<br>Much shorter than expected → anomaly score near 1; about as expected → around 0.5.</div>
+<div class="sticky"><b>In one breath</b><br>After class weighting or oversampling, multiply the odds by the real prior odds (or recalibrate) before trusting probabilities; Isolation Forest flags points that random splits separate quickly, because lone points need far fewer cuts.</div>
 </div>
 <div class="sign">✎ in one line: forget accuracy, tune the threshold first, resample only inside training, correct the probabilities, and check what you didn't flag.</div>
 </article>

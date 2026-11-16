@@ -87,28 +87,17 @@
 <p>Practise on real datasets (scikit-learn's example gallery), go deeper into deep learning with PyTorch, strengthen the maths (<i>Mathematics for Machine Learning</i> is free online), and re-read earlier lessons: they often click after the later ones.</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: leak-proof pipelines, efficient tuning</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: leak-proof pipelines and efficient tuning</h3>
 <h4>Target encoding: how much leakage can fake</h4>
-<p>Replace each category with its average target: powerful for many-level categories (postcodes, product IDs), but if the averages include the rows you evaluate on, each row's own label leaks in.</p>
-<div class="eg"><b>Example from the lesson</b><br>A 2,000-level category with <b>no real relationship</b> to the target (honest accuracy 50%). Naive encoding reports <b>73.1%</b> on pure noise. scikit-learn's <code>TargetEncoder</code> inside the pipeline (refitted per fold, with cross-fitting): <b>49.7%</b>.</div>
-<p>It also smooths rare levels towards the overall average and handles unseen levels.</p>
-
+<p>Imagine telling a student the class average for a question, where that average includes their own answer. With 30 students it's a tiny hint. With only 2 students it practically gives the answer away. Target encoding with many rare categories does exactly that.</p>
+<div class="eg"><b>A rare category gives the answer away</b><br>A postcode appears in 2 rows, with targets 1 and 1.<br>Its average target is 1.0, so the "feature" is just the answer.<br>Encode each row with the other rows only (cross-fitting) and that row's own label can't leak in.</div>
 <h4>One pipeline for mixed data</h4>
-<p>Numbers (impute + standardise), one-hot areas and TF-IDF of descriptions → 30 columns → ridge. The whole object can be cross-validated, tuned (names like <code>columntransformer__num__simpleimputer__strategy</code>) and saved as one file, so training and serving can't drift apart.</p>
-
-<h4>Grid vs random search</h4>
-<p>A 3×3×2 grid tests only 3 distinct values of each setting; 18 random draws test 18 values of every setting. Usually only one or two settings matter, so <mark>random search does as well or better</mark> (Bergstra &amp; Bengio, 2012). Sample learning rates and penalties on a <b>log scale</b>.</p>
-<div class="eg"><b>Example</b><br>18 settings each: grid 0.975, random 0.972, within noise. Random's advantage grows with the number of settings.</div>
-<p>Smarter: Bayesian optimisation (Optuna's TPE) and successive halving (<code>HalvingRandomSearchCV</code>).</p>
-
+<p>Different ingredients need different preparation: wash the vegetables, slice the bread, grate the cheese. <code>ColumnTransformer</code> gives each kind of column its own preparation, all inside one recipe.</p>
+<h4>Grid search vs random search</h4>
+<p>If only one of three settings really matters, a 3×3×2 grid tries just 3 different values of it, wasting most tries. Random search tries a new value of every setting each time, so 18 tries test 18 values of the one that matters.</p>
 <h4>Keeping track of experiments</h4>
-<ul>
-<li>Log every run: parameters, metrics, code version, data version, seed, library versions (MLflow, Weights &amp; Biases).</li>
-<li>Version the data too (DVC, dated snapshots).</li>
-<li>Save the whole pipeline with a <b>model card</b>: intended use, data, metrics by subgroup, limits.</li>
-<li>Keep the test set out of the loop.</li>
-</ul>
+<p>A lab notebook. A scientist writes down every experiment: what was used, what was done, what happened. Months later anyone can repeat the best one. ML projects need the same, because after a few weeks there are hundreds of runs.</p>
+<div class="sticky"><b>In one breath</b><br>Do target encoding inside the pipeline with cross-fitting, or it can fake accuracy on pure noise; give each column type its own preprocessing in one ColumnTransformer; prefer random (or Bayesian) search to grids; and log every experiment so the winning model can be rebuilt.</div>
 </div>
 <div class="sign">✎ in one line: good features plus one Pipeline fitted on training data give honest scores and safe deployment.</div>
 </article>

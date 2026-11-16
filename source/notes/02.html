@@ -60,37 +60,27 @@
 <p>Arrays for vectors and matrices; <code>@</code> is matrix multiplication (or a dot product for two vectors); <code>*</code> is element-by-element. <code>A.T</code> is the transpose, <code>np.eye(3)</code> the identity.</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: linear algebra behind ML</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: the linear algebra behind ML algorithms</h3>
 <h4>Other ways to measure size: norms</h4>
-<ul>
-<li><b>L2</b> $\sqrt{\sum v_i^2}$: straight-line length; big entries count a lot (squared).</li>
-<li><b>L1</b> $\sum|v_i|$: "city-block" distance; every entry counts in proportion.</li>
-<li><b>L∞</b> $\max|v_i|$: only the biggest entry counts.</li>
-<li><b>Frobenius</b> (matrices): the L2 norm of all entries in one long list.</li>
-</ul>
-<div class="eg"><b>Example</b><br>$\mathbf{v}=(3,-4,1)$: L1 = 8, L2 = $\sqrt{26}\approx5.099$, L∞ = 4.</div>
-<p>Why it matters: <b>ridge</b> penalises L2 and shrinks all weights a little; <b>lasso</b> penalises L1 and pushes some to exactly 0 (Lesson 10). The L1 "unit ball" is a diamond with sharp corners on the axes; L2's is a circle.</p>
-
-<h4>Independence, rank, determinant</h4>
-<p>Columns are <b>independent</b> if none can be built from the others. The <b>rank</b> = the number of independent columns. Least squares needs $X^\top X$ invertible, which only happens when the columns are independent.</p>
-<p>The <b>determinant</b> = how much a square matrix scales areas. $\det=0$ → it squashes space flat and has no inverse.</p>
-<div class="eg"><b>Example</b><br>If feature 3 = feature 1 + feature 2, only 2 columns carry information: rank 2, $\det(X^\top X)=0$ (the dummy-variable trap of Lesson 6). For $A=\begin{pmatrix}2&1\\1&3\end{pmatrix}$, $\det A=2\cdot3-1\cdot1=5$: areas get 5× bigger.</div>
-
+<p>Measuring a walk across a city. "As the crow flies" is the L2 norm. "Along the streets" (blocks east + blocks north) is the L1 norm. "The longest single stretch" is L∞. Same trip, three different sizes.</p>
+<div class="eg"><b>Three sizes of $(3,-4,1)$</b><br>L1: add the sizes, $3+4+1=8$.<br>L2: square, add, square-root: $\sqrt{9+16+1}=\sqrt{26}\approx5.1$.<br>L∞: the biggest one, $4$.<br><i>L1 ≥ L2 ≥ L∞ always holds.</i></div>
+<h4>Independence, rank and the determinant</h4>
+<p>Three ingredients on a recipe: flour, sugar, and "flour + sugar mix". The third adds nothing new: you could make it from the first two. Rank counts only the ingredients that are really new.</p>
+<div class="eg"><b>Spot the duplicate</b><br>Features: size, rooms, and size + rooms.<br>Column 3 = column 1 + column 2, so only 2 columns are new: rank = 2.<br>Then $X^\top X$ has determinant 0 and can't be inverted, so least squares has no single answer.<br>For $A=\begin{pmatrix}2&amp;1\\1&amp;3\end{pmatrix}$: $\det A = 2\cdot3-1\cdot1=5$, so it stretches any shape to 5× its area.</div>
 <h4>Eigenvalues and eigenvectors</h4>
-<p>An <b>eigenvector</b> is a direction the matrix only stretches, never turns: $A\mathbf{v}=\lambda\mathbf{v}$. $\lambda$ = how much.</p>
-<div class="eg"><b>Example</b><br>For the $A$ above, $\det(A-\lambda I)=\lambda^2-5\lambda+5=0$ → $\lambda\approx1.382$ and $3.618$. For 3.618 the eigenvector is about $(0.526,0.851)$, and the two eigenvectors are at right angles.</div>
-<div class="sticky"><b>Why PCA works</b><br>Every <b>symmetric</b> matrix has real eigenvalues and perpendicular eigenvectors ($A=Q\Lambda Q^\top$). Covariance matrices are symmetric, so PCA's components are their eigenvectors (Lesson 17). Use <code>np.linalg.eigh</code> for symmetric matrices.</div>
-
+<p>Stretch a sheet of rubber. Most arrows drawn on it turn as well as stretch. A few special arrows only get longer or shorter, without turning. Those are eigenvectors; how much they stretch is the eigenvalue.</p>
+<div class="eg"><b>Eigenvalues of $A$, step by step</b><br>Write $\det(A-\lambda I)=0$: $(2-\lambda)(3-\lambda)-1=0$.<br>Multiply out: $\lambda^2-5\lambda+5=0$.<br>Solve: $\lambda=(5\pm\sqrt5)/2$, so $\lambda\approx3.618$ and $1.382$.<br>Check: they add to 5 (= 2 + 3, the diagonal) and multiply to 5 (= the determinant).<br><i>That last check is a quick way to catch mistakes.</i></div>
 <h4>Positive definite matrices</h4>
-<p>$\mathbf{x}^\top A\mathbf{x}&gt;0$ for every non-zero $\mathbf{x}$ (all eigenvalues positive). $X^\top X$ is always at least positive <i>semi</i>-definite, because $\mathbf{w}^\top X^\top X\mathbf{w}=\|X\mathbf{w}\|^2\ge0$. That's why the squared-error loss is a bowl with one lowest point (Lesson 3's Going deeper).</p>
-
-<h4>The SVD</h4>
-<p>Works for any matrix, including a data table: $A=U\Sigma V^\top$. The <b>singular values</b> in $\Sigma$ rank how important each hidden direction is, and keeping the top $k$ gives the <mark>best possible rank-$k$ approximation</mark> (Eckart–Young).</p>
-<div class="eg"><b>Example from the lesson</b><br>50 users × 40 films, secretly built from 3 hidden "tastes" plus noise. The singular values drop sharply after the third (38.5, then 3.9): the SVD found the 3 tastes. A rank-3 version stores 273 numbers instead of 2,000, with relative error 0.157 (mostly the noise). Recommender systems use this idea (Lesson 27).</div>
-
-<h4>Nearly duplicate features: the condition number</h4>
-<p>When two features are almost copies of each other, the matrix is close to losing rank. Its <b>condition number</b> (largest ÷ smallest singular value) becomes huge, and tiny changes in the data swing the weights wildly. Regularization (Lesson 10) calms this down.</p>
+<p>A bowl that curves upwards in every direction you walk. "Positive definite" means the matrix describes such a bowl; "semi-definite" allows some perfectly flat directions.</p>
+<h4>The singular value decomposition (SVD)</h4>
+<p>A big table of ratings is like a song mixed from a few instruments. The SVD un-mixes it: it finds the few hidden "instruments" (tastes like action, comedy, drama) and how loud each one is (the singular values).</p>
+<div class="eg"><b>Reading the singular values</b><br>Values drop sharply after the third: …, 38.5, then 3.9.<br>So 3 hidden tastes explain the table; the rest is noise.<br>Storage: 273 numbers for the rank-3 version instead of 2,000.<br>Error: 0.157 at rank 3, 0.142 at rank 5. Extra values hardly help, because they only describe noise.</div>
+<h4>Condition number: when tiny changes cause big swings</h4>
+<p>Two people pushing a car from almost the same spot. You can see the car moved, but you can't tell who pushed how hard. Near-duplicate features are the same: the total effect is clear, the split between them is not.</p>
+<div class="eg"><b>The condition number in practice</b><br>Ratio of largest to smallest singular value: about 14,000. Huge.<br>Tiny change in $y$ → weights jump from $(0.96,-0.36)$ to $(1.2,-0.61)$.<br>But the sum stays near 0.6, so predictions barely change.<br>Add $\lambda I$ (ridge): condition number falls to 1,462 and the weights stay steady ($0.37,0.23$ → $0.39,0.21$).</div>
+<h4>Matrix calculus: the four rules you'll actually use</h4>
+<p>These rules are the ordinary 1-D rules ("derivative of $aw$ is $a$", "of $w^2$ is $2w$") written for many weights at once. If you know the 1-D rule, you can guess the vector one.</p>
+<div class="sticky"><b>In one breath</b><br>Norms measure size (L1 makes lasso pick features), rank finds duplicate features, eigenvectors are the directions a matrix only stretches (PCA), the SVD finds the few hidden patterns in a table, and a large condition number warns that weights are unstable; ridge fixes it.</div>
 </div>
 <div class="sign">✎ in one line: examples are vectors, datasets are matrices, predictions are dot products, and the shapes must line up.</div>
 </article>

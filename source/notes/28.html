@@ -43,17 +43,13 @@
 <div class="sticky"><b>Use a bandit when…</b><br>…you care about earning while learning (headlines, ads). Use a classic test when you need an unbiased, precise comparison of every option.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: prior sensitivity, checking MCMC</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: prior sensitivity and checking MCMC</h3>
 <h4>How much does the prior matter?</h4>
-<p>Three analysts, same 6% observed rate: flat Beta(1, 1), sceptical Beta(10, 190) (≈5%), optimistic Beta(30, 170) (≈15%).</p>
-<div class="eg"><b>Example from the lesson</b><br>50 visitors: posterior means <b>5.2% to 13.2%</b> (priors dominate).<br>500: 5.7% to 8.6%. 5,000: all within a third of a percentage point.</div>
-<p>A Beta($a$, $b$) prior acts like $a+b$ earlier visitors (the optimistic one ≈ 200). <mark>If reasonable priors disagree, the data can't settle the question yet</mark>: report a sensitivity analysis.</p>
-
-<h4>Has the sampler converged? R-hat</h4>
-<p>Run several chains from very different starts and compare between-chain spread with within-chain spread: <b>$\hat R$</b> near 1 = they agree; above ~1.01 = keep sampling or fix the sampler.</p>
-<div class="eg"><b>Example</b><br>Step 0.5: four chains from −10, 0, 10, 20 all settle near <b>2.9</b>, $\hat R$ = 1.0. Step 0.005: each chain barely moves, $\hat R$ enormous, yet each one alone looks smooth.</div>
-<p>One chain is never enough. Stan and PyMC report $\hat R$ and the effective sample size: check both.</p>
+<p>Three people with different opinions read the same growing pile of evidence. After a page, they still disagree. After a whole book, they agree. If the answer still depends on who's reading, you need more evidence.</p>
+<div class="eg"><b>Posterior means with 50 visitors (3 converted)</b><br>Flat: $(1+3)/(2+50)\approx0.077$.<br>Sceptical: $(10+3)/(200+50)=0.052$.<br>Optimistic: $(30+3)/(200+50)=0.132$.<br>The priors still dominate: 50 real visitors vs 200 imaginary ones.</div>
+<h4>Has the sampler converged?</h4>
+<p>Send four hikers from four different corners of a park to map it. If their maps agree, trust them. If each hiker only mapped the area around their own starting point, the maps disagree, and none of them is the whole park.</p>
+<div class="sticky"><b>In one breath</b><br>Re-run the analysis with several reasonable priors: if they agree, the data dominates; and run several MCMC chains from different starts, trusting the results only when R-hat is close to 1.</div>
 </div>
 <div class="sign">✎ in one line: keep a distribution over the unknowns, update it with data, check the prior's influence, and use the uncertainty to decide.</div>
 </article>

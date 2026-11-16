@@ -57,17 +57,14 @@
 <p>Draw a <b>causal diagram</b> first: adjust for confounders, but never for things the treatment causes.</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: bad controls, discontinuities</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: bad controls and regression discontinuity</h3>
 <h4>Don't adjust for what the treatment causes</h4>
-<p>A <b>mediator</b> lies on the path from treatment to outcome; adjusting for it removes part of the effect.</p>
-<div class="eg"><b>Example from the lesson</b><br>A randomised discount brings customers back more often, and all its effect on spending works through those visits. Unadjusted: <b>11.96</b> (true 12). "Controlling" for visits: about <b>0</b>, as if the discount did nothing.</div>
-<ul><li><b>Confounder</b> → adjust.</li><li><b>Mediator</b> → don't (unless you want only the direct effect).</li><li><b>Collider</b> (caused by both, e.g. "contacted support") → never; it creates fake associations.</li></ul>
-
+<p>To test whether a painkiller works, you wouldn't "control for" how much pain people still feel: that's the very thing the pill changes. Adjusting for a step on the path from cause to effect hides the effect.</p>
+<div class="eg"><b>Reading it</b><br>Not adjusting: 11.96, matching the true 12.<br>"Controlling" for visits: −0.08, as if the discount did nothing.<br>Both use the same data; only the choice of control changed.</div>
 <h4>Regression discontinuity</h4>
-<p>When a threshold decides treatment (credit score ≥ 600), people just above and just below are very similar: almost an experiment. Fit a line on each side near the cut-off; measure the <b>jump</b>.</p>
-<div class="eg"><b>Example</b><br>Naive difference <b>29.8</b> (high scorers spend more anyway). Discontinuity within 25 points of 600: <b>14.7</b>, close to the true 15.</div>
-<p>Assumptions: people can't precisely manipulate their score across the line, and nothing else changes exactly at 600. Check for <b>bunching</b> just above the cut-off.</p>
+<p>Students scoring 599 and 601 on an exam are practically identical, but only those at 600 or above get the scholarship. Comparing students right at the line is almost like flipping a coin to decide who gets it.</p>
+<div class="eg"><b>Reading it</b><br>Naive difference, everyone above vs below: 29.8. This mixes the effect with "high-score customers spend more anyway".<br>Only customers within 25 points, with a line on each side: 14.7, close to the true 15.</div>
+<div class="sticky"><b>In one breath</b><br>Adjust for confounders, but not for mediators (they erase the effect you want) or colliders (they create fake ones); and when treatment follows a cut-off, compare people just either side of it with regression discontinuity.</div>
 </div>
 <div class="sign">✎ in one line: ask "what if we act?", randomise if you can, otherwise adjust only for true confounders and state your assumptions.</div>
 </article>

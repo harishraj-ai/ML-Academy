@@ -53,16 +53,13 @@
 <div class="sticky"><b>Before reaching for RL</b><br>It's data-hungry and hard to debug. Would a supervised model or a bandit do the job?</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: SARSA vs Q-learning on a cliff</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: SARSA versus Q-learning on a cliff</h3>
 <h4>Two learners, one cliff</h4>
-<p>A 4×8 grid: start bottom-left, goal bottom-right, cliff squares between them (−100 and back to start); every other step −1. <b>SARSA</b> differs by one word: it updates towards the action it will <i>actually</i> take next (exploration included):</p>
-<p class="fx">$Q(s,a)\leftarrow Q(s,a)+\alpha\big[r+\gamma\,Q(s',a')-Q(s,a)\big]$</p>
-<div class="eg"><b>Example from the lesson</b><br>Q-learning: the shortest route, <b>9 steps</b>, 8 of them right along the cliff edge (optimal if you never slip).<br>SARSA: a <b>13-step</b> route away from the edge, because it knows its own random steps sometimes happen.</div>
-
+<p>Walking home along a cliff path in the dark, knowing you sometimes stumble. A daredevil plans the shortest route along the very edge, assuming no stumbles. A careful walker, who remembers that they do stumble, takes a longer path away from the edge.</p>
+<div class="eg"><b>One update, two rules</b><br>Next to the cliff. Best next action is worth −8; the random action actually taken is worth −100 (it fell).<br>Q-learning uses the best: target $-1+(-8)=-9$.<br>SARSA uses the one taken: target $-1+(-100)=-101$. It learns that standing here is risky.</div>
 <h4>Which is better depends on when you're judged</h4>
-<div class="eg"><b>Reward collected while still exploring 10%</b><br>SARSA <b>−21.0</b> vs Q-learning <b>−31.2</b>: Q-learning's edge-hugging route often falls off on a random step.</div>
-<p>If exploration stops after training, Q-learning's policy is better; if the agent keeps exploring, or a real robot occasionally slips, <mark>SARSA's caution pays</mark>. Where mistakes during learning are costly: on-policy or risk-aware methods, and learn in simulation first.</p>
+<p>If you're graded on every practice session, playing safe wins. If you're graded only on the final exam, the bolder plan wins.</p>
+<div class="sticky"><b>In one breath</b><br>Q-learning learns the best route assuming perfect play, which hugs the cliff; SARSA learns the value of what it really does, including its random steps, so it takes a safer route and earns more while still exploring.</div>
 </div>
 <div class="sign">✎ in one line: act, collect rewards, update values with the TD error, keep exploring, and design the reward with care.</div>
 </article>

@@ -64,18 +64,14 @@
 <p>Exact inference is easy for chains and trees, hard for general graphs (use MCMC or variational inference). Libraries: pgmpy, hmmlearn.</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: forward–backward, Baum–Welch</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: forward–backward and Baum–Welch</h3>
 <h4>Each day's probabilities: forward–backward</h4>
-<p>Viterbi gives one path. Often you want <b>each day's</b> state probability given <i>all</i> observations: a forward pass α summarises the past, a backward pass β the future, and their normalised product gives $P(z_t\mid x_{1:n})$.</p>
-<div class="eg"><b>Example from the lesson</b><br>P(rain) rises through two shopping days to <b>0.741</b> on the cleaning day, then falls back. Day 5's shopping: <b>0.488</b>, genuinely uncertain, which Viterbi's single path hides.</div>
-<p>Use these for decisions with costs; they're also the E-step of Baum–Welch.</p>
-
+<p>To guess whether it rained on Wednesday, use what happened before Wednesday <em>and</em> after it: if Thursday was a cleaning day too, rain on Wednesday becomes more likely. Forward–backward combines evidence from both directions for every day.</p>
+<div class="eg"><b>Combining both directions for one day</b><br>Forward (past) evidence says: rainy 0.4, sunny 0.6.<br>Backward (future) evidence: the future is twice as likely if today is rainy (0.2 vs 0.1).<br>Multiply: rainy $0.4\times0.2=0.08$, sunny $0.6\times0.1=0.06$.<br>Normalise: rainy $0.08/0.14\approx0.57$. The future tipped the balance.</div>
 <h4>Learning from observations alone: Baum–Welch</h4>
-<ol><li><b>E-step</b>: forward–backward → expected state each day and expected number of each transition.</li><li><b>M-step</b>: re-estimate the parameters from those expected counts.</li></ol>
-<p>Each iteration increases the likelihood.</p>
-<div class="eg"><b>Example</b><br>From a rough guess and only 3,000 activities (no weather labels): learns transitions of <b>0.75/0.25</b> (true 0.8/0.2) and emissions close to the truth.</div>
-<p>Scaling by $c_t$ at each step stops underflow on long sequences. Like all EM, it can stop at a local optimum: run several starts, keep the best likelihood.</p>
+<p>Like EM for clustering: guess which hidden state each day was in, count up how often states followed each other and what each state led your friend to do, refit the numbers from those counts, and repeat until they settle.</p>
+<div class="eg"><b>One M-step count</b><br>Forward–backward says: over all days, about 120 "rainy → rainy" transitions and 40 "rainy → sunny" are expected.<br>New P(rainy → rainy) $=120/(120+40)=0.75$.<br>Repeat with the new parameters; each round increases the likelihood.</div>
+<div class="sticky"><b>In one breath</b><br>Forward–backward combines evidence from before and after each day to give every day's state probabilities; Baum–Welch uses those to learn the model's numbers from unlabelled sequences, from several starting guesses.</div>
 </div>
 <div class="sign">✎ in one line: draw who influences whom, multiply small local tables, use Viterbi for the best hidden path and forward–backward for each day's odds.</div>
 </article>

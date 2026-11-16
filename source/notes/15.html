@@ -53,30 +53,23 @@
 </ul>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: the dual, kernels, hinge loss</h3>
-
-<h4>The dual problem and KKT</h4>
-<p>With Lagrange multipliers $\alpha_i$, the soft-margin SVM becomes:</p>
-<p class="fx">$\max_{\alpha}\sum\alpha_i-\tfrac12\sum_{i,j}\alpha_i\alpha_jy_iy_j(\mathbf{x}_i\cdot\mathbf{x}_j),\quad0\le\alpha_i\le C,\;\sum\alpha_iy_i=0$</p>
-<p>with $\mathbf{w}=\sum\alpha_iy_i\mathbf{x}_i$. From the KKT conditions:</p>
-<ul>
-<li><b>Only support vectors matter</b>: safe points get $\alpha_i=0$; points on the margin $0&lt;\alpha_i&lt;C$; inside or wrong $\alpha_i=C$.</li>
-<li><b>Data appears only through dot products</b> $\mathbf{x}_i\cdot\mathbf{x}_j$. Swap in a kernel $K(\mathbf{x}_i,\mathbf{x}_j)$: that's the whole kernel trick.</li>
-</ul>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: the dual problem, kernels and hinge loss</h3>
+<h4>The dual problem and the KKT conditions</h4>
+<p>Building a road between two villages: only the houses right at the edge of the road decide where it goes. Move a house far from the road and nothing changes. The dual problem makes this exact: every point gets a weight $\alpha_i$, and only the edge points get a weight above zero.</p>
+<div class="eg"><b>A prediction from three support vectors</b><br>Support vectors with $\alpha_iy_i$ = +0.5, +0.5, −1.0 and $b=0.2$.<br>Dot products with the new point: 2, 1, 0.5.<br>$f=0.5\times2+0.5\times1-1.0\times0.5+0.2=1.2$. Positive → class +1.<br>All the other training points had $\alpha=0$: no work needed for them.</div>
 <h4>The kernel trick, checked</h4>
-<p>$(\mathbf{x}\cdot\mathbf{z}+1)^2$ in 2-D equals an ordinary dot product of 6 features $\phi=(1,\sqrt2x_1,\sqrt2x_2,x_1^2,x_2^2,\sqrt2x_1x_2)$. In the lesson both give <b>4.0</b>, but the kernel needed one 2-D dot product. Degree $p$ in $d$ dimensions grows like $d^p$; RBF corresponds to <b>infinitely many</b> features. A function is a valid kernel when its matrices are positive semi-definite (<b>Mercer's condition</b>).</p>
-
-<h4>How C and γ interact</h4>
-<div class="eg"><b>Example from the lesson</b><br>γ = 30, C = 100: train <b>1.000</b>, test <b>0.845</b> (wraps around single points).<br>γ = 30, C = 0.1: collapses to <b>0.470</b> (almost one class).<br>Best around C = 1, γ = 1: <b>0.910</b>.</div>
-<p>Diagnostic: when nearly every point is a support vector (193 of 200), the model hasn't found a simple boundary.</p>
-
-<h4>Hinge loss vs logistic regression</h4>
-<p class="fx">$\min\;\tfrac{1}{2C}\|\mathbf{w}\|^2+\sum\max(0,1-y_if(\mathbf{x}_i))$</p>
-<p>Logistic regression uses $\log(1+e^{-yf(\mathbf{x})})$, a smooth hinge that never reaches 0. On 400 points the two boundaries point the same way to three decimals and agree on every prediction. SVM: sparse support vectors, pure max-margin, no probabilities. Logistic regression: every point counts, calibrated probabilities.</p>
-
-<h4>Scaling up</h4>
-<p>Kernel SVMs need the $n\times n$ kernel matrix ($O(n^2)$ memory). Beyond ~100,000 points: a linear SVM, or approximate the kernel with random features (<code>RBFSampler</code>, <code>Nystroem</code>) + a linear model. <b>SVR</b>: only points outside the ε-tube become support vectors.</p>
+<p>Instead of building a bigger map with many extra features and measuring there, use a shortcut formula that gives exactly the same answer from the original map. You get the benefit of the big map without ever drawing it.</p>
+<div class="eg"><b>The shortcut by hand</b><br>$\mathbf{x}=(1,2)$, $\mathbf{z}=(3,1)$: $\mathbf{x}\cdot\mathbf{z}=3+2=5$.<br>Kernel: $(5+1)^2=36$. One 2-D dot product and a square.<br>The long way builds 6 features for each point and multiplies them: also 36.</div>
+<h4>How C and gamma interact</h4>
+<p>With the RBF kernel, every training point casts a "hill of influence". <strong>gamma</strong> sets how narrow each hill is (big gamma = tiny, pointy hills). <strong>C</strong> sets how strict you are about mistakes. Tiny hills plus strictness gives a boundary that wraps around single points: memorising.</p>
+<div class="eg"><b>How gamma shrinks influence</b><br>Two points at distance 2, so squared distance 4.<br>$\gamma=0.1$: $e^{-0.4}\approx0.67$, still very similar.<br>$\gamma=1$: $e^{-4}\approx0.018$, nearly unrelated.<br>$\gamma=30$: $e^{-120}\approx0$; each point only "sees" itself.</div>
+<h4>Hinge loss: the SVM as regularized loss minimisation</h4>
+<p>Logistic regression keeps nudging even confident, correct points further from the line. The hinge loss stops caring the moment a point is safely past the margin. Otherwise the two are very similar.</p>
+<div class="eg"><b>Hinge loss for three points</b><br>$yf=1.5$ (safely right): $\max(0,1-1.5)=0$.<br>$yf=0.4$ (right, but inside the margin): $1-0.4=0.6$.<br>$yf=-0.3$ (wrong side): $1+0.3=1.3$.</div>
+<h4>Scaling up, and support vector regression</h4>
+<p>A kernel SVM compares every training point with every other one. That's fine for a few thousand points, but with a million it's a trillion comparisons.</p>
+<div class="eg"><b>The size problem</b><br>10,000 points: $10^8$ kernel values, about 0.8 GB as 8-byte numbers. Manageable.<br>100,000 points: $10^{10}$ values, about 80 GB. Too much.</div>
+<div class="sticky"><b>In one breath</b><br>Only the points on or inside the margin (support vectors) shape the SVM; kernels give the power of huge feature spaces for the cost of a similarity; tune C and gamma together on a log grid; the SVM is hinge loss plus a ridge penalty, a close cousin of logistic regression; and for big data use linear SVMs or kernel approximations.</div>
 </div>
 <div class="sign">✎ in one line: the widest road between the classes; C trades width for mistakes; kernels bend the road.</div>
 </article>

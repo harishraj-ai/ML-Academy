@@ -250,37 +250,27 @@
 <p>Arrays for vectors and matrices; <code>@</code> is matrix multiplication (or a dot product for two vectors); <code>*</code> is element-by-element. <code>A.T</code> is the transpose, <code>np.eye(3)</code> the identity.</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: linear algebra behind ML</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: the linear algebra behind ML algorithms</h3>
 <h4>Other ways to measure size: norms</h4>
-<ul>
-<li><b>L2</b> $\sqrt{\sum v_i^2}$: straight-line length; big entries count a lot (squared).</li>
-<li><b>L1</b> $\sum|v_i|$: "city-block" distance; every entry counts in proportion.</li>
-<li><b>L∞</b> $\max|v_i|$: only the biggest entry counts.</li>
-<li><b>Frobenius</b> (matrices): the L2 norm of all entries in one long list.</li>
-</ul>
-<div class="eg"><b>Example</b><br>$\mathbf{v}=(3,-4,1)$: L1 = 8, L2 = $\sqrt{26}\approx5.099$, L∞ = 4.</div>
-<p>Why it matters: <b>ridge</b> penalises L2 and shrinks all weights a little; <b>lasso</b> penalises L1 and pushes some to exactly 0 (Lesson 10). The L1 "unit ball" is a diamond with sharp corners on the axes; L2's is a circle.</p>
-
-<h4>Independence, rank, determinant</h4>
-<p>Columns are <b>independent</b> if none can be built from the others. The <b>rank</b> = the number of independent columns. Least squares needs $X^\top X$ invertible, which only happens when the columns are independent.</p>
-<p>The <b>determinant</b> = how much a square matrix scales areas. $\det=0$ → it squashes space flat and has no inverse.</p>
-<div class="eg"><b>Example</b><br>If feature 3 = feature 1 + feature 2, only 2 columns carry information: rank 2, $\det(X^\top X)=0$ (the dummy-variable trap of Lesson 6). For $A=\begin{pmatrix}2&1\\1&3\end{pmatrix}$, $\det A=2\cdot3-1\cdot1=5$: areas get 5× bigger.</div>
-
+<p>Measuring a walk across a city. "As the crow flies" is the L2 norm. "Along the streets" (blocks east + blocks north) is the L1 norm. "The longest single stretch" is L∞. Same trip, three different sizes.</p>
+<div class="eg"><b>Three sizes of $(3,-4,1)$</b><br>L1: add the sizes, $3+4+1=8$.<br>L2: square, add, square-root: $\sqrt{9+16+1}=\sqrt{26}\approx5.1$.<br>L∞: the biggest one, $4$.<br><i>L1 ≥ L2 ≥ L∞ always holds.</i></div>
+<h4>Independence, rank and the determinant</h4>
+<p>Three ingredients on a recipe: flour, sugar, and "flour + sugar mix". The third adds nothing new: you could make it from the first two. Rank counts only the ingredients that are really new.</p>
+<div class="eg"><b>Spot the duplicate</b><br>Features: size, rooms, and size + rooms.<br>Column 3 = column 1 + column 2, so only 2 columns are new: rank = 2.<br>Then $X^\top X$ has determinant 0 and can't be inverted, so least squares has no single answer.<br>For $A=\begin{pmatrix}2&amp;1\\1&amp;3\end{pmatrix}$: $\det A = 2\cdot3-1\cdot1=5$, so it stretches any shape to 5× its area.</div>
 <h4>Eigenvalues and eigenvectors</h4>
-<p>An <b>eigenvector</b> is a direction the matrix only stretches, never turns: $A\mathbf{v}=\lambda\mathbf{v}$. $\lambda$ = how much.</p>
-<div class="eg"><b>Example</b><br>For the $A$ above, $\det(A-\lambda I)=\lambda^2-5\lambda+5=0$ → $\lambda\approx1.382$ and $3.618$. For 3.618 the eigenvector is about $(0.526,0.851)$, and the two eigenvectors are at right angles.</div>
-<div class="sticky"><b>Why PCA works</b><br>Every <b>symmetric</b> matrix has real eigenvalues and perpendicular eigenvectors ($A=Q\Lambda Q^\top$). Covariance matrices are symmetric, so PCA's components are their eigenvectors (Lesson 17). Use <code>np.linalg.eigh</code> for symmetric matrices.</div>
-
+<p>Stretch a sheet of rubber. Most arrows drawn on it turn as well as stretch. A few special arrows only get longer or shorter, without turning. Those are eigenvectors; how much they stretch is the eigenvalue.</p>
+<div class="eg"><b>Eigenvalues of $A$, step by step</b><br>Write $\det(A-\lambda I)=0$: $(2-\lambda)(3-\lambda)-1=0$.<br>Multiply out: $\lambda^2-5\lambda+5=0$.<br>Solve: $\lambda=(5\pm\sqrt5)/2$, so $\lambda\approx3.618$ and $1.382$.<br>Check: they add to 5 (= 2 + 3, the diagonal) and multiply to 5 (= the determinant).<br><i>That last check is a quick way to catch mistakes.</i></div>
 <h4>Positive definite matrices</h4>
-<p>$\mathbf{x}^\top A\mathbf{x}&gt;0$ for every non-zero $\mathbf{x}$ (all eigenvalues positive). $X^\top X$ is always at least positive <i>semi</i>-definite, because $\mathbf{w}^\top X^\top X\mathbf{w}=\|X\mathbf{w}\|^2\ge0$. That's why the squared-error loss is a bowl with one lowest point (Lesson 3's Going deeper).</p>
-
-<h4>The SVD</h4>
-<p>Works for any matrix, including a data table: $A=U\Sigma V^\top$. The <b>singular values</b> in $\Sigma$ rank how important each hidden direction is, and keeping the top $k$ gives the <mark>best possible rank-$k$ approximation</mark> (Eckart–Young).</p>
-<div class="eg"><b>Example from the lesson</b><br>50 users × 40 films, secretly built from 3 hidden "tastes" plus noise. The singular values drop sharply after the third (38.5, then 3.9): the SVD found the 3 tastes. A rank-3 version stores 273 numbers instead of 2,000, with relative error 0.157 (mostly the noise). Recommender systems use this idea (Lesson 27).</div>
-
-<h4>Nearly duplicate features: the condition number</h4>
-<p>When two features are almost copies of each other, the matrix is close to losing rank. Its <b>condition number</b> (largest ÷ smallest singular value) becomes huge, and tiny changes in the data swing the weights wildly. Regularization (Lesson 10) calms this down.</p>
+<p>A bowl that curves upwards in every direction you walk. "Positive definite" means the matrix describes such a bowl; "semi-definite" allows some perfectly flat directions.</p>
+<h4>The singular value decomposition (SVD)</h4>
+<p>A big table of ratings is like a song mixed from a few instruments. The SVD un-mixes it: it finds the few hidden "instruments" (tastes like action, comedy, drama) and how loud each one is (the singular values).</p>
+<div class="eg"><b>Reading the singular values</b><br>Values drop sharply after the third: …, 38.5, then 3.9.<br>So 3 hidden tastes explain the table; the rest is noise.<br>Storage: 273 numbers for the rank-3 version instead of 2,000.<br>Error: 0.157 at rank 3, 0.142 at rank 5. Extra values hardly help, because they only describe noise.</div>
+<h4>Condition number: when tiny changes cause big swings</h4>
+<p>Two people pushing a car from almost the same spot. You can see the car moved, but you can't tell who pushed how hard. Near-duplicate features are the same: the total effect is clear, the split between them is not.</p>
+<div class="eg"><b>The condition number in practice</b><br>Ratio of largest to smallest singular value: about 14,000. Huge.<br>Tiny change in $y$ → weights jump from $(0.96,-0.36)$ to $(1.2,-0.61)$.<br>But the sum stays near 0.6, so predictions barely change.<br>Add $\lambda I$ (ridge): condition number falls to 1,462 and the weights stay steady ($0.37,0.23$ → $0.39,0.21$).</div>
+<h4>Matrix calculus: the four rules you'll actually use</h4>
+<p>These rules are the ordinary 1-D rules ("derivative of $aw$ is $a$", "of $w^2$ is $2w$") written for many weights at once. If you know the 1-D rule, you can guess the vector one.</p>
+<div class="sticky"><b>In one breath</b><br>Norms measure size (L1 makes lasso pick features), rank finds duplicate features, eigenvectors are the directions a matrix only stretches (PCA), the SVD finds the few hidden patterns in a table, and a large condition number warns that weights are unstable; ridge fixes it.</div>
 </div>
 <div class="sign">✎ in one line: examples are vectors, datasets are matrices, predictions are dot products, and the shapes must line up.</div>
 <p class="sn-back"><a href="lesson-02.html">open the full lesson →</a></p>
@@ -346,32 +336,24 @@
 
 <div class="deeper">
 <h3 class="dh"><span class="n">★</span>Going deeper: calculus for optimisation</h3>
-
-<h4>The Jacobian</h4>
-<p>A gradient is for "many numbers in → one number out". A network layer is "many in → many out"; its derivative is the <b>Jacobian</b>, a matrix of $\partial f_i/\partial x_j$ (one row per output).</p>
-<div class="eg"><b>Example</b><br>$\mathbf{f}=(x^2y,\;5x+\sin y)$ → $J=\begin{pmatrix}2xy&x^2\\5&\cos y\end{pmatrix}$, so $J(1,2)=\begin{pmatrix}4&1\\5&-0.4161\end{pmatrix}$.</div>
-<p>The chain rule for vector functions = <mark>multiplying Jacobians</mark>. Backpropagation does this layer by layer (only as products with vectors, never building the full matrices).</p>
-
-<h4>The Hessian: curvature</h4>
-<p>Second derivatives form the <b>Hessian</b> $H_{ij}=\partial^2L/\partial w_i\partial w_j$. It's symmetric; its eigenvalues are the curvature in each direction. Where the gradient is zero:</p>
-<ul><li>all eigenvalues positive → <b>minimum</b>;</li><li>all negative → <b>maximum</b>;</li><li>mixed → <b>saddle</b> (a mountain pass).</li></ul>
-<div class="eg"><b>Example</b><br>$w_1^2+10w_2^2$: eigenvalues 2 and 20, a minimum in a valley 10× steeper one way. $w_1^2-w_2^2$: −2 and 2, a saddle.</div>
-<p>In neural networks most zero-gradient points are saddles, not bad minima, one reason gradient descent works better than you'd expect.</p>
-
-<h4>Convexity: exactly one valley</h4>
-<p>A <b>convex</b> function is bowl-shaped: the straight line between any two points on the graph never dips below it. Test: the Hessian is positive semi-definite everywhere. Payoff: <mark>every local minimum is the global minimum</mark>, so gradient descent can't get stuck.</p>
-<ul><li>Convex: MSE for linear regression (Hessian $\frac2nX^\top X$), log loss (Lesson 8), hinge loss (Lesson 15).</li><li>Not convex: neural networks, so the starting point matters.</li></ul>
-
-<h4>Newton's method</h4>
-<p>Near any point, a smooth function looks like a bowl (2nd-order Taylor): $L(\mathbf{w}+\Delta)\approx L+\nabla L^\top\Delta+\tfrac12\Delta^\top H\Delta$. Gradient descent uses only the slope; Newton jumps to the bottom of the bowl: $\Delta=-H^{-1}\nabla L$.</p>
-<div class="eg"><b>Example from the lesson</b><br>Valley $w_1^2+10w_2^2$ from (10, 1): gradient descent must keep $\eta&lt;2/20$ or it blows up in the steep direction, so it needs <b>82 steps</b> at best. Newton lands on the minimum in <b>1 step</b>.</div>
-<p>But the Hessian has $d^2$ entries and costs about $d^3$ to use: impossible for a million weights. So practical methods approximate curvature: <b>L-BFGS</b> (scikit-learn's default for logistic regression) and <b>Adam</b>.</p>
-
-<h4>Checking your gradients</h4>
-<p>Compare a hand-derived gradient with the <b>central difference</b> $\frac{L(\mathbf{w}+h\mathbf{e}_i)-L(\mathbf{w}-h\mathbf{e}_i)}{2h}$ (error shrinks like $h^2$). Use the relative error $\frac{\|g_1-g_2\|}{\|g_1\|+\|g_2\|}$: below $10^{-7}$ is right, around $10^{-4}$ suspicious, above $10^{-2}$ a bug.</p>
-
-<h4>Optimising with a rule: Lagrange multipliers</h4>
-<p>To minimise a function <i>subject to a constraint</i> (e.g. weights must have length 1), add the constraint times a multiplier $\lambda$ and set all derivatives to zero. At the best point the two gradients are parallel. SVMs (Lesson 15) and PCA (Lesson 17) are solved this way.</p>
+<h4>The Jacobian: derivatives of vector functions</h4>
+<p>A gradient is a single row of slopes for one output. A layer has many outputs, so you stack one row per output: that table of slopes is the Jacobian.</p>
+<div class="eg"><b>Reading $J(1,2)$</b><br>Row 1 is output $f_1=x^2y$: slopes $2xy=4$ and $x^2=1$.<br>Row 2 is output $f_2=5x+\sin y$: slopes $5$ and $\cos 2\approx-0.416$.<br>Meaning: nudge $x$ by 0.01 and $f_1$ rises by about 0.04, $f_2$ by about 0.05.</div>
+<h4>The Hessian: curvature in many directions</h4>
+<p>Standing on a hillside, the gradient tells you which way is downhill. The Hessian tells you the <em>shape</em> around you: a bowl, a dome, or a mountain pass.</p>
+<div class="eg"><b>Classify two points</b><br>$L=w_1^2+10w_2^2$: second derivatives 2 and 20, both positive → a minimum (a valley 10× steeper one way).<br>$L=w_1^2-w_2^2$: 2 and −2, mixed signs → a saddle.</div>
+<h4>Convexity: when there's exactly one valley</h4>
+<p>A convex loss is a single smooth bowl: wherever you put a marble, it rolls to the same bottom. A non-convex loss is a bumpy landscape with several dips, and where you start decides where you end.</p>
+<h4>Taylor series and Newton's method</h4>
+<p>Gradient descent feels the slope with its feet and takes a careful step. Newton's method also feels how curved the ground is, guesses where the bottom of the bowl is, and jumps straight there.</p>
+<div class="eg"><b>One Newton step on $L=w_1^2+10w_2^2$ from $(10,1)$</b><br>Gradient: $(2w_1,20w_2)=(20,20)$.<br>Curvatures: 2 and 20.<br>Newton divides each slope by its curvature: step $=(20/2,\ 20/20)=(10,1)$.<br>New point: $(10,1)-(10,1)=(0,0)$, the exact minimum in one step.<br><i>Gradient descent needs 82 steps here. The catch: for a million weights the Hessian has $10^{12}$ entries.</i></div>
+<h4>Checking gradients like a professional</h4>
+<p>Checking your maths homework by measuring: nudge one weight a tiny bit up and down, see how much the loss changes, and compare with your formula.</p>
+<div class="eg"><b>Reading the relative error</b><br>Correct gradient: about $3\times10^{-11}$ (below $10^{-7}$ → right).<br>Buggy gradient (forgot $\tanh'$): $6.7\times10^{-2}$ (above $10^{-2}$ → bug).</div>
+<h4>Optimising with a constraint: Lagrange multipliers</h4>
+<p>You want the highest point on a hill, but you must stay on a fixed path. The best point on the path is where the path runs exactly along a contour line, so you can't go higher by walking either way.</p>
+<div class="eg"><b>Largest rectangle with perimeter 20</b><br>Maximise area $xy$ with $2x+2y=20$.<br>Slopes: area gives $(y,x)$; the rule gives $(2,2)$. Set them parallel: $y=2\lambda$, $x=2\lambda$, so $x=y$.<br>Then $4x=20$, so $x=y=5$, area $25$. The square wins.</div>
+<div class="sticky"><b>In one breath</b><br>The Jacobian is the slope table of a whole layer, the Hessian describes the shape (bowl, dome or saddle), convex losses have one bottom, Newton jumps to the bottom using curvature but is too costly for big models, always check gradients numerically, and Lagrange multipliers handle rules like "length 1".</div>
 </div>
 <div class="sign">✎ in one line: the derivative is the slope, the chain rule links the steps, and learning walks against the gradient.</div>
 <p class="sn-back"><a href="lesson-03.html">open the full lesson →</a></p>
@@ -450,53 +432,27 @@
 </ul>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: statistical inference</h3>
-
-<h4>More distributions worth knowing</h4>
-<ul>
-<li><b>Binomial</b>($n,p$): number of yeses in $n$ tries (clicks out of 10 visitors). P(8 or more of 10 at $p=0.5$) = 0.0547.</li>
-<li><b>Poisson</b>($\lambda$): counts in a fixed time (calls per hour). At 3/hour, an hour with none: $e^{-3}\approx0.0498$.</li>
-<li><b>Exponential</b>: waiting time until the next event. Average wait 20 min → over 30 min: $e^{-1.5}\approx0.2231$. Used in survival models.</li>
-<li><b>Normal</b>: sums of many small effects → squared-error loss.</li>
-</ul>
-
-<h4>Maximum likelihood (MLE)</h4>
-<p>Pick the parameters that make the observed data <mark>least surprising</mark>. 7 heads in 10 flips: $\log L(p)=7\log p+3\log(1-p)$; set the derivative to 0 → $p=0.7$.</p>
-<p>The same recipe gives least squares (normal noise) and log loss (yes/no outcomes).</p>
-<div class="sticky"><b>Why variance divides by n − 1</b><br>The MLE of the variance divides by $n$ and is biased low: with $n=5$ and true variance 4 it averages 3.21 (theory: 3.2). Dividing by $n-1$ fixes it (4.012).</div>
-
-<h4>Bayesian estimation and MAP</h4>
-<p>Combine a prior belief with the data: posterior ∝ likelihood × prior. For a probability, a <b>Beta</b>($a,b$) prior = "$a$ imaginary heads, $b$ imaginary tails".</p>
-<div class="eg"><b>Example from the lesson</b><br>Prior Beta(2, 2) + 7 heads, 3 tails → posterior <b>Beta(9, 5)</b>. Mean 9/14 ≈ 0.643 (pulled towards 0.5), MAP peak ≈ 0.667, 95% credible interval 0.386 to 0.861. Honest: 10 flips don't tell you much.</div>
-<p><b>MAP = regularization in disguise</b>: a normal prior on weights gives <b>ridge</b>, a Laplace prior gives <b>lasso</b>. Believing "weights are probably small" is the same as penalising big weights.</p>
-
-<h4>Central limit theorem and standard error</h4>
-<p>Average $n$ independent values of <i>anything</i> (mean $\mu$, sd $\sigma$): for large $n$ the average is roughly normal, with</p>
-<p class="fx">$\text{SE}=\dfrac{\sigma}{\sqrt n}$</p>
-<div class="eg"><b>Example from the lesson</b><br>A very skewed variable: skewness 1.98 for single values, 0.37 for averages of 30, 0.15 for averages of 200. To <b>halve</b> an error bar you need <b>4×</b> the data.</div>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: statistical inference for ML</h3>
+<h4>A few more distributions worth knowing</h4>
+<p>Different kinds of randomness have different shapes: one yes/no (a single click), counting yeses (clicks out of 10), counting events per hour (calls), waiting times (minutes until the next call), and sums of many small effects (the bell curve).</p>
+<h4>Maximum likelihood: the parameters that make the data least surprising</h4>
+<p>Try every possible value of the coin's heads chance and ask, for each: "how unsurprised would I be by 7 heads in 10?" The value that makes the data least surprising wins.</p>
+<div class="eg"><b>Compare three guesses for 7 heads, 3 tails</b><br>$p=0.5$: likelihood $0.5^7\times0.5^3\approx0.00098$.<br>$p=0.7$: $0.7^7\times0.3^3\approx0.00222$ (the largest).<br>$p=0.9$: $0.9^7\times0.1^3\approx0.00048$.<br>So the best guess is $p=0.7$, the observed fraction.</div>
+<h4>Bayesian estimation, priors and MAP</h4>
+<p>Before tossing a coin you already believe it's probably fair. Ten tosses shouldn't erase that completely; a thousand should. Bayes is the exact rule for that blend.</p>
+<div class="eg"><b>Updating a Beta(2, 2) prior</b><br>Prior: like having seen 2 heads and 2 tails already.<br>Data: 7 heads, 3 tails. Just add: Beta($2+7$, $2+3$) = Beta(9, 5).<br>Mean: $9/14\approx0.643$, pulled from 0.7 towards 0.5.<br>MAP (the peak): $(9-1)/(9+5-2)=8/12\approx0.667$.</div>
+<h4>The central limit theorem and the standard error</h4>
+<p>One person's height can be anything; the average of 100 people's heights barely changes between groups. Averaging cancels out the extremes, and the result always looks like a bell curve.</p>
+<div class="eg"><b>The square-root rule</b><br>Spread of one value: $\sigma=1$.<br>Average of 4: $1/\sqrt4=0.5$.<br>Average of 16: $1/\sqrt{16}=0.25$.<br>So halving the error bar needs 4× the data.</div>
 <h4>Confidence intervals and the bootstrap</h4>
-<p>For a mean: $\bar{x}\pm1.96\,\text{SE}$. For anything without a formula (median, correlation, F1 score): the <b>bootstrap</b>. Resample your data <b>with replacement</b> thousands of times, recompute the statistic each time, and take the middle 95%.</p>
-<div class="eg"><b>Example from the lesson</b><br>60 house prices: median 72.6 lakh, 95% bootstrap interval 58.0 to 78.7. Not symmetric, because prices are skewed; the bootstrap captures that automatically. (Bagging in Lesson 14 uses the same resampling.)</div>
-
+<p>You only have one bag of 60 prices. Pretend it's the whole world: draw 60 prices from it at random (repeats allowed), compute the median, put them back, and do it again thousands of times. How much those medians vary is your error bar.</p>
 <h4>Hypothesis tests and A/B testing</h4>
-<p>2,400 visitors see old page A, 2,400 see new page B. B converts 6.5%, A 5.0%. Real or luck?</p>
-<ol>
-<li><b>Null hypothesis</b> $H_0$: the pages convert equally.</li>
-<li><b>Test statistic</b>: the difference in standard-error units, $z=\frac{\hat p_B-\hat p_A}{\sqrt{\hat p(1-\hat p)(1/n_A+1/n_B)}}$.</li>
-<li><b>p-value</b>: chance of a difference at least this big <i>if $H_0$ were true</i>. Below α (usually 0.05) → reject $H_0$.</li>
-</ol>
-<div class="eg"><b>Result</b><br>$z=2.23$, $p=0.0256$ → at α = 0.05, B is better.</div>
-<ul>
-<li><b>Type I error</b> (false positive): a "difference" that isn't real; its rate is α.</li>
-<li><b>Type II error</b> (false negative): missing a real difference. <b>Power</b> = chance of catching a real effect; it grows with sample size.</li>
-</ul>
-<div class="sticky"><b>Plan first</b><br>Fix the number of visitors before starting, and don't stop early the moment p dips below 0.05.</div>
-
-<h4>Multiple testing</h4>
-<p>Test 20 features with no real effect at α = 0.05, and the chance that at least one looks "significant" is $1-0.95^{20}\approx$ <b>0.64</b>. Trying many things and reporting only the winner (p-hacking) is why many findings fail to replicate.</p>
-<ul><li><b>Bonferroni</b>: use α / m for m tests (overall false-alarm rate back under 5%).</li><li><b>Benjamini–Hochberg</b>: a gentler option that controls the false discovery rate.</li></ul>
-<p>In ML the same trap is overfitting the validation set by trying many models, which is why an untouched test set matters.</p>
+<p>A court case: assume innocence (no difference between A and B) and only convict if the evidence would be very surprising under that assumption.</p>
+<div class="eg"><b>The checkout test by hand</b><br>Rates: A 5.0%, B 6.5%. Difference 1.5 points.<br>Pooled rate: $(120+156)/4800=5.75\%$.<br>Standard error: $\sqrt{0.0575\times0.9425\times\tfrac{2}{2400}}$<br>$\approx0.67$ points.<br>$z=1.5/0.67\approx2.23$ standard errors → $p\approx0.026$, below 0.05.</div>
+<h4>Multiple testing: why "significant" findings often vanish</h4>
+<p>Buy enough lottery tickets and one will win. Test enough useless features and one will look "significant" by luck.</p>
+<div class="eg"><b>20 useless features</b><br>Each test: 95% chance of no false alarm.<br>All 20 clean: $0.95^{20}\approx0.36$.<br>At least one false alarm: $1-0.36=0.64$.<br>Bonferroni: test each at $0.05/20=0.0025$ → overall about 0.049.</div>
+<div class="sticky"><b>In one breath</b><br>Pick the distribution that matches your data, fit it by maximum likelihood, blend in prior beliefs with Bayes (that is regularization), expect averages to wobble by $\sigma/\sqrt n$, use the bootstrap for error bars on anything, plan A/B tests in advance, and correct for testing many things.</div>
 </div>
 <div class="sign">✎ in one line: probabilities measure uncertainty, Bayes updates beliefs, and averages get predictably more precise with more data.</div>
 <p class="sn-back"><a href="lesson-04.html">open the full lesson →</a></p>
@@ -611,60 +567,19 @@
 </ol>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: validation you can trust</h3>
-<p>The habits above (split, cross-validate, avoid leakage) quietly break in four common situations. Each one makes a model look great in testing and disappoint in production.</p>
-
-<h4>1. Tuning inflates the score → nested CV</h4>
-<p>Try many settings and keep the best cross-validated score, and that score is <mark>optimistic</mark>: some settings won partly by luck on these particular folds (like the best of 20 coin-flippers looking "skilled").</p>
-<p><b class="pen">Nested cross-validation</b> fixes it with two loops:</p>
-<ul>
-<li><b>Inner loop</b>: chooses the settings, using only the training part of each outer fold.</li>
-<li><b>Outer loop</b>: scores the whole "tune, then fit" recipe on data the tuning never saw.</li>
-</ul>
-<div class="eg"><b>Example from the lesson</b><br>An SVM tuned over 25 settings on a small, noisy dataset: the search reports <b>0.633</b>, nested CV says <b>0.608</b>. The gap grows with more settings and shrinks with more data.</div>
-<p>To build the final model you still run the normal search on all the data; nested CV tells you how well that recipe will do.</p>
-
-<h4>2. Rows that aren't independent: time and groups</h4>
-<ul>
-<li><b>Time series</b>: neighbouring days look alike. A shuffled split puts Tuesday in training and Wednesday in validation, so the model just "remembers" the nearby level.</li>
-<li><b>Groups</b>: several rows per customer, patient or house. If one customer is on both sides, the model learns <i>that person</i>, not the pattern.</li>
-</ul>
-<div class="eg"><b>Example from the lesson</b><br>Slowly drifting daily sales, random forest. Shuffled k-fold: $R^2=$ <b>0.957</b> (looks superb). Time-ordered split (<code>TimeSeriesSplit</code>): $R^2=$ <b class="red">−0.609</b>, worse than predicting the average! The forest can't follow a drifting trend, and shuffling hid it.</div>
-<p>For groups use <code>GroupKFold</code> (all of one group's rows on the same side).</p>
-<div class="sticky"><b>Rule</b><br>Split the way the model will be <b>used</b>.</div>
-
-<h4>3. Would more data help? Learning curves</h4>
-<p>Train on growing subsets and plot training and validation scores against training-set size.</p>
-<svg class="sk" width="460" viewBox="0 0 460 180" aria-label="Sketch: learning curve. Training accuracy stays high, validation accuracy rises with more data and the gap closes.">
- <path class="k" d="M40 150 H430 M40 150 V15"/><text x="250" y="172">training-set size →</text><text x="5" y="20">score</text>
- <path class="p" d="M50 28 C150 32 300 34 420 35"/><text x="360" y="25">train</text>
- <path class="g" d="M50 110 C120 60 220 50 420 45"/><text x="330" y="70">validation</text>
-</svg>
-<div class="eg"><b>Example from the lesson</b><br>Breast-cancer data, logistic regression: validation accuracy climbs from <b>0.916</b> (22 examples) to <b>0.981</b> (455), and the gap to training (0.989) is now small.</div>
-<ul>
-<li><b>Big gap, validation still rising</b> (high variance) → more data will probably help.</li>
-<li><b>Both low and close</b> (high bias) → more data won't help much; use a more flexible model or better features.</li>
-<li><b>Both high, flat and close</b> → you're near the limit for this model and these features.</li>
-</ul>
-
-<h4>4. When the world changes: distribution shift</h4>
-<ul>
-<li><b>Covariate shift</b>: the inputs change, the relationship stays (a new city with bigger homes).</li>
-<li><b>Label shift</b>: the class balance changes (more fraud in the holiday season).</li>
-<li><b>Concept drift</b>: the relationship itself changes (after a rule change, the same features mean something else). Needs fresh labels to detect.</li>
-</ul>
-<p><b class="pen">Adversarial validation</b> spots the first kind: label training rows 0 and new rows 1, then train a classifier to tell them apart. AUC near 0.5 → they look alike. Clearly higher → real shift, and the feature importances show where.</p>
-<div class="eg"><b>Example from the lesson</b><br>No shift: AUC <b>0.540</b>, importances evenly spread. One feature drifted by 0.8 standard deviations: AUC <b>0.695</b>, and that feature's importance jumps to <b>0.59</b>, pointing straight at the culprit.</div>
-
-<h4>A validation checklist</h4>
-<ul>
-<li>Reporting a tuned model → <b>nested CV</b>, or a test set used once.</li>
-<li>Data ordered in time → <b>time-ordered splits</b>, never shuffle.</li>
-<li>Several rows per person, item or place → <b>GroupKFold</b>.</li>
-<li>Rare classes → <b>stratified</b> splits.</li>
-<li>Should we collect more data? → a <b>learning curve</b>.</li>
-<li>New data might differ → <b>adversarial validation</b> and drift monitoring.</li>
-</ul>
+<h3 class="dh"><span class="n">★</span>Going deeper: validation that you can trust</h3>
+<h4>Tuning inflates scores: nested cross-validation</h4>
+<p>Twenty students take the same practice test and you hire the top scorer. Part of their score was luck, so they'll probably do a little worse on the real exam. Picking the best of many settings has the same effect on validation scores.</p>
+<div class="eg"><b>Reading the gap</b><br>Best score inside the search: 0.633 (best of 25 tries, so lucky).<br>Nested estimate: 0.608 (honest).<br>The 0.025 gap is the luck. It grows with more settings tried, shrinks with more data.</div>
+<h4>When rows aren't independent: time and groups</h4>
+<p>Predicting tomorrow's weather with a shuffled split is like being shown Monday and Wednesday and asked to guess Tuesday: easy. Real use is guessing next week from the past, which is much harder.</p>
+<div class="eg"><b>Reading the result</b><br>Shuffled k-fold: $R^2=0.957$, looks superb.<br>Time-ordered split: $R^2=-0.609$, worse than predicting the average.<br>Same model, same data. Only the split changed: it should match how the model will be used.</div>
+<h4>Learning curves: would more data help?</h4>
+<p>Before buying more ingredients, check whether the recipe is the problem. A learning curve shows whether more data still improves the model or whether it has stopped improving.</p>
+<h4>When the world changes: distribution shift</h4>
+<p>Train a model on summer shoppers and use it in December. Adversarial validation asks a simple question: can a model tell the old rows from the new ones? If yes, they're different.</p>
+<div class="eg"><b>Reading adversarial validation</b><br>No shift: AUC 0.540, about guessing → the data looks alike.<br>Feature 0 drifts: AUC 0.695 → the data really changed.<br>Feature 0's importance 0.59 → that is where the change is.</div>
+<div class="sticky"><b>In one breath</b><br>Report tuned models with nested CV or a once-only test set, split the way the model will be used (time order, groups), use learning curves before buying data, and watch for new data drifting away from the training data.</div>
 </div>
 <div class="sign">✎ in one line: fit on train, choose with validation or CV, judge once on test, and never let the test data leak in.</div>
 <p class="sn-back"><a href="lesson-05.html">open the full lesson →</a></p>
@@ -738,54 +653,30 @@
 </ul>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: the statistics behind it</h3>
-
-<h4>The four assumptions: LINE</h4>
-<ul>
-<li><b>L</b>inearity: the average of $y$ is a straight-line function of the features. Check residuals vs predictions for curves.</li>
-<li><b>I</b>ndependence: one error says nothing about the next. Broken by time series and repeated measurements → standard errors too small.</li>
-<li><b>N</b>ormality: errors follow a bell curve. Only matters for exact p-values in small datasets.</li>
-<li><b>E</b>qual spread (homoscedasticity): errors are as big for large predictions as small ones. If they fan out, the weights are fine but the standard errors are wrong.</li>
-</ul>
-<p>The features and $y$ themselves don't need to be normal. And if you only care about test-set predictions, none of this is strictly needed; it matters when you claim "this feature has a real effect".</p>
-
-<h4>Why squared error?</h4>
-<ul>
-<li>It's the <b>maximum-likelihood</b> answer when noise is normal (with Laplace noise you'd get absolute error / median regression).</li>
-<li><b>Gauss–Markov</b>: with zero-mean, uncorrelated, equal-spread errors, OLS has the smallest variance among unbiased linear estimators ("BLUE"). But a slightly <i>biased</i> method like ridge can predict better.</li>
-</ul>
-
-<h4>How sure is each weight?</h4>
-<p>Fit on a different sample and the weights wobble. The <b>standard error</b> measures how much: $\text{Var}(\hat{\mathbf{w}})=\sigma^2(X^\top X)^{-1}$, with $\hat\sigma^2=\text{SS}_{\text{res}}/(n-d-1)$.</p>
-<ul><li>$t=\hat w/\text{SE}$: how many SEs from zero.</li><li><b>p-value</b>: chance of a $|t|$ this big if the true weight were 0.</li><li>95% interval: $\hat w\pm t^*\text{SE}$ (about ±1.97 SE here).</li></ul>
-<div class="eg"><b>Example: diabetes data (442 patients)</b><br><b>bmi</b>: 7.81 SEs from zero, interval 389 to 651 → clearly real. <b>age</b>: p = 0.867, interval −127 to +107 → can't even tell the direction. <b>s1</b>: big weight (−792) yet p = 0.058, because its SE (416.7) is huge.</div>
-<div class="sticky"><b>A p-value is not…</b><br>…the chance the feature is useless. A large p doesn't prove "no effect" (maybe too little data). A tiny p doesn't mean big, useful or causal.</div>
-
-<h4>Overlapping features: the VIF</h4>
-<p>s1 (total cholesterol) and s2 (LDL) correlate about 0.9, so the model can't decide how to split the credit. The <b>variance inflation factor</b>: predict feature $j$ from the others, then</p>
-<p class="fx">$\text{VIF}_j=\dfrac{1}{1-R_j^2}$</p>
-<p>VIF 1 = no inflation; 10 = the others explain 90%. SE grows by $\sqrt{\text{VIF}}$. Investigate above 5–10.</p>
-<div class="eg"><b>Example</b><br>s1's VIF = 59.2 (SE ×7.7). Drop s2 → s1's SE falls from 416.7 to 114.0, while $R^2$ barely moves (0.5177 → 0.5155).</div>
-<p><mark>Multicollinearity hurts interpretation, not prediction.</mark></p>
-
-<h4>Adjusted R² and cross-validation</h4>
-<p>Training $R^2$ never goes down when you add a feature, even pure noise. Adjusted $R^2=1-(1-R^2)\frac{n-1}{n-d-1}$ penalises each feature.</p>
-<div class="eg"><b>Example</b><br>Adding random noise columns: training $R^2$ climbs 0.518 → 0.633; adjusted stays about 0.51; <b>cross-validated</b> $R^2$ actually falls 0.482 → 0.277. CV tells the truth.</div>
-
-<h4>Errors that fan out: the log transform</h4>
-<p>Money-like targets vary in proportion to their size, so residuals fan out (senior salaries 3.4× more spread than juniors). Model $\log y$ instead: "±25%" becomes a constant "±0.25".</p>
-<p>Reading it: +1 in $x$ multiplies $y$ by $e^w$. $e^{0.0591}=1.061$ → each extra year ≈ <b>6.1% higher</b> salary (for small $w$, read $100w$ as a %). Converting back with $e^{\hat y}$ gives roughly the median. Alternatives: robust standard errors (HC3) or weighted least squares.</p>
-
-<h4>Points that bend the line</h4>
-<ul>
-<li><b>Outlier</b>: $y$ far from the line.</li>
-<li><b>High leverage</b>: $x$ far from the others (the hat-matrix diagonal $h_{ii}$; average $(d+1)/n$).</li>
-<li><b>Influential</b> = both. <b>Cook's distance</b> measures how much all predictions move if the point is deleted; flag above 1 (or 4/n).</li>
-</ul>
-<p>Robust regression (e.g. Huber loss) limits how much any single point can pull.</p>
-
-<h4>Categories: the dummy-variable trap</h4>
-<p>One-hot encode a category with $k$ values and keep only $k-1$ columns when there's an intercept. All $k$ columns add up to the 1s column, so $X^\top X$ can't be inverted. The dropped category becomes the baseline the others are compared to.</p>
+<h3 class="dh"><span class="n">★</span>Going deeper: the statistics behind linear regression</h3>
+<h4>The four assumptions, and what each one buys you</h4>
+<p>A line always fits; the question is whether its numbers can be trusted. The four assumptions are like a car's safety check: the car may still drive if one fails, but you shouldn't trust the speedometer.</p>
+<h4>Why squared error? Two classic answers</h4>
+<p>If errors follow a bell curve, the most believable line is the one with the smallest total squared miss. Squared error isn't an arbitrary choice; it falls out of the bell curve.</p>
+<h4>How sure are we about each weight? Standard errors, p-values and intervals</h4>
+<p>Ask ten different samples of patients and you'd get ten slightly different weights. The standard error says how much they would typically differ; a weight many standard errors from zero is very unlikely to be luck.</p>
+<div class="eg"><b>Bmi's row by hand</b><br>Weight about 520 with SE about 66.6.<br>$t\approx520/66.6\approx7.81$: almost eight wobbles from zero.<br>Interval $\approx520\pm1.97\times66.6$: about 389 to 651, nowhere near 0.</div>
+<h4>When features overlap: multicollinearity and the VIF</h4>
+<p>Two friends always arrive at parties together. If the party gets louder, you can't tell which one caused it. s1 and s2 (two cholesterol measures) are like that: the model knows their joint effect, not each one's.</p>
+<div class="eg"><b>VIF by hand</b><br>Predict s1 from the other features: suppose $R^2=0.9$. VIF $=1/(1-0.9)=10$.<br>If $R^2=0.98$: VIF $=1/0.02=50$.<br>s1's actual VIF is 59.2, so its SE is $\sqrt{59.2}\approx7.7$× larger than it would be alone.<br>Drop s2: SE falls from 416.7 to 114.0, while $R^2$ barely moves (0.5177 → 0.5155).</div>
+<h4>Adjusted $R^2$, and why cross-validation is better still</h4>
+<p>Adding a column of random noise is like adding a student who guesses answers to a study group. Training $R^2$ always says the group got "better"; adjusted $R^2$ and cross-validation see through it.</p>
+<div class="eg"><b>The charge in numbers ($n=442$)</b><br>10 features, $R^2=0.518$: $1-0.482\times441/431\approx0.507$.<br>Suppose 30 features gave $R^2=0.560$: $1-0.440\times441/411\approx0.528$.<br>A feature must beat chance to raise adjusted $R^2$.</div>
+<h4>When errors fan out: unequal spread and the log transform</h4>
+<p>A guess of a junior's salary might be off by ₹1 lakh; a senior's by ₹5 lakh. Errors that grow with size are natural for money. Taking the log turns "± 25%" into one constant error size.</p>
+<div class="eg"><b>Reading a log weight</b><br>Weight for experience: $w=0.0591$.<br>$e^{0.0591}\approx1.061$, so each extra year means about <strong>6.1% higher</strong> salary.<br>Shortcut for small $w$: $100w\approx$ the percentage, here 5.9%.</div>
+<h4>Points that bend the line: leverage, Cook's distance and robust regression</h4>
+<p>A see-saw: a child sitting far from the middle moves it much more than one near the centre. A point far out on the $x$ axis (high leverage) can tilt the whole line, especially if it's also off the line.</p>
+<div class="eg"><b>What the diagnostics say</b><br>With the far point: slope 0.75 instead of about 2.<br>Its leverage 0.576 is about 9× the median.<br>Cook's distance 12.73, far above 1; all other points below 0.1.<br>Huber regression keeps the slope at 1.85, close to the truth.</div>
+<h4>Categorical features and the dummy-variable trap</h4>
+<p>If every house is exactly one of Central, Suburb or Outskirts, then knowing two of the yes/no columns tells you the third. Keeping all three plus the bias term says the same thing twice.</p>
+<div class="eg"><b>Why the three dummies are redundant</b><br>Central row: (1, 0, 0). Suburb: (0, 1, 0). Outskirts: (0, 0, 1).<br>Each row sums to 1, exactly the bias column.<br>So Central = 1 − Suburb − Outskirts: one column says nothing new.</div>
+<div class="sticky"><b>In one breath</b><br>Check the LINE assumptions, read each weight with its standard error and interval, use VIF to spot overlapping features, log money-like targets, hunt for high-leverage points with Cook's distance (or use Huber), drop one dummy per category, and prefer cross-validated $R^2$ over training $R^2$.</div>
 </div>
 <div class="sign">✎ in one line: the line that minimises squared gaps, judged by R² against the mean, read carefully and checked for assumptions.</div>
 <p class="sn-back"><a href="lesson-06.html">open the full lesson →</a></p>
@@ -852,36 +743,22 @@
 <p>Why noisy steps still work: a random sample's gradient points the right way <b>on average</b>, like asking a few random people for directions instead of polling the whole town.</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: modern optimisers and schedules</h3>
-
-<h4>Why plain GD is slow: the condition number</h4>
-<p>The learning rate must stay below $2/\lambda_{\max}$ (steepest curvature), but then the gentlest direction shrinks only by about $1-1/\kappa$ per step, where $\kappa=\lambda_{\max}/\lambda_{\min}$. With $\kappa=1000$ you need thousands of steps. Scaling fixes the cause; the optimisers below work around it.</p>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: modern optimisers and learning-rate schedules</h3>
+<h4>Why plain gradient descent is slow: narrow valleys</h4>
+<p>You're walking down a long, narrow canyon in fog. The side walls are very steep, the floor slopes gently towards the exit. If you take big steps, you bounce from wall to wall. So you take tiny steps, but then you crawl along the floor. That's plain gradient descent on a badly shaped loss.</p>
+<div class="eg"><b>How many steps?</b><br>Goal: shrink the error 1,000 times.<br>Valley with $\kappa=10$: each step keeps $1-1/10=0.9$ of the error. $0.9^{66}\approx 0.001$, so about <strong>66 steps</strong>.<br>Valley with $\kappa=1000$: each step keeps $0.999$. You need $0.999^{n}\approx0.001$, so about <strong>6,900 steps</strong>.<br>Same goal, 100× more work, only because the valley is thinner.</div>
 <h4>Momentum: a ball rolling downhill</h4>
-<p class="fx">$\mathbf{v}\leftarrow\beta\mathbf{v}+\nabla L,\qquad\mathbf{w}\leftarrow\mathbf{w}-\eta\mathbf{v}$</p>
-<p>In the steep direction the gradients flip sign and cancel (less zigzag); along the valley they agree and add up (speeds up). Typical $\beta=0.9$. <b>Nesterov</b> looks ahead to where the velocity is taking you.</p>
-
-<h4>Adaptive rates: RMSProp and Adam</h4>
-<p><b>RMSProp</b> divides each weight's step by a running average of its recent gradient sizes. <b>Adam</b> = that + momentum, with a <b>bias correction</b> because the averages start at zero. Defaults: $\eta=0.001$, $\beta_1=0.9$, $\beta_2=0.999$, $\epsilon=10^{-8}$.</p>
-<div class="eg"><b>Example from the lesson</b> (steps to get within 0.001)<br>Mildly narrow valley: GD 47, <b>momentum 17</b>, Adam 310 (Adam crawls the final stretch unless its rate decays).<br>1,000× narrower valley: GD <b>5,113</b>, momentum 2,977, Adam still <b>310</b>. Adam hardly notices bad conditioning, which is why it's the deep-learning default.</div>
-<p><b>AdamW</b>: an L2 penalty mixes badly with Adam's scaling, so AdamW applies weight decay directly to the weights. Standard for transformers.</p>
-
+<p>Instead of a careful walker, roll a heavy ball. It remembers which way it was going. Pushes that keep flipping left-right cancel out; a push that keeps pointing forward builds up speed.</p>
+<h4>Adaptive learning rates: RMSProp and Adam</h4>
+<p>A sound engineer with many sliders. Loud channels get turned down, quiet ones turned up, so every channel ends up at a sensible level. Adam does this for every weight's step size.</p>
+<div class="eg"><b>Adam's first step</b><br>Weight A has gradient 100, weight B has gradient 0.01. Plain gradient descent with $\eta=0.1$ would move A by 10 and B by 0.001: 10,000× apart.<br>Adam, step 1, weight A: $m = 0.1\times100 = 10$, $s = 0.001\times100^2 = 10$.<br><strong>Without</strong> correction: $m/\sqrt{s} = 10/3.16 = 3.16$, a step 3× too big, only because $m$ and $s$ started at zero.<br><strong>With</strong> correction: $\hat m = 10/(1-0.9) = 100$, $\hat s = 10/(1-0.999) = 10{,}000$, so $\hat m/\sqrt{\hat s} = 100/100 = 1$.<br>Step for A $= 0.1\times1 = 0.1$. Do the same for B: also $0.1$. <strong>Both weights move the same sensible amount</strong>, however different their gradient sizes.</div>
 <h4>Learning-rate schedules</h4>
-<p>With noisy mini-batch gradients a constant rate never settles: the weights keep wobbling. Theory (Robbins–Monro): the rates should add up to infinity but their squares to a finite number, e.g. $\eta_t=\eta_0/(1+t/T)$.</p>
-<div class="eg"><b>Example</b><br>Constant rate: ends 0.0074 above the best loss, wobbling ±0.0047. Decaying: only 0.0019 above, wobble 0.0001.</div>
-<ul><li><b>Step decay</b>: ÷10 every few epochs.</li><li><b>Cosine decay</b>: smoothly down to near zero.</li><li><b>Warm-up</b>: start tiny, increase, then decay (standard for transformers).</li><li><b>Reduce on plateau</b>: cut when validation loss stalls.</li></ul>
-
+<p>Parking a car: drive fast on the road, slow down near the space, creep the last metre. A schedule does the same with the learning rate.</p>
+<div class="eg"><b>The decay $0.05/(1+t/200)$</b><br>Step 0: $0.05/(1+0) = 0.05$ (full speed).<br>Step 200: $0.05/(1+1) = 0.025$ (half).<br>Step 1,000: $0.05/(1+5) \approx 0.0083$ (one sixth).<br><i>Fast at the start, slower and slower later, but never exactly zero, so it can still reach anywhere.</i></div>
 <h4>Gradient clipping</h4>
-<p>One enormous gradient (a cliff, a bad batch, an RNN) can throw the weights away and cause NaNs. Clip by norm: $\mathbf{g}\leftarrow\mathbf{g}\cdot\min(1,c/\|\mathbf{g}\|)$. A gradient of length 500 with $c=1$ keeps its direction but has length 1. In PyTorch: <code>clip_grad_norm_(params, 1.0)</code>.</p>
-
-<h4>Choosing an optimiser</h4>
-<ul>
-<li>Small/medium convex problem → L-BFGS (scikit-learn's choice).</li>
-<li>Huge data, simple model → mini-batch SGD + momentum + decaying schedule.</li>
-<li>Deep network, first try → Adam/AdamW, rate about $10^{-3}$, warm-up and decay.</li>
-<li>Image models for the best final accuracy → SGD, momentum 0.9, cosine decay.</li>
-<li>Loss suddenly NaN → lower the rate, clip gradients, check the inputs.</li>
-</ul>
+<p>A speed limiter on a car: you can still steer anywhere, but you can't go faster than the limit.</p>
+<div class="eg"><b>Clip to length 1</b><br>Gradient $(300, -400)$. Length $=\sqrt{300^2+400^2} = 500$.<br>Limit $c=1$, so the scale factor is $\min(1, 1/500) = 0.002$.<br>New gradient $= (300\times0.002,\ -400\times0.002) = (0.6, -0.8)$. Length 1, same direction.<br>A short gradient, e.g. length 0.5, gets factor $\min(1, 2)=1$: unchanged.</div>
+<div class="sticky"><b>In one breath</b><br>Momentum smooths the zig-zag, Adam gives every weight its own step size, schedules shrink the steps so training settles, and clipping caps the occasional giant step. For a first deep network: AdamW, learning rate about $10^{-3}$, warm-up then decay, clipping at 1.</div>
 </div>
 <div class="sign">✎ in one line: step downhill, pick the step size carefully, scale the features, and use momentum/Adam and a schedule for big models.</div>
 <p class="sn-back"><a href="lesson-07.html">open the full lesson →</a></p>
@@ -945,31 +822,22 @@
 <div class="eg"><b>Example</b><br>Scores cat 2, dog 1, rabbit 0 → $e^z$ = 7.39, 2.72, 1 (total 11.11) → <b>66.5% / 24.5% / 9%</b>.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: a probability model</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: logistic regression as a probability model</h3>
 <h4>Why the loss is convex</h4>
-<p>Gradient $X^\top(\mathbf{p}-\mathbf{y})$; Hessian $H=X^\top SX$ with $S=\text{diag}(p_i(1-p_i))$. Every $p_i(1-p_i)&gt;0$, so $H$ is positive semi-definite everywhere: <mark>one valley, no bad local minima</mark>. Note $p(1-p)$ is largest (0.25) near the boundary and tiny for confident points, so confident points hardly shape the curvature.</p>
-
-<h4>How libraries solve it: Newton / IRLS</h4>
-<p>With a moderate number of features the Hessian is cheap, so use Newton's method; each step is a weighted least-squares problem, hence <b>IRLS</b> (iteratively reweighted least squares). An L2 penalty adds $\lambda\mathbf{w}$ to the gradient and $\lambda I$ to the Hessian.</p>
-<div class="eg"><b>Example from the lesson</b><br>Breast-cancer data, 5 features: step sizes $6\times10^{-4}$ → $1.5\times10^{-7}$ → $8\times10^{-15}$. Correct digits roughly double each step (quadratic convergence); 9 steps match scikit-learn to 4 decimals.</div>
-<div class="sticky"><b>scikit-learn's C</b><br>$C=1/\lambda$: <b>smaller C = stronger regularization</b>. It's on by default. Without it, perfectly separable data sends the weights to infinity.</div>
-
-<h4>Calibration: can you trust the probabilities?</h4>
-<p>Well calibrated = of all cases scored 0.8, about 80% are positive. Accuracy and AUC ignore this (they only care about order). Check with a <b>reliability table</b> (bin predictions, compare with the actual rate) and the <b>Brier score</b> = mean of $(p_i-y_i)^2$.</p>
-<div class="eg"><b>Example from the lesson</b><br>Logistic regression: bins line up (0.02 → 0%, 0.98 → 99%), Brier <b>0.018</b>. Gaussian naive Bayes: 107 cases at 0.00 but 10% positive, Brier <b>0.071</b> (4× worse), because it counts correlated evidence several times.</div>
-<p>Fix a badly calibrated model with <code>CalibratedClassifierCV</code>: <b>Platt scaling</b> or <b>isotonic regression</b>, on held-out data.</p>
-
+<p>Imagine the loss as a landscape and training as a marble rolling downhill. If the landscape is a single smooth bowl, the marble always ends at the same lowest point, wherever it starts. Log loss for logistic regression is exactly such a bowl.</p>
+<div class="eg"><b>How much each row bends the bowl</b><br>A row the model is unsure about, $p=0.5$: $0.5\times0.5=0.25$ (the most possible).<br>Fairly sure, $p=0.9$: $0.9\times0.1=0.09$.<br>Very sure, $p=0.99$: $0.99\times0.01\approx0.01$.<br><i>So the shape of the bowl is set mainly by the hard cases near the boundary. Easy cases hardly matter.</i></div>
+<h4>How libraries solve it: Newton's method (IRLS)</h4>
+<p>Gradient descent feels the slope and takes small careful steps. Newton's method also measures how curved the bowl is, works out where the bottom of that bowl should be, and jumps there. Near the answer, each jump roughly doubles the number of correct digits.</p>
+<h4>Can you trust the probabilities? Calibration</h4>
+<p>A weather forecaster who says "80% chance of rain" should see rain on about 8 of every 10 such days. If it rains on only 5, their percentages can't be trusted, even if they're good at saying which days are wetter. Calibration checks a classifier in the same way.</p>
+<div class="eg"><b>The Brier score for three cases</b><br>Predicted 0.9, truly positive (1): $(0.9-1)^2=0.01$.<br>Predicted 0.2, truly negative (0): $(0.2-0)^2=0.04$.<br>Predicted 0.7, truly negative (0): $(0.7-0)^2=0.49$, a confident mistake costs a lot.<br>Brier score = average $=(0.01+0.04+0.49)/3=0.18$.</div>
 <h4>When one class is rare</h4>
-<div class="eg"><b>Example from the lesson</b><br>5% positives. Default model: recall only <b>7.5%</b>, but honest probabilities (average 0.055 vs true 0.054). With <code>class_weight="balanced"</code> (each positive counts ~19×): recall <b>82.2%</b>, precision 0.187, and the average prediction is 0.314, nowhere near 5%.</div>
-<ul>
-<li>Need trustworthy probabilities (pricing, expected cost)? Keep the model unweighted and <b>move the threshold</b>.</li>
-<li>Only need decisions? Either works.</li>
-<li>Oversampling / SMOTE acts like reweighting, and must happen only inside training folds.</li>
-</ul>
-
-<h4>Softmax gradient</h4>
-<p>$\nabla_WL=\mathbf{x}(\mathbf{p}-\mathbf{y})^\top$ with $\mathbf{y}$ one-hot. "Prediction minus truth, times input" appears in linear regression, logistic regression, softmax and a network's output layer, because all are <b>generalised linear models</b> trained by maximum likelihood with their natural link.</p>
+<p>Looking for 5 needles in 100 handfuls of hay. Always answering "hay" is 95% accurate and completely useless. To find needles you must accept looking at some hay too.</p>
+<div class="eg"><b>Where "about 19 times" comes from</b><br>5% positives, 95% negatives.<br>Balanced weights make both classes count equally: $95/5=19$.<br>So one missed positive now hurts as much as 19 false alarms.</div>
+<h4>More than two classes: the softmax gradient</h4>
+<p>With several classes the model gives each class a score, and softmax turns the scores into probabilities that add up to 1. The learning rule stays exactly the same: push each class's probability towards its true value.</p>
+<div class="eg"><b>One row, three classes</b><br>Predicted $\mathbf{p}=(0.7,0.2,0.1)$; true class is the 2nd, so $\mathbf{y}=(0,1,0)$.<br>$\mathbf{p}-\mathbf{y}=(0.7,-0.8,0.1)$.<br>Training lowers class 1's score (too high by 0.7), raises class 2's (too low by 0.8), lowers class 3's a little.</div>
+<div class="sticky"><b>In one breath</b><br>Log loss is a single bowl, so training always finds the best weights; libraries use Newton steps and converge in a few iterations; check calibration (reliability table, Brier score) before trusting probabilities; with rare positives prefer moving the threshold to keep honest probabilities; and the softmax gradient is still prediction minus truth times input.</div>
 </div>
 <div class="sign">✎ in one line: a linear score squashed into a probability, trained with log loss, turned into a decision by a threshold you choose.</div>
 <p class="sn-back"><a href="lesson-08.html">open the full lesson →</a></p>
@@ -1066,36 +934,19 @@
 
 <div class="deeper">
 <h3 class="dh"><span class="n">★</span>Going deeper: comparing models honestly</h3>
-
 <h4>Every score needs an error bar</h4>
-<p>A test set is a sample. With 171 test cases, one unusual case moves accuracy by about 0.6 points. Accuracy has a formula, $\sqrt{p(1-p)/n}$; for AUC, F1 or precision use the <b>bootstrap</b>. When comparing two models, bootstrap the <b>difference</b> on the same resampled cases (their scores move together).</p>
-<div class="eg"><b>Example from the lesson</b><br>Logistic regression AUC <b>0.996</b>, depth-3 tree <b>0.904</b>. 95% interval for the difference: 0.046 to 0.15. It excludes 0, so it's not a fluke. If it had crossed 0: "no clear winner".</div>
-
-<h4>Paired tests: McNemar</h4>
-<p>Only the cases where the two models <b>disagree</b> matter. If they were equally good, each disagreement would be a coin flip.</p>
-<div class="eg"><b>Example</b><br>Logistic regression right / tree wrong: 11 cases; the reverse: 1. A split this lopsided has probability <b>0.0063</b> if they were equal → logistic regression really is more accurate here.</div>
-<p>With cross-validation the folds overlap, so plain t-tests are over-confident; use the corrected resampled t-test or the 5×2 CV test.</p>
-
+<p>A test set is like one exam paper. A student who scores 92% might score 89% or 95% on a different paper with similar questions. A model's test score wobbles in the same way, and the error bar says by how much.</p>
+<div class="eg"><b>How much one case is worth</b><br>171 test cases.<br>One case $=1/171\approx0.6$ percentage points of accuracy.<br>So 95.3% vs 94.7% can be a single case's difference.<br>Formula for accuracy's wobble: $\sqrt{p(1-p)/n}=\sqrt{0.95\times0.05/171}\approx0.017$, about ±1.7 points.</div>
+<h4>Paired tests: McNemar's test</h4>
+<p>To find out which of two judges is better, only look at the cases where they disagreed. If they were equally good, each disagreement would be like a coin flip: sometimes one is right, sometimes the other.</p>
+<div class="eg"><b>McNemar by hand</b><br>Disagreements: 11 only logistic right, 1 only the tree right; 12 in total.<br>If equally good, it's 12 coin flips. Chance of 11 or more heads: $(12+1)/2^{12}=13/4096\approx0.0032$.<br>Either direction counts (two-sided): $2\times0.0032\approx$ <strong>0.0063</strong>, the p-value shown.<br>So logistic regression is very likely more accurate here.</div>
 <h4>Choosing the threshold from costs</h4>
-<p>Flagging costs $c_{FP}(1-p)$ on average, not flagging costs $c_{FN}\,p$. Flag when</p>
-<p class="fx">$p&gt;\dfrac{c_{FP}}{c_{FP}+c_{FN}}$</p>
-<p>(only valid with calibrated probabilities).</p>
-<div class="eg"><b>Example from the lesson</b><br>Missing a malignant tumour costs 20, a false alarm 1 → threshold $1/21\approx0.048$. At 0.5: 3 cancers missed, total cost <b>64</b>. At 0.05: none missed, 18 false alarms, cost <b>18</b>. (Choose it on validation data in real projects.)</div>
-
-<h4>ROC-AUC vs average precision for rare positives</h4>
-<p>TPR and FPR are rates within each class, so the ROC curve <b>doesn't change</b> when positives become rarer. Precision does: a small FPR then means many false alarms.</p>
-<div class="eg"><b>Example</b><br>Same model, positives from 50% down to 1%: ROC-AUC stays about <b>0.86</b>; average precision falls from <b>0.855 to 0.136</b>.</div>
-<p>ROC-AUC asks "does it rank positives above negatives?"; AP asks "<mark>when it raises an alert, how often is it right?</mark>", which is what the people receiving the alerts experience.</p>
-
-<h4>A reporting checklist</h4>
-<ul>
-<li>The metric, chosen <b>before</b> seeing results.</li>
-<li>A simple baseline.</li>
-<li>A confidence interval.</li>
-<li>A <b>paired</b> comparison (overlapping intervals don't prove "no difference").</li>
-<li>The threshold and why.</li>
-<li>Results by subgroup (averages can hide groups the model fails, Lesson 21).</li>
-</ul>
+<p>Missing a tumour is far worse than sending someone for an extra test. So a doctor should order the test even when the chance of a tumour is fairly small. The threshold is a business (or medical) decision, not a statistics one.</p>
+<div class="eg"><b>Threshold for missed tumour = 20, false alarm = 1</b><br>Threshold $=1/(1+20)=1/21\approx0.048$.<br>A case with probability 0.1: flagging costs $1\times0.9=0.9$; not flagging costs $20\times0.1=2$. Flag it.<br>A case with 0.03: flagging costs 0.97; not flagging costs 0.6. Don't flag.</div>
+<h4>ROC-AUC vs average precision when positives are rare</h4>
+<p>An alarm that wrongly rings for 1 in 100 innocent people sounds good. But if only 1 in 1,000 people is guilty, almost every alarm is false. ROC-AUC doesn't notice this; precision does.</p>
+<div class="eg"><b>Why precision collapses</b><br>10,000 people, 1% positive: 100 positives, 9,900 negatives.<br>The model catches 80 positives and wrongly flags 5% of negatives: 495.<br>Precision $=80/(80+495)\approx0.14$: only 1 alert in 7 is real.<br>Same model with 50% positives: 4,000 caught vs 250 false → precision 0.94.</div>
+<div class="sticky"><b>In one breath</b><br>Every score is an estimate, so give it an error bar; compare models on the same cases with a paired bootstrap or McNemar's test; set the threshold from the cost of each mistake; with rare positives report average precision next to its baseline; and always include a simple baseline.</div>
 </div>
 <div class="sign">✎ in one line: accuracy hides rare classes; ask "how many caught?" and "how many false alarms?", and put an error bar on every score.</div>
 <p class="sn-back"><a href="lesson-09.html">open the full lesson →</a></p>
@@ -1165,31 +1016,23 @@
 
 <div class="deeper">
 <h3 class="dh"><span class="n">★</span>Going deeper: regularization in practice</h3>
-
 <h4>Measuring bias and variance</h4>
-<p>Simulate: draw many training sets, fit each, look at the predictions at fixed points. Their average vs the truth → bias²; their spread → variance.</p>
-<div class="eg"><b>Example from the lesson</b><br>Degree-9 polynomial with ridge, 20 noisy sine points, 300 repeats:<br>almost no penalty: bias² <b>0.001</b>, variance <b>1.133</b> (wildly different curves).<br>λ = 10: variance 0.025, bias² 0.335 (all curves flat).<br>Best total <b>0.240</b> at λ = 0.1, in between.</div>
-
+<p>Throw darts many times. <strong>Bias</strong> is how far the <em>average</em> landing spot is from the bullseye. <strong>Variance</strong> is how scattered the darts are. A model trained on many different training sets is like many darts.</p>
+<div class="eg"><b>Reading the rows</b><br>$\lambda=10^{-6}$ (almost no penalty): bias² 0.001, variance 1.133. Every curve is different and wild.<br>$\lambda=10$ (strong penalty): variance 0.025, but bias² 0.335. Every curve is flat and wrong.<br>$\lambda=0.1$: bias² 0.100 + variance 0.050 + noise 0.09 = <strong>0.240</strong>, the best total.<br><i>This is the U-shaped trade-off from the lesson, with real numbers.</i></div>
 <h4>Why lasso gives exact zeros: soft-thresholding</h4>
-<p>If least squares alone would set a weight to $z$ (standardised features):</p>
-<p class="fx">ridge: $w=\dfrac{z}{1+\lambda}\qquad$ lasso: $w=\text{sign}(z)\max(|z|-\lambda,\,0)$</p>
-<div class="eg"><b>Example</b><br>λ = 1: lasso turns 3.0 → 2.0, but 0.8 and −0.3 → <b>exactly 0</b>. Ridge just halves everything.</div>
-<p>Solvers use <b>coordinate descent</b>: apply this rule to each weight in turn, repeat. Fast enough to fit a whole "regularization path" of λ values.</p>
-
+<p>Ridge turns every weight's volume down by the same percentage: loud stays fairly loud, quiet becomes quieter, but nothing goes silent. Lasso subtracts a fixed amount from every weight: anything quieter than that amount becomes completely silent.</p>
+<div class="eg"><b>The four rows with $\lambda=1$</b><br>3.0: lasso $3-1=2.0$; ridge $3/2=1.5$.<br>0.8: lasso $\max(0.8-1,0)=0$; ridge $0.4$.<br>−0.3: lasso 0; ridge −0.15.<br>−2.5: lasso $-(2.5-1)=-1.5$; ridge −1.25.<br><i>Ridge never gives exactly 0; lasso does for every $|z|&lt;1$.</i></div>
 <h4>Choosing the penalty automatically</h4>
-<p><code>RidgeCV</code>, <code>LassoCV</code>, <code>ElasticNetCV</code> fit a grid of penalties and pick by CV. <b>Elastic net</b> mixes both: $\lambda(\rho\|\mathbf{w}\|_1+\frac{1-\rho}2\|\mathbf{w}\|_2^2)$, with $\rho$ = <code>l1_ratio</code>.</p>
-<div class="eg"><b>Example</b><br>Diabetes data: lasso picks α ≈ 0.079 and keeps 9 of 10 weights; elastic net picks ρ = 0.9 and keeps 8. With 442 patients and 10 features, little regularization is needed.</div>
-
-<h4>Lasso + correlated features → elastic net</h4>
-<p>With two near-duplicate features, lasso keeps one and drops the other, and which one flips with small data changes.</p>
-<div class="eg"><b>Example</b><br>200 bootstrap refits: only <i>a</i> kept 47 times, only <i>b</i> 63 times, both 90 times. Elastic net spreads the weight evenly (0.89 each).</div>
-<ul><li>Few features matter and they're not correlated → <b>lasso</b>.</li><li>Features come in correlated groups (genes, pixels, words) → <b>elastic net</b>.</li><li>Never trust one lasso fit's selection: check on bootstrap samples.</li></ul>
-
+<p>Try a whole ladder of penalty strengths, score each with cross-validation, and keep the best. The CV versions of ridge and lasso do this for you, reusing work between steps so it's barely slower than one fit.</p>
+<h4>Lasso and correlated features: why elastic net exists</h4>
+<p>Two equally good twins apply for one job. Lasso hires exactly one of them, almost at random, and the choice can flip if you ask again. Elastic net hires both and splits the salary.</p>
+<div class="eg"><b>Reading the counts</b><br>Only a kept: 47 times. Only b kept: 63 times. Both: 90 times.<br>So "lasso picked a" from one fit is close to a coin flip.<br>Elastic net gives both 0.89: the credit is shared evenly.</div>
 <h4>Early stopping is regularization too</h4>
-<p>Starting from zero, weights grow gradually during gradient descent; stopping early keeps them small. For linear regression, $k$ steps at rate $\eta$ act roughly like ridge with $\lambda\approx1/(k\eta)$. In boosting, the number of trees plays the role of steps.</p>
-
-<h4>Double descent</h4>
-<p>Keep adding parameters past the point where the model fits the training data exactly (about parameters = data points): test error <b>peaks there, then falls again</b>. With far more parameters than needed, gradient descent picks the smoothest of the many perfect fits (smallest weights), an <b>implicit regularizer</b>. It helps explain why huge neural networks generalise. A well-tuned ridge penalty largely removes the peak.</p>
+<p>Training starts with all weights at zero, and they grow step by step. Stop early and they haven't had time to grow big, just as if a penalty had held them back.</p>
+<div class="eg"><b>Steps as a penalty</b><br>$\eta=0.01$, $k=100$ steps: $\lambda\approx1/(100\times0.01)=1$.<br>$k=1{,}000$ steps: $\lambda\approx0.1$, a weaker penalty.<br>So more steps = less regularization.</div>
+<h4>Double descent: when bigger models get better again</h4>
+<p>Test error first falls as the model grows, then rises as it starts fitting noise, peaking where it can <em>just barely</em> fit every training point. Keep growing it and, surprisingly, the error falls again.</p>
+<div class="sticky"><b>In one breath</b><br>Bias is the average miss and variance the wobble, and you can measure both; lasso subtracts and so zeroes small weights while ridge only shrinks; choose the penalty by cross-validation; use elastic net for correlated features; early stopping acts like a penalty; and very large models can improve again past the interpolation peak.</div>
 </div>
 <div class="sign">✎ in one line: balance bias against variance; a penalty on weights trades a little bias for much less variance.</div>
 <p class="sn-back"><a href="lesson-10.html">open the full lesson →</a></p>
@@ -1256,28 +1099,20 @@
 <p>Speed-ups: <b>KD-trees</b> and <b>ball trees</b> skip whole regions that can't hold a nearer point (<code>algorithm="auto"</code> chooses for you).</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: distances, dimensions, fast search</h3>
-
-<h4>The curse, measured</h4>
-<p>In high dimensions <b>distances concentrate</b>: every point ends up about the same distance away.</p>
-<div class="eg"><b>Example from the lesson</b><br>1,000 random points, one query. In 2 dimensions the farthest point is <b>136×</b> farther than the nearest. In 1,000 dimensions only <b>1.11×</b>: the "nearest" neighbour carries little information.</div>
-<p>Why: each dimension adds a small random difference, and sums of many random differences are all close to their average (CLT). Real data is rescued by the <b>manifold hypothesis</b>: images, text and sensor data lie near a much lower-dimensional surface. So reduce dimensions first (PCA) or use learned embeddings.</p>
-
-<h4>Which distance and weighting?</h4>
-<ul><li><b>Euclidean</b>: standardised measurements.</li><li><b>Manhattan</b>: many features or outliers.</li><li><b>Cosine</b> ($1-\cos\theta$): text and embeddings, where a document twice as long shouldn't be "farther".</li></ul>
-<div class="eg"><b>Example</b><br>Breast-cancer data, k = 15: all six distance/weighting combinations score between 0.954 and 0.963, within CV noise.</div>
-<div class="sticky"><b>What matters most, in order</b><br>1. scale the features · 2. choose k by CV · 3. use meaningful features. Tune the metric mainly for text, images or mixed types.</div>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: distances, dimensions and fast neighbour search</h3>
+<h4>The curse of dimensionality, measured</h4>
+<p>In a small room, some people are close to you and some far away, so "nearest" is meaningful. In a space with hundreds of directions, every person differs from you a little in every direction, and those small differences add up to almost the same total for everyone. Everyone becomes roughly equally far away.</p>
+<div class="eg"><b>Reading the ratio</b><br>2 dimensions: farthest/nearest $=1.33/0.01\approx136$. "Nearest" is very special.<br>100 dimensions: $4.65/3.35\approx1.39$.<br>1,000 dimensions: $13.55/12.17\approx1.11$. The nearest point is only 11% closer than the farthest, so it tells you little.</div>
+<h4>Choosing the distance and the weighting</h4>
+<p>Three ways to measure how far apart two places are: as the crow flies (Euclidean), along a city's grid of streets (Manhattan), or simply whether they lie in the same direction from home (cosine).</p>
+<div class="eg"><b>Cosine ignores length</b><br>Document A has word counts (1, 2); document B, twice as long, has (2, 4).<br>Euclidean distance: $\sqrt{1^2+2^2}\approx2.24$, "far apart".<br>Same direction, so $\cos\theta=1$ and cosine distance $=0$: "identical topic".</div>
 <h4>Finding neighbours fast</h4>
-<ul>
-<li><b>Brute force</b>: $O(nd)$ per query, too slow for millions of points.</li>
-<li><b>k-d trees / ball trees</b>: nested boxes or balls; exact and fast in low dimensions (about $O(\log n)$), but the benefit fades above ~20 dimensions.</li>
-<li><b>Approximate (ANN)</b>: graph methods like <b>HNSW</b>, or clustering/quantization (<b>FAISS</b>). Find over 95% of the true neighbours, thousands of times faster. <mark>Vector databases and LLM retrieval</mark> are built on them.</li>
-</ul>
-<p>On 200,000 points in 3 dimensions, a k-d tree finds exactly the same neighbours as brute force, much faster.</p>
-
+<p>Finding the closest café: checking every café in the country is slow. A map split into regions lets you check only your area (a tree). Asking a well-connected local who knows nearby places, and hopping from friend to friend, is even faster and almost always right (approximate search).</p>
+<div class="eg"><b>How much a tree saves</b><br>1,000,000 points. Brute force: 1,000,000 distance checks per query.<br>A balanced tree halves the candidates at each level: about $\log_2(10^6)\approx20$ levels.<br>So a few dozen checks instead of a million (in low dimensions).</div>
 <h4>How good can kNN get?</h4>
-<p>Cover and Hart (1967): with enough data, 1-NN's error is at most <b>twice the Bayes error</b> (the best possible). If $k$ grows slowly with $n$ ($k\to\infty$, $k/n\to0$), kNN's error approaches the Bayes error itself: it's <b>consistent</b>. The catch: "enough data" can be enormous in many dimensions.</p>
+<p>With unlimited data, the nearest neighbour of any new point is practically the same point, so copying its label is almost as good as knowing the true odds. The only mistakes left come from the problem's own randomness.</p>
+<div class="eg"><b>What "twice" means</b><br>A problem where even the perfect model is wrong 5% of the time (Bayes error 5%).<br>With enough data, 1-NN is wrong at most 10% of the time.<br>The catch: in many dimensions, "enough data" can be astronomically large.</div>
+<div class="sticky"><b>In one breath</b><br>In high dimensions all distances look alike, so reduce dimensions or use good embeddings; scale features and tune $k$ before worrying about the metric (use cosine for text); use trees or approximate search for speed; and with enough data kNN gets close to the best possible.</div>
 </div>
 <div class="sign">✎ in one line: vote among the k most similar examples; scale first, pick k by CV, keep the features few and relevant.</div>
 <p class="sn-back"><a href="lesson-11.html">open the full lesson →</a></p>
@@ -1326,29 +1161,19 @@
 <div class="sticky"><b>A great baseline</b><br>Quick to try, hard to break. If a complex model can't beat it, the complexity isn't earning its keep.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: smoothing, text, generative models</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: smoothing, text pipelines and generative models</h3>
 <h4>Where smoothing comes from</h4>
-<div class="eg"><b>Example from the lesson</b><br>Two messages with words seen in only one class. Almost no smoothing (α = 10⁻¹⁰): answers of exactly <b>0 and 1</b>, decided by a single word. With α = 1: a sensible <b>0.184 and 0.735</b>.</div>
-<p class="fx">$P(\text{word }j\mid c)=\dfrac{\text{count}_{j,c}+\alpha}{\text{total}_c+\alpha V}$</p>
-<p>It's not a hack: it's the Bayesian posterior mean with a symmetric <b>Dirichlet prior</b> (the many-category Beta), like having seen every word α extra times. α is a regularization strength: tune by CV (0.01–1 is common for text).</p>
-
-<h4>Reading what it learned</h4>
-<p>Each word adds $\log P(w\mid\text{spam})-\log P(w\mid\text{ham})$ to the spam log-odds every time it appears.</p>
-<div class="eg"><b>Example</b><br>"win", "cash", "now", "prize": <b>+1.07</b> each. "monday", "meeting": <b>−1.12</b>.</div>
-<p>So the log-odds is a weighted sum of word counts: multinomial NB is a <mark>linear classifier</mark>, like logistic regression, with weights set by counting instead of optimisation.</p>
-
+<p>Naive Bayes multiplies one probability per word. If any word has probability 0, the whole product is 0, whatever the other words say. One unseen word acts like a veto. Smoothing removes the veto by giving every word a small starting count.</p>
+<div class="eg"><b>Add-one smoothing</b><br>"meeting" appeared 0 times among 20 spam words; vocabulary $V=10$.<br>Without smoothing: $0/20=0$, a veto.<br>With $\alpha=1$: $(0+1)/(20+10)=1/30\approx0.033$.<br>A word seen 4 times: $(4+1)/30\approx0.17$ instead of $4/20=0.20$, pulled slightly towards average.</div>
+<h4>Reading what the model learned</h4>
+<p>Think of a spam score that starts at a fixed value. Each word in the message adds or subtracts its own fixed amount. Reading those amounts tells you exactly why a message was flagged.</p>
+<div class="eg"><b>Scoring a message</b><br>Message: "win cash monday".<br>Start from the prior log-odds, say 0 (equal classes).<br>Add $1.07+1.07-1.12=1.02$. Positive → leans spam.<br>Odds $e^{1.02}\approx2.8$, so about $2.8/3.8\approx74\%$ spam.</div>
 <h4>A realistic text pipeline</h4>
-<ul>
-<li><b>Bigrams</b> (word pairs), so "not good" isn't "not" + "good".</li>
-<li><b>TF-IDF</b>: term frequency × inverse document frequency; down-weights words in every document ("the", "to").</li>
-<li><b>Complement NB</b>: more stable with imbalanced classes, often beats standard multinomial on text.</li>
-</ul>
-<p>Even on 8 messages it classifies both new ones correctly with 47 features. Also try a linear SVM or logistic regression on the same TF-IDF features; modern alternatives use embeddings or a fine-tuned transformer.</p>
-
-<h4>Generative vs discriminative</h4>
-<div class="twocol"><div class="box"><b>Generative</b> (NB, LDA, mixtures)<br>learns how each class <i>produces</i> data, $P(\mathbf{x}\mid y)$<br>· good with little data<br>· handles missing features naturally<br>· can generate examples<br>· probabilities often badly calibrated</div><div class="box"><b>Discriminative</b> (logistic regression, SVM, neural nets)<br>learns the boundary $P(y\mid\mathbf{x})$ directly<br>· needs more data<br>· usually more accurate with lots of data<br>· better calibrated</div></div>
-<p>Ng and Jordan (2001): NB reaches its best error with far fewer examples (about logarithmic in the number of features), logistic regression needs more (about linear) but ends lower when independence is wrong. Today's generative AI is the generative idea at enormous scale.</p>
+<p>Single words lose meaning: "not good" becomes "not" + "good", which sounds positive. And words like "the" appear everywhere, so they tell you nothing. A real pipeline fixes both.</p>
+<div class="eg"><b>The IDF part</b><br>1,000 documents. "the" is in all 1,000: IDF $=\log(1000/1000)=0$, ignored.<br>"refund" is in 10: IDF $=\log(1000/10)=\log100\approx4.6$, a strong signal.</div>
+<h4>Generative vs discriminative models</h4>
+<p>Two ways to tell spam from real mail. A <strong>generative</strong> model learns how each kind of email is <em>written</em> (what words spammers use, what words colleagues use), then asks which writer more likely wrote this one. A <strong>discriminative</strong> model never learns how emails are written; it only learns where to draw the line between them.</p>
+<div class="sticky"><b>In one breath</b><br>Smoothing removes the veto of unseen words and is really a Bayesian prior; each word adds a fixed amount to the spam score, so the model is easy to read; real pipelines add bigrams and TF-IDF; and naive Bayes learns fast from little data, while logistic regression wins with more.</div>
 </div>
 <div class="sign">✎ in one line: prior × word likelihoods, with smoothing and logs; fast, simple and a strong text baseline.</div>
 <p class="sn-back"><a href="lesson-12.html">open the full lesson →</a></p>
@@ -1421,28 +1246,16 @@
 <p>The fix for instability: many trees combined (Lesson 14).</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: pruning, honest importance, instability</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: pruning, honest importances and instability</h3>
 <h4>Cost-complexity pruning</h4>
-<p>Depth limits stop growth early, but a useless-looking split can enable a very useful one below it. Pruning grows the full tree, then removes the "weakest links" one at a time as α grows, giving a nested sequence of smaller trees.</p>
-<div class="eg"><b>Example from the lesson</b><br>Full tree: 16 leaves, perfect on training, <b>0.906</b> on test. Pruned to 6 leaves: test <b>0.918</b>. Pruned to 3: too far (0.889). CV on the training set picks α ≈ 0.0088, the 6-leaf tree.</div>
-
-<h4>Impurity vs permutation importance</h4>
-<p>The default <code>feature_importances_</code> is measured on <b>training</b> data (memorised noise still earns credit) and favours many-valued features.</p>
-<div class="eg"><b>Example from the lesson</b><br>Add a pure-noise column with a different value on every row (like a customer ID). Impurity importance ranks it <b>6th of 31</b>, ahead of 25 real measurements. Permutation importance on test data: exactly <b>0</b>.</div>
-<p><mark>Report permutation importance (or SHAP) instead.</mark> Correlated features can still hide each other, and "used" ≠ "causes".</p>
-
+<p>Grow a hedge freely, then trim it back. Every leaf has a "price", and you keep a branch only if it fixes enough mistakes to pay for its leaves. Raise the price and more branches get cut.</p>
+<div class="eg"><b>Keep or cut this branch?</b><br>A branch adds 3 leaves and reduces the training error rate by 0.06.<br>At $\alpha=0.01$: cost $3\times0.01=0.03$; saving 0.06 &gt; 0.03 → keep.<br>At $\alpha=0.03$: cost 0.09 &gt; 0.06 → cut.<br><i>As $\alpha$ rises, the weakest branches go first ("weakest-link" pruning), giving a sequence of smaller and smaller trees.</i></div>
+<h4>Feature importance: impurity vs permutation</h4>
+<p>To find out how much a football team depends on a player, replace them with a random stranger and watch what happens to the score. Permutation importance does this for features: shuffle one column and see how much worse the model gets on new data.</p>
+<div class="eg"><b>Reading it</b><br>Impurity importance ranks the noise column 6th of 31, ahead of 25 real medical measurements.<br>Permutation importance on test data: exactly 0. Shuffling noise changes nothing.</div>
 <h4>Trees are unstable</h4>
-<div class="eg"><b>Example from the lesson</b><br>100 bootstrap samples of the same data: <b>5 different features</b> end up at the root ("worst perimeter" 52 times, "worst concave points" 30, three others).</div>
-<p>Explaining a decision by one tree's structure is fragile. This high variance is exactly what bagging and random forests average away, keeping the low bias.</p>
-
-<h4>Practical details</h4>
-<ul>
-<li>Regression trees <b>can't extrapolate</b> beyond the training range.</li>
-<li>Categories: one-hot works; LightGBM and CatBoost split categories directly.</li>
-<li>Missing values: recent scikit-learn trees learn which side they go.</li>
-<li>Finding the smallest accurate tree is NP-hard, hence greedy growing.</li>
-</ul>
+<p>In a guessing game, the first question decides which questions come after. Change a few people in the room and a different first question may look best, and then every later question changes too. A tree is built the same way, one greedy split at a time.</p>
+<div class="sticky"><b>In one breath</b><br>Grow the tree fully and prune it with a price per leaf chosen by cross-validation; trust permutation importance on test data, not impurity importance; and remember a small change in the data can reshape a whole tree, which is why forests average many.</div>
 </div>
 <div class="sign">✎ in one line: ask the question that makes the purest groups, repeat, prune before it memorises, and trust permutation importance.</div>
 <p class="sn-back"><a href="lesson-13.html">open the full lesson →</a></p>
@@ -1514,31 +1327,19 @@
 <div class="twocol"><div class="box"><b>Random forest</b><br>trees in parallel, deep<br>cuts variance<br>more trees never overfit<br>little tuning · very good</div><div class="box"><b>Gradient boosting</b><br>trees in sequence, shallow<br>cuts bias<br>can overfit: tune the number of trees<br>moderate tuning · often the best</div></div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: tuning ensembles, inside XGBoost</h3>
-
-<h4>Correlation is the limit</h4>
-<p class="fx">$\text{Var}(\text{average})=\rho\sigma^2+\dfrac{1-\rho}{B}\sigma^2$</p>
-<p>The second term vanishes with more trees $B$; the first doesn't. <mark>Correlation sets the floor</mark>: 1,000 identical trees = one tree.</p>
-<div class="eg"><b>Example from the lesson</b><br>All features per split (plain bagging): tree correlation 0.83, accuracy <b>0.930</b>. √30 ≈ 5 features: correlation 0.80, accuracy <b>0.953</b>. 1 feature: correlation 0.70 but each tree too weak, accuracy 0.936. "sqrt" is a good middle.</div>
-<p>The <b>out-of-bag</b> score (on rows each tree didn't see) gives a free validation estimate.</p>
-
-<h4>Learning rate + early stopping</h4>
-<div class="eg"><b>Example</b><br>Rate 1.0: stops after 35 trees at 0.924. Rate 0.1: 83 trees, <b>0.947</b>. Rate 0.03: 203 trees, no better here.</div>
-<div class="sticky"><b>Recipe</b><br>Rate 0.05–0.1 → early stopping chooses the trees → then tune tree size and regularization. Halving the rate ≈ doubles the trees.</div>
-
-<h4>What XGBoost, LightGBM, CatBoost add</h4>
-<ul>
-<li><b>Second-order (Newton) steps</b>: each point's gradient $g_i$ and curvature $h_i$; best leaf value $w^*=-\frac{\sum g_i}{\sum h_i+\lambda}$.</li>
-<li><b>Built-in regularization</b>: a split is made only if its gain exceeds γ (automatic pruning).</li>
-<li><b>Engineering</b>: learned direction for missing values, parallel, sparse data.</li>
-<li><b>LightGBM</b>: histograms (~255 bins) and <b>leaf-wise</b> growth.</li>
-<li><b>CatBoost</b>: categories natively with ordered target statistics (no leakage), symmetric trees.</li>
-</ul>
-<p>On most problems they're close; tuning matters more than the library.</p>
-
-<h4>Stacking</h4>
-<p>Train different models, then a simple blender (often logistic regression) on their <b>out-of-fold</b> predictions (otherwise it leaks).</p>
-<div class="eg"><b>Example</b><br>Forest + boosting + kNN stacked: <b>0.942</b>, no better than the forest alone (0.953). Stacking helps most when base models are strong and make different mistakes; often not worth the complexity in production.</div>
+<h3 class="dh"><span class="n">★</span>Going deeper: tuning ensembles and how XGBoost works</h3>
+<h4>Why averaging works: correlation is the limit</h4>
+<p>Asking 100 people to guess a jar of sweets works because their errors cancel out. But if they all copied the same person, you just have one guess written 100 times. Averaging only helps as much as the guessers think independently.</p>
+<div class="eg"><b>The floor in numbers ($\sigma^2=1$, 100 trees)</b><br>Independent trees ($\rho=0$): $0+1/100=0.01$.<br>$\rho=0.83$ (plain bagging here): $0.83+0.17/100\approx0.83$.<br>$\rho=0.70$: $\approx0.70$. Lower correlation, lower floor.<br><i>That's why a random forest lets each split look at only a random subset of features (<code>max_features</code>): it makes trees disagree more.</i></div>
+<h4>Tuning gradient boosting: learning rate and early stopping</h4>
+<p>Correcting an essay with many small careful edits usually beats a few big rewrites. A smaller learning rate keeps only part of each tree's correction, so you need more trees, but the result is usually better. Early stopping tells you when to stop adding them.</p>
+<div class="eg"><b>Reading the rows</b><br>Rate 1.0: stops after 35 trees, 0.924.<br>Rate 0.1: 83 trees, 0.947.<br>Rate 0.03: 203 trees, 0.936 (differences this small are within test-set noise).<br><i>Rule of thumb: halving the learning rate roughly doubles the trees needed.</i></div>
+<h4>What XGBoost, LightGBM and CatBoost add</h4>
+<p>Plain boosting knows which way is downhill (the slope). XGBoost also knows how curved the ground is, so it knows how far to step. And it charges a fee for every new leaf, so it only grows branches that clearly pay off.</p>
+<div class="eg"><b>One leaf value</b><br>Three rows in a leaf with slopes $g=-2, -1, 0$ (sum −3) and curvatures $h=1,1,1$ (sum 3). Penalty $\lambda=1$.<br>$w^*=-(-3)/(3+1)=0.75$.<br>Without the penalty it would be $3/3=1$; $\lambda$ shrinks leaf values, like ridge.</div>
+<h4>Stacking: combining different models</h4>
+<p>A team captain who listens to several experts and learns how much to trust each. To judge them fairly, the captain must test them on questions they didn't prepare for, otherwise everyone looks brilliant.</p>
+<div class="sticky"><b>In one breath</b><br>Averaging helps only as much as trees disagree, so forests randomise features; use a modest learning rate with early stopping; XGBoost-style libraries add Newton steps and a price per leaf; and stack only strong models that make different mistakes, using out-of-fold predictions.</div>
 </div>
 <div class="sign">✎ in one line: forests average many different deep trees; boosting adds shallow trees that fix the leftover errors.</div>
 <p class="sn-back"><a href="lesson-14.html">open the full lesson →</a></p>
@@ -1598,30 +1399,23 @@
 </ul>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: the dual, kernels, hinge loss</h3>
-
-<h4>The dual problem and KKT</h4>
-<p>With Lagrange multipliers $\alpha_i$, the soft-margin SVM becomes:</p>
-<p class="fx">$\max_{\alpha}\sum\alpha_i-\tfrac12\sum_{i,j}\alpha_i\alpha_jy_iy_j(\mathbf{x}_i\cdot\mathbf{x}_j),\quad0\le\alpha_i\le C,\;\sum\alpha_iy_i=0$</p>
-<p>with $\mathbf{w}=\sum\alpha_iy_i\mathbf{x}_i$. From the KKT conditions:</p>
-<ul>
-<li><b>Only support vectors matter</b>: safe points get $\alpha_i=0$; points on the margin $0&lt;\alpha_i&lt;C$; inside or wrong $\alpha_i=C$.</li>
-<li><b>Data appears only through dot products</b> $\mathbf{x}_i\cdot\mathbf{x}_j$. Swap in a kernel $K(\mathbf{x}_i,\mathbf{x}_j)$: that's the whole kernel trick.</li>
-</ul>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: the dual problem, kernels and hinge loss</h3>
+<h4>The dual problem and the KKT conditions</h4>
+<p>Building a road between two villages: only the houses right at the edge of the road decide where it goes. Move a house far from the road and nothing changes. The dual problem makes this exact: every point gets a weight $\alpha_i$, and only the edge points get a weight above zero.</p>
+<div class="eg"><b>A prediction from three support vectors</b><br>Support vectors with $\alpha_iy_i$ = +0.5, +0.5, −1.0 and $b=0.2$.<br>Dot products with the new point: 2, 1, 0.5.<br>$f=0.5\times2+0.5\times1-1.0\times0.5+0.2=1.2$. Positive → class +1.<br>All the other training points had $\alpha=0$: no work needed for them.</div>
 <h4>The kernel trick, checked</h4>
-<p>$(\mathbf{x}\cdot\mathbf{z}+1)^2$ in 2-D equals an ordinary dot product of 6 features $\phi=(1,\sqrt2x_1,\sqrt2x_2,x_1^2,x_2^2,\sqrt2x_1x_2)$. In the lesson both give <b>4.0</b>, but the kernel needed one 2-D dot product. Degree $p$ in $d$ dimensions grows like $d^p$; RBF corresponds to <b>infinitely many</b> features. A function is a valid kernel when its matrices are positive semi-definite (<b>Mercer's condition</b>).</p>
-
-<h4>How C and γ interact</h4>
-<div class="eg"><b>Example from the lesson</b><br>γ = 30, C = 100: train <b>1.000</b>, test <b>0.845</b> (wraps around single points).<br>γ = 30, C = 0.1: collapses to <b>0.470</b> (almost one class).<br>Best around C = 1, γ = 1: <b>0.910</b>.</div>
-<p>Diagnostic: when nearly every point is a support vector (193 of 200), the model hasn't found a simple boundary.</p>
-
-<h4>Hinge loss vs logistic regression</h4>
-<p class="fx">$\min\;\tfrac{1}{2C}\|\mathbf{w}\|^2+\sum\max(0,1-y_if(\mathbf{x}_i))$</p>
-<p>Logistic regression uses $\log(1+e^{-yf(\mathbf{x})})$, a smooth hinge that never reaches 0. On 400 points the two boundaries point the same way to three decimals and agree on every prediction. SVM: sparse support vectors, pure max-margin, no probabilities. Logistic regression: every point counts, calibrated probabilities.</p>
-
-<h4>Scaling up</h4>
-<p>Kernel SVMs need the $n\times n$ kernel matrix ($O(n^2)$ memory). Beyond ~100,000 points: a linear SVM, or approximate the kernel with random features (<code>RBFSampler</code>, <code>Nystroem</code>) + a linear model. <b>SVR</b>: only points outside the ε-tube become support vectors.</p>
+<p>Instead of building a bigger map with many extra features and measuring there, use a shortcut formula that gives exactly the same answer from the original map. You get the benefit of the big map without ever drawing it.</p>
+<div class="eg"><b>The shortcut by hand</b><br>$\mathbf{x}=(1,2)$, $\mathbf{z}=(3,1)$: $\mathbf{x}\cdot\mathbf{z}=3+2=5$.<br>Kernel: $(5+1)^2=36$. One 2-D dot product and a square.<br>The long way builds 6 features for each point and multiplies them: also 36.</div>
+<h4>How C and gamma interact</h4>
+<p>With the RBF kernel, every training point casts a "hill of influence". <strong>gamma</strong> sets how narrow each hill is (big gamma = tiny, pointy hills). <strong>C</strong> sets how strict you are about mistakes. Tiny hills plus strictness gives a boundary that wraps around single points: memorising.</p>
+<div class="eg"><b>How gamma shrinks influence</b><br>Two points at distance 2, so squared distance 4.<br>$\gamma=0.1$: $e^{-0.4}\approx0.67$, still very similar.<br>$\gamma=1$: $e^{-4}\approx0.018$, nearly unrelated.<br>$\gamma=30$: $e^{-120}\approx0$; each point only "sees" itself.</div>
+<h4>Hinge loss: the SVM as regularized loss minimisation</h4>
+<p>Logistic regression keeps nudging even confident, correct points further from the line. The hinge loss stops caring the moment a point is safely past the margin. Otherwise the two are very similar.</p>
+<div class="eg"><b>Hinge loss for three points</b><br>$yf=1.5$ (safely right): $\max(0,1-1.5)=0$.<br>$yf=0.4$ (right, but inside the margin): $1-0.4=0.6$.<br>$yf=-0.3$ (wrong side): $1+0.3=1.3$.</div>
+<h4>Scaling up, and support vector regression</h4>
+<p>A kernel SVM compares every training point with every other one. That's fine for a few thousand points, but with a million it's a trillion comparisons.</p>
+<div class="eg"><b>The size problem</b><br>10,000 points: $10^8$ kernel values, about 0.8 GB as 8-byte numbers. Manageable.<br>100,000 points: $10^{10}$ values, about 80 GB. Too much.</div>
+<div class="sticky"><b>In one breath</b><br>Only the points on or inside the margin (support vectors) shape the SVM; kernels give the power of huge feature spaces for the cost of a similarity; tune C and gamma together on a log grid; the SVM is hinge loss plus a ridge penalty, a close cousin of logistic regression; and for big data use linear SVMs or kernel approximations.</div>
 </div>
 <div class="sign">✎ in one line: the widest road between the classes; C trades width for mistakes; kernels bend the road.</div>
 <p class="sn-back"><a href="lesson-15.html">open the full lesson →</a></p>
@@ -1696,29 +1490,16 @@
 </ul>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: mixtures, density, hierarchy</h3>
-
-<h4>Gaussian mixtures and EM</h4>
-<p>Each point comes from cluster $k$ (probability $\pi_k$), drawn from a normal with mean $\boldsymbol\mu_k$ and covariance $\Sigma_k$, so clusters can be <b>stretched and tilted</b>. Fitted by <b>EM</b>:</p>
-<ul><li><b>E-step</b>: for every point, the probability ("responsibility") each cluster produced it (Bayes).</li><li><b>M-step</b>: re-estimate $\pi_k,\boldsymbol\mu_k,\Sigma_k$ weighted by responsibilities.</li></ul>
-<p>Never lowers the likelihood; can hit local optima, so restart. k-means = EM with round equal clusters and hard 0/1 responsibilities.</p>
-<div class="eg"><b>Example from the lesson</b><br>Three stretched, tilted blobs: k-means ARI <b>0.58</b>, Gaussian mixture <b>1.0</b>. Bonus: <b>soft</b> assignments show which points are genuinely ambiguous.</div>
-
-<h4>Any shape: DBSCAN and linkage</h4>
-<div class="eg"><b>Example: two half-moons</b><br>DBSCAN <b>1.000</b>, single linkage <b>1.000</b> (follow dense regions). k-means 0.253, Gaussian mixture 0.495, Ward 0.559 (assume compact groups, cut each moon in half).</div>
-<ul><li>Single linkage risks <b>chaining</b>: a thin bridge of noise merges two clusters.</li><li>DBSCAN is sensitive to eps and struggles with very different densities → <b>HDBSCAN</b> tries many densities.</li><li>Dendrograms help when the right level of detail is unknown (segments, taxonomies).</li></ul>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: mixture models, density and hierarchy</h3>
+<h4>Gaussian mixture models and the EM algorithm</h4>
+<p>k-means draws circles around groups. A mixture model draws stretched, tilted ovals, and instead of a hard "this point is in group 2" it says "70% group 2, 30% group 3". It learns by repeating two steps: guess who belongs where, then redraw the ovals.</p>
+<div class="eg"><b>One E-step for one point</b><br>Two clusters, equal sizes. The point's density under cluster A is 0.06, under B 0.02.<br>Responsibility of A: $0.06/(0.06+0.02)=0.75$; B: 0.25.<br>In the M-step this point counts as 0.75 of a point for A's new centre and 0.25 for B's.</div>
+<h4>Clusters of any shape: DBSCAN and linkage</h4>
+<p>Think of islands on a map. Land connected by crowded ground forms one island, whatever its shape; lone rocks in the sea are noise. DBSCAN finds clusters this way, by following dense regions.</p>
 <h4>Choosing the number of clusters</h4>
-<ul><li><b>Silhouette</b>: higher is better.</li><li><b>BIC</b> (mixtures): $-2\log L+p\log n$; penalises extra clusters; lower is better.</li></ul>
-<div class="eg"><b>Example</b><br>4 true clusters: silhouette peaks at k = 4 (<b>0.811</b>), BIC is lowest at k = 4 (<b>5133</b>). On real data signals are weaker: also ask whether each segment is useful.</div>
-
-<h4>Which method?</h4>
-<ul>
-<li><b>k-means</b>: round, similar blobs; needs k; scale first.</li>
-<li><b>Gaussian mixture</b>: elliptical, soft membership; choose k by BIC.</li>
-<li><b>DBSCAN / HDBSCAN</b>: any shape, marks noise; tune eps / min_samples.</li>
-<li><b>Agglomerative</b>: a hierarchy; ~$O(n^2)$ memory; chaining with single linkage.</li>
-</ul>
+<p>A good grouping has points close to their own group and far from the next one. More clusters always make groups tighter, so a fair score must also penalise splitting for the sake of it.</p>
+<div class="eg"><b>One point's silhouette</b><br>Average distance to its own cluster $a=2$, to the nearest other cluster $b=6$.<br>$s=(6-2)/6\approx0.67$: clearly in the right place.<br>If $a=5$, $b=4$: $s=(4-5)/5=-0.2$, probably mis-assigned.</div>
+<div class="sticky"><b>In one breath</b><br>Use a Gaussian mixture (fitted by EM) for stretched or overlapping clusters and soft membership, DBSCAN or single linkage for odd shapes and noise, and the silhouette or BIC, together with common sense about usefulness, to choose how many clusters.</div>
 </div>
 <div class="sign">✎ in one line: k-means for round groups, mixtures for stretched ones, DBSCAN for odd shapes and outliers, and check that the groups are useful.</div>
 <p class="sn-back"><a href="lesson-16.html">open the full lesson →</a></p>
@@ -1784,31 +1565,15 @@
 <div class="box red"><b>Reading t-SNE safely</b><br>Cluster sizes mean nothing; distances between separated clusters may mean nothing; low perplexity can make pure noise look clustered; different runs differ.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: components and curved maps</h3>
-
-<h4>How many components? Reconstruction error</h4>
-<p>Keeping $k$ components has an exact cost: the reconstruction error equals the variance you dropped, and the top $k$ PCs give the smallest error of any $k$-dimensional flat subspace (Eckart–Young).</p>
-<div class="eg"><b>Example: 8×8 digits (64 pixels)</b><br>2 components keep only <b>28.5%</b>; <b>29</b> are needed for 95%. At 30 components 0.959 is kept and the relative error is 0.041 = 1 − 0.959.</div>
-<p>Side job: <b>anomaly detection</b>, since points the main components can't reconstruct don't follow the usual pattern.</p>
-
-<h4>Kernel PCA</h4>
-<p>PCA finds only flat directions. Kernel PCA uses the kernel trick to find components in a high-dimensional feature space.</p>
-<div class="eg"><b>Example: concentric circles</b><br>Ordinary PCA's one component: <b>0.450</b> (worse than guessing). RBF kernel PCA's first component: <b>1.000</b>; "distance from the centre" becomes a straight direction.</div>
-<p>Needs the $n\times n$ kernel matrix, so it doesn't scale to huge data, and its components are hard to interpret.</p>
-
-<h4>t-SNE and UMAP: maps for looking</h4>
-<p>t-SNE turns distances into neighbour probabilities (a normal curve whose width is set by the perplexity in the original space; a heavier-tailed $t$-distribution on the map) and moves the map points until they match. UMAP keeps more of the global layout.</p>
-<div class="eg"><b>Example</b><br>A digit's 5 nearest map neighbours share its label <b>97.6%</b> of the time with t-SNE vs <b>60.3%</b> with a flat PCA projection: hence t-SNE's ten neat islands.</div>
-<ul><li>Distances between clusters and cluster sizes mean little.</li><li>Try several perplexities and seeds.</li><li><b>For looking, not modelling</b>: no transform for new points, meaningless axes. Use PCA (or UMAP) for features.</li></ul>
-
-<h4>Practical notes</h4>
-<ul>
-<li>Fit PCA <b>inside the pipeline</b> on training data only.</li>
-<li>Standardise first when units differ.</li>
-<li><b>Whitening</b> rescales components to variance 1, but amplifies noise in small components.</li>
-<li>Huge or sparse data: <code>TruncatedSVD</code> (on TF-IDF it's latent semantic analysis), <code>IncrementalPCA</code>, randomized SVD.</li>
-<li>A linear <b>autoencoder</b> with squared error learns the same subspace as PCA.</li>
-</ul>
+<h3 class="dh"><span class="n">★</span>Going deeper: choosing components, and non-linear maps</h3>
+<h4>How many components?</h4>
+<p>Shrinking a photo: keep enough pixels to recognise the face and drop the rest. With PCA, what you lose is exactly the spread (variance) of the components you drop.</p>
+<div class="eg"><b>Explained variance by hand</b><br>Component variances 6, 3, 1 (total 10).<br>Keep 1: $6/10=60\%$ kept, 40% lost.<br>Keep 2: $9/10=90\%$ kept; reconstruction error = the dropped 1, i.e. 10%.</div>
+<h4>Kernel PCA: principal components in a curved space</h4>
+<p>Points on two rings, one inside the other: no straight direction separates them. Lift them into a richer space with a kernel and "distance from the centre" becomes a straight direction that PCA can find.</p>
+<h4>t-SNE and UMAP: maps for looking, not features</h4>
+<p>t-SNE is like a seating plan for a wedding: friends sit at the same table, but the distance between tables means very little, and table sizes are rearranged to fit the room. Great for seeing who belongs together; misleading if you measure the room.</p>
+<div class="sticky"><b>In one breath</b><br>Keep enough components to explain most of the variance (what you drop is exactly the error), use kernel PCA for curved structure, use t-SNE or UMAP only to look at data, and always fit PCA on training data after standardising.</div>
 </div>
 <div class="sign">✎ in one line: rotate to the directions of most spread, keep the top few, standardise first, and use t-SNE only for looking.</div>
 <p class="sn-back"><a href="lesson-17.html">open the full lesson →</a></p>
@@ -1883,34 +1648,19 @@
 
 <div class="deeper">
 <h3 class="dh"><span class="n">★</span>Going deeper: making deep networks trainable</h3>
-
-<h4>Initialisation keeps the signal alive</h4>
-<p>With $n$ inputs of variance 1 and weight variance $s^2$, a unit's sum has variance about $ns^2$: above 1 it grows layer by layer, below 1 it shrinks.</p>
-<ul><li><b>Xavier (Glorot)</b>: variance $1/n$, for tanh-like activations.</li><li><b>He</b>: variance $2/n$, for ReLU (which zeroes half its inputs).</li></ul>
-<div class="eg"><b>Example: 20 layers of width 256</b><br>std 0.01 → spread <b>10⁻¹⁶</b> by layer 20 (vanished).<br>std 1 with tanh → 86.6% of units saturated beyond ±0.99 (almost no gradient).<br>Xavier + ReLU fades (0.000893); <b>He + ReLU stays steady (0.674)</b>.</div>
-
+<h4>Initialisation: keeping the signal alive</h4>
+<p>Whisper a message down a line of 20 people. If each person speaks a little louder than they heard, it ends as a shout; a little quieter, and it ends as silence. Good initialisation makes each layer pass the signal on at the same volume.</p>
+<div class="eg"><b>Width 256</b><br>Weights with std 0.01: $256\times0.01^2=0.0256$ per layer. After 20 layers: $0.0256^{20}$, effectively 0.<br>Xavier: $256\times(1/256)=1$. Steady (for tanh).<br>He: $256\times(2/256)=2$, and ReLU halves it back to about 1. Steady.</div>
 <h4>Vanishing gradients, measured</h4>
-<p>Sigmoid's slope is at most 0.25, so 20 layers can shrink a gradient by $0.25^{20}\approx10^{-12}$.</p>
-<div class="eg"><b>Example</b><br>Sigmoid: the first layer's gradient is <b>4 × 10⁻¹¹</b> (early layers never learn). ReLU + He: same order of magnitude throughout (197 at the end, 524 at the start).</div>
-<p>This, plus good initialisation and <b>residual connections</b> ($\mathbf{h}+f(\mathbf{h})$), made deep networks trainable around 2010–2012.</p>
-
+<p>Backpropagation passes the error backwards, multiplying by each layer's slope. Multiply by 0.25 again and again and almost nothing is left by the time you reach the first layer. Multiply by 1 and the message arrives intact.</p>
+<div class="eg"><b>20 sigmoid layers</b><br>Sigmoid's steepest slope is 0.25.<br>$0.25^{20}\approx9\times10^{-13}$, about a trillionth.<br>ReLU's slope is exactly 1 where active: $1^{20}=1$.</div>
 <h4>Batch normalisation</h4>
-<p class="fx">$\hat z=\dfrac{z-\mu_{\text{batch}}}{\sqrt{\sigma^2_{\text{batch}}+\epsilon}},\qquad\text{out}=\gamma\hat z+\beta$</p>
-<p>Keeps each layer's inputs in a steady range → bigger learning rates, less sensitivity to initialisation. At prediction time it uses running averages. <b>Layer norm</b> normalises within one example (no batch dependence): the standard in transformers.</p>
-
+<p>Before mixing a song, every microphone is set to the same level, so one loud singer doesn't drown the rest. Batch norm resets each unit's values to a standard level before the next layer, however the earlier layers change.</p>
+<div class="eg"><b>Normalising one unit</b><br>Batch values 2, 4, 6: mean 4, std about 1.63.<br>$\hat z$: $-1.22, 0, +1.22$.<br>With $\gamma=2$, $\beta=1$: $-1.45, 1, 3.45$. The network chooses the final level.</div>
 <h4>Dropout</h4>
-<p>Randomly switch off each hidden unit with probability $p$ during training, so the network can't lean on any single unit; like averaging a huge ensemble of thinned networks. <b>Inverted dropout</b> scales survivors by $1/(1-p)$ so nothing changes at prediction time.</p>
-<div class="eg"><b>Example</b><br>p = 0.5: about half survive (0.498), average activation stays ≈ 1 (0.995).</div>
-<div class="box red">In PyTorch, forgetting <code>model.eval()</code> before predicting (dropout and batch norm still in training mode) is a classic bug.</div>
-
-<h4>A recipe for a new network</h4>
-<ul>
-<li>Activation: ReLU (GELU in transformers). Initialisation: framework default.</li>
-<li>Normalisation: batch norm for CNNs, layer norm for transformers.</li>
-<li>Optimiser: AdamW, ~$10^{-3}$, warm-up then decay.</li>
-<li>Regularization: weight decay, dropout 0.1–0.5, early stopping, augmentation.</li>
-<li><b>First check</b>: overfit a tiny batch (~10 examples) to near-zero loss. If you can't, there's a bug.</li>
-</ul>
+<p>A team where random players sit out each practice. Nobody can rely on one star player, so everyone learns to contribute. At the real match, everyone plays.</p>
+<div class="eg"><b>Why scale by $1/(1-p)$</b><br>$p=0.5$: about half the units survive.<br>Without scaling, the next layer would receive about half its usual total.<br>Multiply survivors by $1/(1-0.5)=2$: the total is back to normal.</div>
+<div class="sticky"><b>In one breath</b><br>Start weights at the right scale (Xavier for tanh, He for ReLU), prefer ReLU so gradients don't vanish, normalise layers to keep them stable, use dropout and weight decay against memorising, remember model.eval(), and start from a proven recipe.</div>
 </div>
 <div class="sign">✎ in one line: layers of weighted sums plus non-linearities, trained by passing the error backwards, kept trainable by good initialisation and normalisation.</div>
 <p class="sn-back"><a href="lesson-18.html">open the full lesson →</a></p>
@@ -1972,35 +1722,22 @@
 <div class="box red">Remember <code>model.eval()</code> before evaluating (switches dropout off), and prefer ReLU over sigmoid in hidden layers.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: attention and residuals from scratch</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: attention and residual connections, from scratch</h3>
 <h4>Attention, step by step</h4>
-<p>Three learned matrices turn each token into $Q$, $K$, $V$; each output is a weighted average of all values. Each row of the weight matrix sums to 1.</p>
-<div class="eg"><b>Example from the lesson</b><br>Token 2 puts <b>78%</b> of its attention on token 1; token 3 spreads its attention almost evenly.</div>
-<p><b>Multi-head</b> attention runs several in parallel (tracking grammar, meaning, position…) and concatenates them.</p>
-
-<h4>Why divide by √d</h4>
-<p>Dot products over $d$ dimensions have variance $d$, so scores grow like $\sqrt d$; large scores push the softmax to one-hot, where gradients ≈ 0.</p>
-<div class="eg"><b>Example</b><br>Average largest weight among 10 keys: unscaled <b>0.62</b> at d = 8 → <b>0.95</b> at d = 512 (locks onto one key). Scaled: about <b>0.31</b> at every size, staying soft and trainable.</div>
-
+<p>At a noisy party you can't listen to everyone equally. You tune in to the people talking about what you care about. In attention, each word has a question (query); every word wears a label (key); a word listens most to those whose labels match its question, and takes in what they say (their values).</p>
+<div class="eg"><b>One token, three keys</b><br>Match scores (after scaling): 2, 1, 0.<br>$e^2, e^1, e^0 = 7.39, 2.72, 1.00$; total 11.11.<br>Weights: $0.67, 0.24, 0.09$ (they add to 1).<br>Output $=0.67\,v_1+0.24\,v_2+0.09\,v_3$: mostly token 1's information.</div>
+<h4>Why divide by $\sqrt{d_k}$, measured</h4>
+<p>Longer vectors give bigger dot products, just as adding more numbers gives a bigger total. Very big scores make softmax put nearly all weight on one item, and then its slope is almost zero, so learning stalls. Dividing by $\sqrt{d}$ calms the scores back down.</p>
+<div class="eg"><b>The size effect</b><br>Entries with variance 1, $d=64$ dimensions: dot products have variance 64, so spread $\sqrt{64}=8$.<br>Scores like 8 vs 0 give softmax weights of about $e^8/(e^8+1)\approx0.9997$: one-hot.<br>Divide by 8: spread back to about 1, a soft, trainable mix.</div>
 <h4>Residual connections</h4>
-<p>Compute $\mathbf{h}+f(\mathbf{h})$: the layer learns a <b>correction</b>. Its derivative is $I+J_f$, so there is always an identity path for the gradient.</p>
-<div class="eg"><b>Example: 50-layer tanh network</b><br>Without shortcuts the first layer's gradient is <b>2 × 10⁻¹⁴</b>. With shortcuts about <b>400</b>.</div>
-<p>ResNets (2015) trained 100+ layer image networks this way; every transformer block wraps attention and its feed-forward part in residuals.</p>
-
-<h4>Positions and a transformer block</h4>
-<p>Attention alone ignores order (shuffle tokens → outputs just move). Add <b>positional encodings</b>: sine/cosine waves $\sin(p/10000^{2i/d})$, or rotary encodings (RoPE) in modern LLMs.</p>
-<ol><li>Multi-head self-attention + residual, then layer norm.</li><li>A small feed-forward network per token (GELU) + residual, then layer norm.</li></ol>
-<p>A language model stacks dozens of blocks, uses a <b>causal mask</b> (attend only to earlier tokens), and learns to predict the next token.</p>
-
-<h4>Adapting pretrained models</h4>
-<ul>
-<li><b>Feature extraction</b>: train only a new output layer; very little data.</li>
-<li><b>Fine-tuning</b>: all or top layers, small learning rate; moderate data, best accuracy.</li>
-<li><b>LoRA / adapters</b>: small added matrices, originals frozen; ideal for LLMs.</li>
-<li><b>Prompting / in-context learning</b>: train nothing.</li>
-</ul>
-<div class="eg"><b>LoRA example</b><br>Learn the change as $\Delta W=BA$ with rank 8: a 4096 × 4096 layer needs $2\times4096\times8=$ <b>65,536</b> new numbers instead of 16.8 million.</div>
+<p>Instead of rewriting the whole essay at each draft, each editor only adds corrections in the margin. The original text always gets through, so even after 50 editors it's still readable. A residual block works the same way, and so does the learning signal flowing backwards.</p>
+<div class="eg"><b>Why the "+1" saves the gradient</b><br>Plain: each of 50 layers multiplies the gradient by about 0.5: $0.5^{50}\approx9\times10^{-16}$.<br>Residual: each layer multiplies by about $1+( ext{something small})$, so the product stays around 1 or above instead of collapsing to zero.</div>
+<h4>Positions, and putting a transformer block together</h4>
+<p>Attention alone sees a bag of words: "dog bites man" and "man bites dog" look identical. Adding a position signal to each word, like a seat number, puts the order back.</p>
+<h4>Transfer learning and fine-tuning</h4>
+<p>A doctor who already knows anatomy learns a new speciality far faster than someone starting from zero. A pretrained model already knows edges and shapes, or grammar and facts; you only teach it the last part.</p>
+<div class="eg"><b>How much LoRA saves</b><br>A $4096\times4096$ layer has $4096^2\approx16.8$ million weights.<br>LoRA with $r=8$: $B$ is $4096\times8$, $A$ is $8\times4096$: $2\times4096\times8=65{,}536$ new numbers.<br>About 256× fewer to train and store.</div>
+<div class="sticky"><b>In one breath</b><br>Attention lets each token mix in information from the tokens whose keys match its query, with scores divided by $\sqrt{d}$ so softmax stays soft; residual connections give gradients a direct path through deep stacks; positional encodings restore word order; and fine-tuning a pretrained model (cheaply, with LoRA) beats training from scratch.</div>
 </div>
 <div class="sign">✎ in one line: CNNs for grids, RNNs/LSTMs for steps, transformers for "everything attends to everything", and fine-tune a pretrained model.</div>
 <p class="sn-back"><a href="lesson-19.html">open the full lesson →</a></p>
@@ -2094,28 +1831,17 @@
 <p>Practise on real datasets (scikit-learn's example gallery), go deeper into deep learning with PyTorch, strengthen the maths (<i>Mathematics for Machine Learning</i> is free online), and re-read earlier lessons: they often click after the later ones.</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: leak-proof pipelines, efficient tuning</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: leak-proof pipelines and efficient tuning</h3>
 <h4>Target encoding: how much leakage can fake</h4>
-<p>Replace each category with its average target: powerful for many-level categories (postcodes, product IDs), but if the averages include the rows you evaluate on, each row's own label leaks in.</p>
-<div class="eg"><b>Example from the lesson</b><br>A 2,000-level category with <b>no real relationship</b> to the target (honest accuracy 50%). Naive encoding reports <b>73.1%</b> on pure noise. scikit-learn's <code>TargetEncoder</code> inside the pipeline (refitted per fold, with cross-fitting): <b>49.7%</b>.</div>
-<p>It also smooths rare levels towards the overall average and handles unseen levels.</p>
-
+<p>Imagine telling a student the class average for a question, where that average includes their own answer. With 30 students it's a tiny hint. With only 2 students it practically gives the answer away. Target encoding with many rare categories does exactly that.</p>
+<div class="eg"><b>A rare category gives the answer away</b><br>A postcode appears in 2 rows, with targets 1 and 1.<br>Its average target is 1.0, so the "feature" is just the answer.<br>Encode each row with the other rows only (cross-fitting) and that row's own label can't leak in.</div>
 <h4>One pipeline for mixed data</h4>
-<p>Numbers (impute + standardise), one-hot areas and TF-IDF of descriptions → 30 columns → ridge. The whole object can be cross-validated, tuned (names like <code>columntransformer__num__simpleimputer__strategy</code>) and saved as one file, so training and serving can't drift apart.</p>
-
-<h4>Grid vs random search</h4>
-<p>A 3×3×2 grid tests only 3 distinct values of each setting; 18 random draws test 18 values of every setting. Usually only one or two settings matter, so <mark>random search does as well or better</mark> (Bergstra &amp; Bengio, 2012). Sample learning rates and penalties on a <b>log scale</b>.</p>
-<div class="eg"><b>Example</b><br>18 settings each: grid 0.975, random 0.972, within noise. Random's advantage grows with the number of settings.</div>
-<p>Smarter: Bayesian optimisation (Optuna's TPE) and successive halving (<code>HalvingRandomSearchCV</code>).</p>
-
+<p>Different ingredients need different preparation: wash the vegetables, slice the bread, grate the cheese. <code>ColumnTransformer</code> gives each kind of column its own preparation, all inside one recipe.</p>
+<h4>Grid search vs random search</h4>
+<p>If only one of three settings really matters, a 3×3×2 grid tries just 3 different values of it, wasting most tries. Random search tries a new value of every setting each time, so 18 tries test 18 values of the one that matters.</p>
 <h4>Keeping track of experiments</h4>
-<ul>
-<li>Log every run: parameters, metrics, code version, data version, seed, library versions (MLflow, Weights &amp; Biases).</li>
-<li>Version the data too (DVC, dated snapshots).</li>
-<li>Save the whole pipeline with a <b>model card</b>: intended use, data, metrics by subgroup, limits.</li>
-<li>Keep the test set out of the loop.</li>
-</ul>
+<p>A lab notebook. A scientist writes down every experiment: what was used, what was done, what happened. Months later anyone can repeat the best one. ML projects need the same, because after a few weeks there are hundreds of runs.</p>
+<div class="sticky"><b>In one breath</b><br>Do target encoding inside the pipeline with cross-fitting, or it can fake accuracy on pure noise; give each column type its own preprocessing in one ColumnTransformer; prefer random (or Bayesian) search to grids; and log every experiment so the winning model can be rebuilt.</div>
 </div>
 <div class="sign">✎ in one line: good features plus one Pipeline fitted on training data give honest scores and safe deployment.</div>
 <p class="sn-back"><a href="lesson-20.html">open the full lesson →</a></p>
@@ -2196,33 +1922,19 @@
 </ol>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: the impossibility, measured</h3>
-
-<h4>The identity</h4>
-<p>From the confusion matrix alone: equal PPV, TPR <i>and</i> FPR can hold together only if base rates are equal or the classifier is perfect. Kleinberg, Mullainathan and Raghavan (2016) proved a similar result for calibration. <mark>It's arithmetic, not a flaw of one model.</mark></p>
-
-<h4>A perfectly calibrated model, still unequal</h4>
-<p>Scores = true probabilities, so calibrated in both groups. Base rates: A 0.287, B 0.500. One threshold, 0.5:</p>
-<div class="eg"><b>Example from the lesson</b><br>Precision similar (A 0.607, B 0.636), but TPR A <b>0.232</b> vs B <b>0.631</b>, and FPR A <b>0.060</b> vs B <b>0.362</b>. A's true positives are far less likely to be flagged; B's negatives far more likely to be wrongly flagged.</div>
-<p>Which matters more depends on what being flagged means (a loan refused, an extra test, a police stop): a decision for people, not the metric.</p>
-
-<h4>Group-specific thresholds: gains and costs</h4>
-<div class="eg"><b>Example</b><br>Lower A's threshold to about 0.305 → A's TPR <b>0.634</b> matches B's 0.631; FPRs closer (0.320 vs 0.362). But A's accuracy falls <b>0.736 → 0.667</b>, and precision equality is lost.</div>
-<p>Every option moves along the trade-off; none removes it. Alternatives: better data for under-served groups, more informative features, or a different decision (a review instead of a refusal).</p>
-
-<h4>Small groups need error bars</h4>
-<div class="eg"><b>Example</b><br>Group A's TPR on 400 people (106 positives): <b>0.226</b>, but the 95% bootstrap interval is <b>0.151 to 0.311</b>, wider than many gaps people call "unfair" or "fixed".</div>
-<p>Report intervals for every group, check <b>intersections</b> (older women, not just women and older people), and treat big gaps in small groups as a reason to gather more evidence.</p>
-
-<h4>An audit checklist</h4>
-<ul>
-<li>Decide what harm matters (miss or false alarm?).</li>
-<li>Pick the metric <b>before</b> looking.</li>
-<li>Measure every group and intersection, with bootstrap intervals, on held-out data.</li>
-<li>Check calibration within each group.</li>
-<li>Compare mitigations with their costs.</li>
-<li>Document (model card) and re-check as data drifts.</li>
-</ul>
+<h3 class="dh"><span class="n">★</span>Going deeper: the impossibility result, measured</h3>
+<h4>The identity behind the conflict</h4>
+<p>Imagine three dials joined by one gear: the base rate, precision and the two error rates. Turn one and the others must move. If two groups start with different base rates, you can't set all the other dials equal for both. It isn't a bad model; it's arithmetic.</p>
+<div class="eg"><b>Same precision and TPR, different base rates</b><br>Precision 0.6 and TPR 0.7 in both groups.<br>Group with $p=0.3$: FPR $=\frac{0.3}{0.7}\cdot\frac{0.4}{0.6}\cdot0.7=0.20$.<br>Group with $p=0.5$: FPR $=1\cdot\frac{0.4}{0.6}\cdot0.7\approx0.47$.<br>Equal precision and TPR force very different false-alarm rates.</div>
+<h4>A perfectly calibrated model can still have unequal error rates</h4>
+<p>Two honest weather forecasters, one for a dry city and one for a wet city. Both are calibrated: "70% rain" really means rain 70% of the time. Yet with the same "carry an umbrella above 50%" rule, people in the two cities get very different numbers of false alarms and misses.</p>
+<h4>Group-specific thresholds: what they buy and what they cost</h4>
+<p>Lowering the bar for one group catches more of its real positives, but also flags more of its people wrongly. Every adjustment trades one kind of fairness or accuracy for another.</p>
+<div class="eg"><b>What moved</b><br>Group A's threshold 0.5 → 0.305: TPR 0.232 → 0.634, matching B's 0.631.<br>FPRs closer too: 0.320 vs 0.362.<br>Cost: group A's accuracy 0.736 → 0.667, and equal precision is lost.</div>
+<h4>Small groups: put error bars on fairness metrics</h4>
+<p>A survey of 10 people can swing wildly; one of 1,000 barely moves. A fairness gap measured on a small group might be mostly noise.</p>
+<div class="eg"><b>The wobble of a TPR on 106 positives</b><br>TPR 0.226 on 106 people.<br>Rough wobble: $\sqrt{0.226\times0.774/106}\approx0.041$.<br>95% range ≈ $0.226\pm2\times0.041$: about 0.14 to 0.31.</div>
+<div class="sticky"><b>In one breath</b><br>When base rates differ, equal precision and equal error rates can't all hold, by simple arithmetic; even a perfectly calibrated model has unequal error rates; group thresholds trade one metric for another; small groups need error bars; and the choice of which harm matters most is a human decision made before measuring.</div>
 </div>
 <div class="sign">✎ in one line: measure every metric per group with error bars, choose a fairness goal with the people affected, and build checks around the model.</div>
 <p class="sn-back"><a href="lesson-21.html">open the full lesson →</a></p>
@@ -2295,25 +2007,17 @@
 <div class="sticky"><b>The golden rule</b><br>Put the time condition <b>inside the join</b>, so every feature uses only data from before that row's prediction time.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: indexes, NULL logic, rolling features</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: indexes, NULL logic and rolling features</h3>
 <h4>Indexes and query plans</h4>
-<p>Without an index, "find house 42's viewings" reads every row (a <b>full scan</b>). An index (usually a B-tree) jumps there in about $\log n$ steps. <code>EXPLAIN QUERY PLAN</code> shows the strategy.</p>
-<div class="eg"><b>Example</b><br>200,000 viewings: <code>SCAN</code> → <code>SEARCH … USING COVERING INDEX</code> (straight to house 42's 37 rows; "covering" = the index alone holds every needed column).</div>
-<p>Index what you filter and join on; indexes cost space and slow inserts. In warehouses (BigQuery, Snowflake) the equivalents are partitioning and clustering, and you pay per data scanned.</p>
-
+<p>Finding every mention of "tax" in a book: read every page (a full scan) or look it up in the index at the back and jump straight to the right pages. A database index works the same way.</p>
+<div class="eg"><b>Scan vs index</b><br>200,000 viewings. A full scan checks all 200,000 rows.<br>A B-tree index halves the search at each level: about $\log_2(200{,}000)\approx18$ steps to reach house 42.<br>Then it reads just that house's 37 rows.</div>
 <h4>NULL: three-valued logic</h4>
-<p>A comparison with NULL is <b>unknown</b>, and WHERE keeps only <b>true</b> rows.</p>
-<div class="eg"><b>Example</b><br>Discounts 10, NULL, 2, NULL: <code>NOT (discount &gt; 5)</code> returns only the row with 2, not the NULLs. <code>COUNT(discount)</code> = 2, not 4; <code>AVG</code> = 5.0 (treating missing as 0 would give 2.5).</div>
-<p>Use <code>COALESCE(x, 0)</code> only when missing truly means zero.</p>
-
+<p>Ask "is the unknown discount bigger than 5?" The honest answer is "don't know". Ask "is it NOT bigger than 5?" Still "don't know". SQL keeps only rows where the answer is a definite yes, so rows with unknown values drop out of both questions.</p>
+<div class="eg"><b>Reading each line</b><br><code>discount &gt; 5</code>: row 1 (10). Rows 2 and 4 are unknown, so dropped.<br><code>NOT (discount &gt; 5)</code>: only row 3. "Not unknown" is still unknown, so rows 2 and 4 vanish again.<br><code>discount = NULL</code>: nothing, ever. Use <code>IS NULL</code>: rows 2 and 4.<br><code>AVG(discount)</code> $=(10+0)/2=5.0$: the NULLs are skipped. Treating missing as 0 would give $(10+0+0+0)/4=2.5$.</div>
 <h4>Rolling features with window frames</h4>
-<p><code>ROWS BETWEEN 6 PRECEDING AND CURRENT ROW</code> = a rolling 7-day total; <code>LAG</code> = yesterday's value.</p>
-<div class="eg"><b>Example</b><br>Day 9's views_7d = 1 + 0 + 3 + 1 + 0 + 0 + 4 = <b>9</b> (days 3–9). Day 1 has no yesterday → NULL.</div>
-<ul>
-<li>Predicting at the <b>start</b> of day $d$? End the frame at <code>1 PRECEDING</code>, or that day's views leak in.</li>
-<li><code>ROWS</code> counts rows, not days: with missing days use <code>RANGE</code> on a numeric day, or fill the gaps.</li>
-</ul>
+<p>A 7-day rolling total is a sliding window: today plus the six days before. Slide it forward one day and the oldest day falls out while the newest comes in. <code>LAG</code> simply looks one row back.</p>
+<div class="eg"><b>Day 9's 7-day total</b><br>Window = days 3 to 9.<br>Views: $1+0+3+1+0+0+4=9$.<br>Day 1 has no previous day, so <code>views_yesterday</code> is NULL (NaN in pandas).</div>
+<div class="sticky"><b>In one breath</b><br>Index the columns you filter and join on and read the query plan; remember NULL makes comparisons unknown, so handle missing values explicitly; and build rolling features with window frames that only look at the past.</div>
 </div>
 <div class="sign">✎ in one line: LEFT JOIN to keep everyone, aggregate before joining, mind the NULLs, and use only the past.</div>
 <p class="sn-back"><a href="lesson-22.html">open the full lesson →</a></p>
@@ -2366,24 +2070,12 @@
 
 <div class="deeper">
 <h3 class="dh"><span class="n">★</span>Going deeper: Bayesian optimisation from scratch</h3>
-
 <h4>The surrogate: a Gaussian process</h4>
-<p>A GP is a probability distribution over smooth functions. Given a few results it predicts a mean $\mu(x)$ and an uncertainty $\sigma(x)$ everywhere: confident near tried points, unsure far away. Its smoothness comes from a kernel (here Matérn), with the length scale learned from the data.</p>
-
+<p>You've measured the temperature at a few spots in a field and want to guess it everywhere else. Near your measurements you can be confident; far away you can only guess roughly. A Gaussian process draws a smooth best-guess curve with a band of uncertainty that's thin near measurements and wide far from them.</p>
 <h4>Choosing the next trial: expected improvement</h4>
-<p>With best-so-far $f^*$ and $z=(\mu-f^*)/\sigma$:</p>
-<p class="fx">$\text{EI}(x)=(\mu-f^*)\,\Phi(z)+\sigma\,\phi(z)$</p>
-<p>First term: a high predicted score (<b>exploitation</b>). Second: high uncertainty (<b>exploration</b>). Each round: fit the GP, pick the largest EI, evaluate, repeat.</p>
-<div class="eg"><b>Example from the lesson</b> (gap to the true best, average of 20 runs; a narrow peak over log learning rate)<br>5 trials: BO <b>0.130</b> vs random 0.119 (no better yet: 3 are random starts).<br>10 trials: BO <b>0.0103</b> vs random 0.0510 (5× closer).<br>15 trials: BO finds the peak every time; random still 0.026 away.</div>
-<p>Best when trials are expensive, you can afford only tens of them, and the space is low-dimensional.</p>
-
-<h4>In practice</h4>
-<ul>
-<li><b>Dimensions</b>: GPs up to ~10–20 hyperparameters; Optuna's <b>TPE</b> copes better with many, categorical and conditional ones ("number of layers", then a width per layer).</li>
-<li><b>Noise</b>: model it (white-noise term / <code>alpha</code>) or it chases lucky trials.</li>
-<li><b>Parallelism</b>: random search parallelises trivially; BO is sequential and needs tricks.</li>
-<li><b>Pruning</b>: a smart sampler + early stopping of bad trials (Optuna pruners, Hyperband) gives the biggest savings.</li>
-</ul>
+<p>Drilling for oil: drill next to your best well (likely good, small upside) or somewhere unexplored (could be terrible, could be a gusher). Expected improvement scores both kinds of spot on one scale: how much better than your best well you can expect to do.</p>
+<div class="eg"><b>A safe spot vs an uncertain spot (best so far 0.78)</b><br>Safe: $\mu=0.80$, $\sigma=0.05$. $z=0.4$, EI $\approx0.02\times0.66+0.05\times0.37\approx0.032$.<br>Uncertain: $\mu=0.70$ (worse on average!), $\sigma=0.15$. $z\approx-0.53$, EI $\approx-0.08\times0.30+0.15\times0.35\approx0.028$.<br>Nearly as attractive: big uncertainty means a real chance of a big win.</div>
+<div class="sticky"><b>In one breath</b><br>Bayesian optimisation fits a cheap surrogate (a Gaussian process) that gives a best guess and an uncertainty for every setting, then tries the setting with the highest expected improvement, balancing exploring and exploiting; it shines when trials are few and expensive.</div>
 </div>
 <div class="sign">✎ in one line: tune with CV on a log scale, prefer random or Bayesian search, report nested CV, pick the simplest good model.</div>
 <p class="sn-back"><a href="lesson-23.html">open the full lesson →</a></p>
@@ -2445,19 +2137,13 @@
 
 <div class="deeper">
 <h3 class="dh"><span class="n">★</span>Going deeper: when features are correlated</h3>
-
 <h4>Three methods, three answers</h4>
-<p>Target depends on <i>a</i> (weight 3) and <i>c</i> (weight 1); <i>b</i> is a near-copy of <i>a</i>. <b>Drop-column importance</b> retrains without each feature: "what would we lose without it?"</p>
-<div class="eg"><b>Example from the lesson</b><br>Permutation: a <b>1.045</b>, b 0.129 (the forest uses both).<br>Drop-column: a <b>0.004</b>, b <b>0</b> (drop one, the model uses the other); c <b>0.117</b> (unique information).</div>
-<p>Permutation asks "does the model use it?"; drop-column asks "is the information replaceable?". With correlated features, report or shuffle/drop them <b>as a group</b>.</p>
-
-<h4>Exact SHAP for linear models</h4>
-<p class="fx">$\phi_j=w_j\,(x_j-\bar x_j)$</p>
-<p>(weight × how far this row is from average, for independent features). Averaging $|\phi_j|$ over rows gives a <b>global</b> importance in prediction units.</p>
-<div class="eg"><b>Example</b><br>The linear model split the near-duplicates as a <b>2.75</b>, b <b>0.24</b>, an arbitrary split that could flip with different noise. Mean |SHAP|: 2.31, 0.20, 0.79. Efficiency holds: baseline + contributions = prediction exactly (3.9815).</div>
-
-<h4>Interventional vs conditional SHAP</h4>
-<ul><li><b>Interventional</b> (the default): treats features as independent, explains the <b>model</b>.</li><li><b>Conditional</b>: respects correlations, closer to the data-generating relationship, harder to compute, and can credit features the model never uses.</li></ul>
+<p>Two witnesses who saw exactly the same thing. Ask "how much does the case rely on witness A?" (shuffle A) and the answer is "a lot". Ask "how much would we lose without witness A?" (drop A) and the answer is "nothing, B can say the same". Both answers are true.</p>
+<div class="eg"><b>Reading the two rows</b><br>Permutation: a 1.045, b 0.129. The forest uses both, a much more.<br>Drop-column: a 0.004, b 0. Remove either and the model uses the other.<br>c: 0.117 when dropped, because its information is unique.</div>
+<h4>Exact SHAP for linear models, and global SHAP</h4>
+<p>For a straight-line model, a feature's share of a prediction is simple: its weight times how far this row's value is from average. Sum those shares, add the average prediction, and you get exactly the prediction.</p>
+<div class="eg"><b>One house</b><br>Weight for size $w=3$; this house's size 5, average 3: $\phi=3\times2=+6$.<br>Weight for age $w=-1$; this house 4, average 2: $\phi=-1\times2=-2$.<br>Average prediction 100 → this prediction $100+6-2=104$. Exactly the model's output.</div>
+<div class="sticky"><b>In one breath</b><br>With correlated features, permutation, drop-column and SHAP answer different questions, so say which one you used and report correlated features as a group; for linear models SHAP is simply weight × distance from average, and the shares always add up to the prediction.</div>
 </div>
 <div class="sign">✎ in one line: shuffle-and-see for global importance, SHAP for local credit, group correlated features, and never read importance as cause.</div>
 <p class="sn-back"><a href="lesson-24.html">open the full lesson →</a></p>
@@ -2515,18 +2201,14 @@
 </ul>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: fixing probabilities, how isolation works</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: correcting probabilities and how isolation works</h3>
 <h4>Undoing class weights: the prior correction</h4>
-<p>Balanced weights make the model act as if positives were 50%, so its probabilities are far too high. With the real positive rate $\pi$:</p>
-<p class="fx">$\text{odds}_{\text{real}}=\dfrac{p}{1-p}\cdot\dfrac{\pi}{1-\pi},\qquad p_{\text{real}}=\dfrac{\text{odds}_{\text{real}}}{1+\text{odds}_{\text{real}}}$</p>
-<div class="eg"><b>Example from the lesson</b><br>Balanced model: average risk <b>0.372</b> vs true rate 0.020, Brier 0.1702. After the correction: average <b>0.017</b>, Brier <b>0.0178</b>, almost matching an unweighted model (0.0169).</div>
-<p>Apply it (or recalibrate with <code>CalibratedClassifierCV</code>) before using outputs as risks: pricing, expected loss, telling a patient their risk.</p>
-
+<p>If you train a model as if half of all transactions were fraud, it learns that fraud is common, and its probabilities are wildly too high. The prior correction tells it the real rate again, using Bayes' theorem.</p>
+<div class="eg"><b>Correcting one prediction (real rate 2%)</b><br>Balanced model says $p=0.6$: odds $0.6/0.4=1.5$.<br>Real prior odds: $0.02/0.98\approx0.0204$.<br>Corrected odds $1.5\times0.0204\approx0.031$, so $p\approx0.030$.<br>"60% risk" really means about 3%: higher than average (2%), but far from likely.</div>
 <h4>Why random splits isolate anomalies</h4>
-<p>Each tree picks a random feature and a random split value until every point is alone. A far-away point is cut off by one of the first few splits.</p>
-<div class="eg"><b>Example</b><br>Among 500 points: the far point is isolated in <b>2.3</b> splits on average, typical points in <b>14.6</b>.</div>
-<p>The path length becomes a 0–1 score, normalised by the expected path for $n$ points (about $2\ln n$). No distances are computed, so it scales linearly and copes with many features. Settings: number of trees and subsample size (256 by default is enough, since anomalies stand out even in small samples).</p>
+<p>Play "guess who" with random yes/no questions. In a crowded room it takes many questions to single someone out. A person standing alone in the corner is singled out in one or two. Anomalies are the people in the corner.</p>
+<div class="eg"><b>Turning path length into a score</b><br>Far point: 2.3 splits on average; typical point: 14.6.<br>The expected path for $n=500$ points is roughly $2\ln 500\approx12.4$.<br>Much shorter than expected → anomaly score near 1; about as expected → around 0.5.</div>
+<div class="sticky"><b>In one breath</b><br>After class weighting or oversampling, multiply the odds by the real prior odds (or recalibrate) before trusting probabilities; Isolation Forest flags points that random splits separate quickly, because lone points need far fewer cuts.</div>
 </div>
 <div class="sign">✎ in one line: forget accuracy, tune the threshold first, resample only inside training, correct the probabilities, and check what you didn't flag.</div>
 <p class="sn-back"><a href="lesson-25.html">open the full lesson →</a></p>
@@ -2597,17 +2279,14 @@
 <div class="box red"><b>Trees can't extrapolate</b>: a tree never predicts above values it has seen. On a rising trend, model the changes or detrend first.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: lags and honest intervals</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: choosing lags and honest prediction intervals</h3>
 <h4>Autocorrelation: which lags matter?</h4>
-<p>Autocorrelation at lag $k$ = correlation of the series with itself shifted by $k$. Compute it on the <b>changes</b> (a trend makes every lag look correlated). Peaks reveal the seasonal period.</p>
-<div class="eg"><b>Example</b><br>Daily sales changes: about <b>0.6</b> at lags 7, 14 and 21, barely anything at lags 1–6 → use multiples of 7. (A negative value at lag 2 is a typical side effect of differencing.)</div>
-<p>A standard first look: <code>plot_acf</code> up to two seasons.</p>
-
+<p>Shop sales on a Monday look a lot like last Monday's, and less like yesterday's Sunday. Autocorrelation measures this: how much the series resembles itself shifted back by 1 day, 2 days, 7 days, and so on. The peaks tell you which "days ago" to give the model.</p>
+<div class="eg"><b>Reading the numbers</b><br>Lags 7, 14, 21: about 0.6, strongly similar. A weekly cycle.<br>Lags 1–6: small. Yesterday tells you little once the weekday is known.<br>Lag 2: −0.32, a typical side effect of differencing, not a real pattern.<br><i>So give the model "value 7, 14 and 21 days ago".</i></div>
 <h4>Prediction intervals from held-out errors</h4>
-<p>A point forecast says nothing about how wrong it might be. Forecast a calibration period, take the 5th and 95th percentiles of the errors, add them to future forecasts: the idea of <b>split conformal prediction</b>.</p>
-<div class="eg"><b>Example</b><br>Built for 90%, it covers only <b>85.6%</b> on the test period: sales (and errors) keep growing, so older errors understate newer ones.</div>
-<p>Fixes: model the log (relative errors), use only recent errors, or recompute at each backtest step. Always report the coverage you actually achieve, by horizon.</p>
+<p>A weather forecast of "25°C" is less useful than "22 to 28°C". To get a range, look at how wrong your recent forecasts were and assume future misses will be similar.</p>
+<div class="eg"><b>Building a 90% interval</b><br>Calibration errors: 5th percentile −40, 95th percentile +50.<br>Forecast 1,000 → interval 960 to 1,050.<br>Later, count how often the truth landed inside: ideally about 90%.</div>
+<div class="sticky"><b>In one breath</b><br>Pick lags where the autocorrelation of the changes peaks (here multiples of 7), and build prediction intervals from recent held-out errors, then check their real coverage, especially when the series is trending.</div>
 </div>
 <div class="sign">✎ in one line: beat seasonal naive, build features only from the past, backtest in time order, and check your interval coverage.</div>
 <p class="sn-back"><a href="lesson-26.html">open the full lesson →</a></p>
@@ -2668,18 +2347,14 @@
 </ul>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: ALS and popularity bias</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: alternating least squares and popularity bias</h3>
 <h4>Alternating least squares</h4>
-<p>Fix the item factors $Q$, and each user's vector is a small ridge regression with a closed form, $\mathbf{p}_u=(Q_u^\top Q_u+\lambda I)^{-1}Q_u^\top\mathbf{r}_u$ (only the items that user rated). Then fix $P$ and solve each item. Repeat.</p>
-<div class="eg"><b>Example</b><br>3 true factors, 20% observed: test RMSE <b>1.635</b> after one sweep → <b>0.762</b> after eight.</div>
-<p>Each user's and item's update is independent, so ALS parallelises well (Spark's recommender). A weighted version (Hu, Koren, Volinsky) handles implicit feedback, treating unobserved pairs as weak zeros.</p>
-
+<p>Solving for two unknowns at once is hard; solving for one while the other is held still is easy. So fix the items and work out every user's tastes, then fix the users and work out every item's, and keep alternating.</p>
+<div class="eg"><b>One user with one factor</b><br>Items rated have factors 1, 2, 3; the user rated them 2, 4, 6. $\lambda=0$.<br>$Q^\top Q=1+4+9=14$; $Q^\top r=2+8+18=28$.<br>$p_u=28/14=2$: this user's taste is 2, and $2\times$ each item's factor reproduces the ratings exactly.</div>
 <h4>Measuring popularity bias</h4>
-<p>Accuracy metrics reward popular items (they're most likely to appear in anyone's held-out set). Track:</p>
-<ul><li><b>Catalogue coverage</b>: share of items ever recommended.</li><li><b>Average popularity</b> of recommended items.</li></ul>
-<div class="eg"><b>Example</b><br>Most-popular lists: only <b>30%</b> coverage, average popularity 38.7 users (catalogue average 29.2). Matrix factorisation: <b>85%</b> coverage, popularity 30.4.</div>
-<p>A change that slightly raises precision but halves coverage can make the product worse for users and for item suppliers.</p>
+<p>A bookshop that only puts bestsellers in the window. Sales look fine, but most of the books are never shown, niche readers are ignored, and new authors never get a chance.</p>
+<div class="eg"><b>Reading the rows</b><br>Popularity baseline: reaches only 30% of the catalogue; recommended items are liked by 38.7 users on average vs 29.2 overall.<br>Matrix factorisation: 85% coverage, popularity 30.4, close to average.</div>
+<div class="sticky"><b>In one breath</b><br>ALS fits matrix factorisation by alternating simple ridge regressions for users and items, which parallelises well; and always check coverage and popularity of recommendations, not just accuracy.</div>
 </div>
 <div class="sign">✎ in one line: beat popularity, factorise the big table, judge rankings on a time split, and watch coverage.</div>
 <p class="sn-back"><a href="lesson-27.html">open the full lesson →</a></p>
@@ -2729,17 +2404,13 @@
 <div class="sticky"><b>Use a bandit when…</b><br>…you care about earning while learning (headlines, ads). Use a classic test when you need an unbiased, precise comparison of every option.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: prior sensitivity, checking MCMC</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: prior sensitivity and checking MCMC</h3>
 <h4>How much does the prior matter?</h4>
-<p>Three analysts, same 6% observed rate: flat Beta(1, 1), sceptical Beta(10, 190) (≈5%), optimistic Beta(30, 170) (≈15%).</p>
-<div class="eg"><b>Example from the lesson</b><br>50 visitors: posterior means <b>5.2% to 13.2%</b> (priors dominate).<br>500: 5.7% to 8.6%. 5,000: all within a third of a percentage point.</div>
-<p>A Beta($a$, $b$) prior acts like $a+b$ earlier visitors (the optimistic one ≈ 200). <mark>If reasonable priors disagree, the data can't settle the question yet</mark>: report a sensitivity analysis.</p>
-
-<h4>Has the sampler converged? R-hat</h4>
-<p>Run several chains from very different starts and compare between-chain spread with within-chain spread: <b>$\hat R$</b> near 1 = they agree; above ~1.01 = keep sampling or fix the sampler.</p>
-<div class="eg"><b>Example</b><br>Step 0.5: four chains from −10, 0, 10, 20 all settle near <b>2.9</b>, $\hat R$ = 1.0. Step 0.005: each chain barely moves, $\hat R$ enormous, yet each one alone looks smooth.</div>
-<p>One chain is never enough. Stan and PyMC report $\hat R$ and the effective sample size: check both.</p>
+<p>Three people with different opinions read the same growing pile of evidence. After a page, they still disagree. After a whole book, they agree. If the answer still depends on who's reading, you need more evidence.</p>
+<div class="eg"><b>Posterior means with 50 visitors (3 converted)</b><br>Flat: $(1+3)/(2+50)\approx0.077$.<br>Sceptical: $(10+3)/(200+50)=0.052$.<br>Optimistic: $(30+3)/(200+50)=0.132$.<br>The priors still dominate: 50 real visitors vs 200 imaginary ones.</div>
+<h4>Has the sampler converged?</h4>
+<p>Send four hikers from four different corners of a park to map it. If their maps agree, trust them. If each hiker only mapped the area around their own starting point, the maps disagree, and none of them is the whole park.</p>
+<div class="sticky"><b>In one breath</b><br>Re-run the analysis with several reasonable priors: if they agree, the data dominates; and run several MCMC chains from different starts, trusting the results only when R-hat is close to 1.</div>
 </div>
 <div class="sign">✎ in one line: keep a distribution over the unknowns, update it with data, check the prior's influence, and use the uncertainty to decide.</div>
 <p class="sn-back"><a href="lesson-28.html">open the full lesson →</a></p>
@@ -2803,17 +2474,14 @@
 <p>Draw a <b>causal diagram</b> first: adjust for confounders, but never for things the treatment causes.</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: bad controls, discontinuities</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: bad controls and regression discontinuity</h3>
 <h4>Don't adjust for what the treatment causes</h4>
-<p>A <b>mediator</b> lies on the path from treatment to outcome; adjusting for it removes part of the effect.</p>
-<div class="eg"><b>Example from the lesson</b><br>A randomised discount brings customers back more often, and all its effect on spending works through those visits. Unadjusted: <b>11.96</b> (true 12). "Controlling" for visits: about <b>0</b>, as if the discount did nothing.</div>
-<ul><li><b>Confounder</b> → adjust.</li><li><b>Mediator</b> → don't (unless you want only the direct effect).</li><li><b>Collider</b> (caused by both, e.g. "contacted support") → never; it creates fake associations.</li></ul>
-
+<p>To test whether a painkiller works, you wouldn't "control for" how much pain people still feel: that's the very thing the pill changes. Adjusting for a step on the path from cause to effect hides the effect.</p>
+<div class="eg"><b>Reading it</b><br>Not adjusting: 11.96, matching the true 12.<br>"Controlling" for visits: −0.08, as if the discount did nothing.<br>Both use the same data; only the choice of control changed.</div>
 <h4>Regression discontinuity</h4>
-<p>When a threshold decides treatment (credit score ≥ 600), people just above and just below are very similar: almost an experiment. Fit a line on each side near the cut-off; measure the <b>jump</b>.</p>
-<div class="eg"><b>Example</b><br>Naive difference <b>29.8</b> (high scorers spend more anyway). Discontinuity within 25 points of 600: <b>14.7</b>, close to the true 15.</div>
-<p>Assumptions: people can't precisely manipulate their score across the line, and nothing else changes exactly at 600. Check for <b>bunching</b> just above the cut-off.</p>
+<p>Students scoring 599 and 601 on an exam are practically identical, but only those at 600 or above get the scholarship. Comparing students right at the line is almost like flipping a coin to decide who gets it.</p>
+<div class="eg"><b>Reading it</b><br>Naive difference, everyone above vs below: 29.8. This mixes the effect with "high-score customers spend more anyway".<br>Only customers within 25 points, with a line on each side: 14.7, close to the true 15.</div>
+<div class="sticky"><b>In one breath</b><br>Adjust for confounders, but not for mediators (they erase the effect you want) or colliders (they create fake ones); and when treatment follows a cut-off, compare people just either side of it with regression discontinuity.</div>
 </div>
 <div class="sign">✎ in one line: ask "what if we act?", randomise if you can, otherwise adjust only for true confounders and state your assumptions.</div>
 <p class="sn-back"><a href="lesson-29.html">open the full lesson →</a></p>
@@ -2888,16 +2556,14 @@
 <div class="sticky"><b>Log every prediction</b><br>Input, output, model version, timestamp: for debugging, monitoring, joining with outcomes for retraining, and audits.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: drift alarms, champion vs challenger</h3>
-
-<h4>Significant ≠ important</h4>
-<div class="eg"><b>Example from the lesson</b><br>A tiny, harmless shift of 0.03 standard deviations. KS test with 500 rows: p = 0.158 (nothing). With 50,000 rows: p ≈ <b>10⁻⁶</b>, an "alarm" about nothing. PSI stays below 0.03 throughout, because it measures the <i>size</i> of the shift.</div>
-<p>Alert on <b>effect sizes</b> (PSI, the KS statistic, mean change in sd) with thresholds tied to impact, not on p-values, or every big feature alarms daily.</p>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: drift alarms and champion–challenger tests</h3>
+<h4>Significant is not the same as important</h4>
+<p>With a precise enough scale, you can prove a bag of sugar weighs 0.1 g less than last week. True, and completely unimportant. Huge samples make tests "significant" for tiny changes; what matters is how big the change is.</p>
+<div class="eg"><b>Reading it</b><br>500 rows: p = 0.158, no alarm.<br>50,000 rows: the same tiny shift gives $p\approx10^{-6}$, an alarm about nothing.<br>PSI stays tiny (below 0.03) throughout: it measures size, so it isn't fooled.</div>
 <h4>Is the challenger really better?</h4>
-<p>Bootstrap the test set (paired, same rows) to get an interval for the improvement.</p>
-<div class="eg"><b>Example</b><br>Challenger's AUC is <b>0.003</b> higher, but the 95% interval runs from <b>−0.022 to 0.027</b>: can't tell them apart. Switching adds risk for no proven gain.</div>
-<p>Get stronger evidence from more test data, paired comparisons, and a shadow or canary deployment that measures the <b>business outcome</b>, not just the offline metric.</p>
+<p>A new player scores two more goals than your star in one friendly match. Before dropping your star, ask whether that gap is bigger than ordinary match-to-match luck.</p>
+<div class="eg"><b>Reading it</b><br>Challenger AUC 0.728 vs champion 0.725: +0.003.<br>95% interval for the improvement: −0.022 to +0.027.<br>It includes 0 (and negative values), so the data can't tell them apart.</div>
+<div class="sticky"><b>In one breath</b><br>Judge drift by its size (PSI, shift in standard deviations), not by p-values that alarm on anything with enough data; and replace the champion only when the bootstrap interval for the improvement is clearly above zero.</div>
 </div>
 <div class="sign">✎ in one line: ship the whole versioned pipeline, validate inputs, watch drift and real performance, and roll out gradually.</div>
 <p class="sn-back"><a href="lesson-30.html">open the full lesson →</a></p>
@@ -2957,16 +2623,13 @@
 <div class="sticky"><b>Before reaching for RL</b><br>It's data-hungry and hard to debug. Would a supervised model or a bandit do the job?</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: SARSA vs Q-learning on a cliff</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: SARSA versus Q-learning on a cliff</h3>
 <h4>Two learners, one cliff</h4>
-<p>A 4×8 grid: start bottom-left, goal bottom-right, cliff squares between them (−100 and back to start); every other step −1. <b>SARSA</b> differs by one word: it updates towards the action it will <i>actually</i> take next (exploration included):</p>
-<p class="fx">$Q(s,a)\leftarrow Q(s,a)+\alpha\big[r+\gamma\,Q(s',a')-Q(s,a)\big]$</p>
-<div class="eg"><b>Example from the lesson</b><br>Q-learning: the shortest route, <b>9 steps</b>, 8 of them right along the cliff edge (optimal if you never slip).<br>SARSA: a <b>13-step</b> route away from the edge, because it knows its own random steps sometimes happen.</div>
-
+<p>Walking home along a cliff path in the dark, knowing you sometimes stumble. A daredevil plans the shortest route along the very edge, assuming no stumbles. A careful walker, who remembers that they do stumble, takes a longer path away from the edge.</p>
+<div class="eg"><b>One update, two rules</b><br>Next to the cliff. Best next action is worth −8; the random action actually taken is worth −100 (it fell).<br>Q-learning uses the best: target $-1+(-8)=-9$.<br>SARSA uses the one taken: target $-1+(-100)=-101$. It learns that standing here is risky.</div>
 <h4>Which is better depends on when you're judged</h4>
-<div class="eg"><b>Reward collected while still exploring 10%</b><br>SARSA <b>−21.0</b> vs Q-learning <b>−31.2</b>: Q-learning's edge-hugging route often falls off on a random step.</div>
-<p>If exploration stops after training, Q-learning's policy is better; if the agent keeps exploring, or a real robot occasionally slips, <mark>SARSA's caution pays</mark>. Where mistakes during learning are costly: on-policy or risk-aware methods, and learn in simulation first.</p>
+<p>If you're graded on every practice session, playing safe wins. If you're graded only on the final exam, the bolder plan wins.</p>
+<div class="sticky"><b>In one breath</b><br>Q-learning learns the best route assuming perfect play, which hugs the cliff; SARSA learns the value of what it really does, including its random steps, so it takes a safer route and earns more while still exploring.</div>
 </div>
 <div class="sign">✎ in one line: act, collect rewards, update values with the TD error, keep exploring, and design the reward with care.</div>
 <p class="sn-back"><a href="lesson-31.html">open the full lesson →</a></p>
@@ -3026,17 +2689,14 @@
 <div class="box red">Always keep a properly labelled test set the method never touches. Never evaluate on pseudo-labels: they carry the model's own mistakes.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: misleading geometry, committees</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: when unlabelled data misleads, and committees</h3>
 <h4>A wrong distance breaks label spreading</h4>
-<p>The label depends only on feature 1; feature 2 is irrelevant noise on a scale 50× larger.</p>
-<div class="eg"><b>Example from the lesson</b><br>Logistic regression on 20 labels: <b>91.9%</b> (learns to ignore the noise).<br>Label spreading, raw features: <b>55.7%</b>, near guessing (neighbours decided by the noise).<br>After scaling: <b>86.4%</b>, still below supervised (feature 2 still adds noise to distances).</div>
-<p><mark>Unlabelled data helps only when the geometry matches how the labels vary.</mark> Scale, choose features carefully, compare with the baseline.</p>
-
+<p>Asking neighbours for directions only helps if "neighbour" means someone who knows the area. If you choose neighbours by the colour of their car instead of where they live, their advice is useless. Label spreading is only as good as its notion of "near".</p>
+<div class="eg"><b>Reading the three numbers</b><br>Logistic regression on 20 labels: 91.9%. It learns to ignore feature 2.<br>Label spreading, raw features: 55.7%, near guessing. Neighbours are chosen by the noise.<br>After scaling: 86.4%. Better, but feature 2 still adds noise to every distance.</div>
 <h4>Query-by-committee</h4>
-<p>Train a committee of models on bootstrap samples; label the points where they <b>disagree</b> most.</p>
-<div class="eg"><b>Example</b><br>5 logistic regressions, 15 picks per round, 170 labels: committee <b>88.6%</b> vs random <b>88.3%</b>, barely ahead on easy, well-separated digits.</div>
-<p>Active learning pays off most with imbalanced classes or complex boundaries. Its gain varies by problem, so measure it on a pilot before committing the labelling budget.</p>
+<p>Ask a panel of judges about every case, and call in the expensive expert only for the cases where the judges argue the most. Those are the cases the expert's answer will teach the most.</p>
+<div class="eg"><b>Measuring disagreement</b><br>5 models vote on an image: "3, 3, 3, 3, 3" → full agreement; skip it.<br>Another image: "3, 8, 8, 3, 5" → strong disagreement; send it for labelling.</div>
+<div class="sticky"><b>In one breath</b><br>Unlabelled data helps only when distances reflect how labels change, so scale and choose features and compare with a labelled-only baseline; query-by-committee sends for labelling the cases the models disagree on most, which helps most on hard, imbalanced problems.</div>
 </div>
 <div class="sign">✎ in one line: borrow structure from unlabelled data when the geometry is right, ask for the most useful labels, and test on real labels.</div>
 <p class="sn-back"><a href="lesson-32.html">open the full lesson →</a></p>
@@ -3095,17 +2755,14 @@
 </ul>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: checking proportional hazards, RMST</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: checking proportional hazards, and restricted mean survival</h3>
 <h4>When hazards aren't proportional</h4>
-<p>A Cox model reports one hazard ratio for the whole period. If an advantage fades (a welcome offer that helps only early), that single number misleads.</p>
-<div class="eg"><b>Example from the lesson</b><br>First 6 months: group 1 churns at <b>0.39×</b> group 0's rate. After that: <b>1.04×</b>, no advantage. A single Cox ratio would average to about 0.6, true of no period.</div>
-<p>Fixes: separate coefficients per period, stratify, or report the curves. Check visually: $\log(-\log\hat S(t))$ lines should be <b>parallel</b>.</p>
-
-<h4>Restricted mean survival time (RMST)</h4>
-<p>The average time survived within a fixed horizon = the area under the Kaplan–Meier curve up to it. No proportional-hazards assumption needed.</p>
-<div class="eg"><b>Example</b><br>First 12 months: group 1 stays <b>7.71</b> months on average, group 0 <b>5.45</b> → <b>2.3 more months</b> per customer, which converts directly into revenue.</div>
-<p>"2.3 more months in the first year" is easier for decision-makers than a hazard ratio.</p>
+<p>A welcome offer helps new customers stay in their first months and then stops mattering. Averaging "very helpful early" with "no help later" into one number gives an answer that's true for no month at all.</p>
+<div class="eg"><b>Reading the two periods</b><br>Months 0–6: 0.39. Group 1 churns at well under half group 0's rate.<br>Months 6–24: 1.04. No advantage at all.<br>One Cox number would land somewhere around 0.6, true of neither period.</div>
+<h4>Restricted mean survival time</h4>
+<p>The area under a survival curve up to 12 months is simply the average number of months a customer stays during that first year. It's in plain units that anyone can use.</p>
+<div class="eg"><b>Area by hand</b><br>Survival 1.0 for months 0–3, 0.8 for 3–6, 0.6 for 6–12.<br>Area $=3\times1.0+3\times0.8+6\times0.6=3+2.4+3.6=9.0$.<br>Customers stay 9.0 of the first 12 months on average.</div>
+<div class="sticky"><b>In one breath</b><br>Check whether the hazard ratio changes over time before trusting a single Cox number; report the restricted mean survival time ("2.3 more months in the first year") for a clear summary that needs no such assumption.</div>
 </div>
 <div class="sign">✎ in one line: model "when", keep censored people in, use Kaplan–Meier and Cox, judge with the C-index, and check the hazards stay proportional.</div>
 <p class="sn-back"><a href="lesson-33.html">open the full lesson →</a></p>
@@ -3172,17 +2829,14 @@
 <p><code>networkx</code> for small and medium graphs; graph databases and PyTorch Geometric for big ones.</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: PageRank and the Laplacian</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: PageRank as an eigenvector, and the graph Laplacian</h3>
 <h4>PageRank is an eigenvector</h4>
-<p>The surfer's matrix $G=\frac{1-d}{n}\mathbf{1}\mathbf{1}^\top+dM$; PageRank is $r$ with $rG=r$, an eigenvector with eigenvalue 1. All entries of $G$ are positive, so <b>Perron–Frobenius</b> guarantees it's the largest eigenvalue with a unique positive eigenvector, which is why <b>power iteration</b> (multiply again and again) finds it.</p>
-<div class="eg"><b>Example from the lesson</b><br>60-node directed graph: largest eigenvalue exactly 1; power iteration converges in <b>27</b> steps, matching to $10^{-11}$. Errors shrink by about $d$ per step. PageRank correlates with <b>in-degree (0.724)</b>, not out-degree (−0.208).</div>
-
+<p>Pour water into a network of pipes and let it flow for a long time. Eventually the amount in each tank stops changing: water flowing in equals water flowing out. That steady state is PageRank.</p>
+<div class="eg"><b>Two pages, by hand ($d=0.85$)</b><br>A links to B and B links to A. Start $r=(0.9,0.1)$.<br>Step: each page gets $0.15/2=0.075$ plus $0.85\times$ the other's share.<br>A: $0.075+0.85\times0.1=0.16$; B: $0.075+0.85\times0.9=0.84$.<br>Repeating, the swing shrinks by 0.85 each step and settles at $(0.5,0.5)$.</div>
 <h4>The graph Laplacian</h4>
-<p class="fx">$L=D-A,\qquad f^\top Lf=\sum_{\text{edges }ij}(f_i-f_j)^2$</p>
-<p>Small when connected nodes get similar values. The smallest eigenvalue is 0 (a constant vector); the eigenvector of the second-smallest, the <b>Fiedler vector</b>, is the smoothest non-constant labelling, and tends to split the graph along its weakest cut.</p>
-<div class="eg"><b>Example</b><br>Eigenvalues 0, then 2.091; splitting nodes by the sign of the Fiedler vector recovers the two planted communities <b>exactly</b>.</div>
-<p>Spectral clustering = several eigenvectors + k-means. The same Laplacian appears in label spreading and in graph neural networks.</p>
+<p>Give every node a number so that linked nodes get similar numbers. The smoothest pattern that isn't "everyone the same" naturally changes sign across the graph's weakest bridge, splitting it into two communities.</p>
+<div class="eg"><b>A path of three nodes A–B–C</b><br>Values $f=(1,0,-1)$: $(1-0)^2+(0-(-1))^2=2$.<br>Values $f=(1,1,1)$: 0, the constant pattern, always eigenvalue 0.<br>The smoothest non-constant pattern changes sign once, splitting the path into two sides.</div>
+<div class="sticky"><b>In one breath</b><br>PageRank is the steady state of the random surfer, the eigenvector with eigenvalue 1, found reliably by power iteration; and the Laplacian's second eigenvector gives the smoothest split of a graph, the basis of spectral clustering.</div>
 </div>
 <div class="sign">✎ in one line: store it sparsely, measure who matters, find the communities, and use neighbours as features.</div>
 <p class="sn-back"><a href="lesson-34.html">open the full lesson →</a></p>
@@ -3253,18 +2907,14 @@
 <p>Exact inference is easy for chains and trees, hard for general graphs (use MCMC or variational inference). Libraries: pgmpy, hmmlearn.</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: forward–backward, Baum–Welch</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: forward–backward and Baum–Welch</h3>
 <h4>Each day's probabilities: forward–backward</h4>
-<p>Viterbi gives one path. Often you want <b>each day's</b> state probability given <i>all</i> observations: a forward pass α summarises the past, a backward pass β the future, and their normalised product gives $P(z_t\mid x_{1:n})$.</p>
-<div class="eg"><b>Example from the lesson</b><br>P(rain) rises through two shopping days to <b>0.741</b> on the cleaning day, then falls back. Day 5's shopping: <b>0.488</b>, genuinely uncertain, which Viterbi's single path hides.</div>
-<p>Use these for decisions with costs; they're also the E-step of Baum–Welch.</p>
-
+<p>To guess whether it rained on Wednesday, use what happened before Wednesday <em>and</em> after it: if Thursday was a cleaning day too, rain on Wednesday becomes more likely. Forward–backward combines evidence from both directions for every day.</p>
+<div class="eg"><b>Combining both directions for one day</b><br>Forward (past) evidence says: rainy 0.4, sunny 0.6.<br>Backward (future) evidence: the future is twice as likely if today is rainy (0.2 vs 0.1).<br>Multiply: rainy $0.4\times0.2=0.08$, sunny $0.6\times0.1=0.06$.<br>Normalise: rainy $0.08/0.14\approx0.57$. The future tipped the balance.</div>
 <h4>Learning from observations alone: Baum–Welch</h4>
-<ol><li><b>E-step</b>: forward–backward → expected state each day and expected number of each transition.</li><li><b>M-step</b>: re-estimate the parameters from those expected counts.</li></ol>
-<p>Each iteration increases the likelihood.</p>
-<div class="eg"><b>Example</b><br>From a rough guess and only 3,000 activities (no weather labels): learns transitions of <b>0.75/0.25</b> (true 0.8/0.2) and emissions close to the truth.</div>
-<p>Scaling by $c_t$ at each step stops underflow on long sequences. Like all EM, it can stop at a local optimum: run several starts, keep the best likelihood.</p>
+<p>Like EM for clustering: guess which hidden state each day was in, count up how often states followed each other and what each state led your friend to do, refit the numbers from those counts, and repeat until they settle.</p>
+<div class="eg"><b>One M-step count</b><br>Forward–backward says: over all days, about 120 "rainy → rainy" transitions and 40 "rainy → sunny" are expected.<br>New P(rainy → rainy) $=120/(120+40)=0.75$.<br>Repeat with the new parameters; each round increases the likelihood.</div>
+<div class="sticky"><b>In one breath</b><br>Forward–backward combines evidence from before and after each day to give every day's state probabilities; Baum–Welch uses those to learn the model's numbers from unlabelled sequences, from several starting guesses.</div>
 </div>
 <div class="sign">✎ in one line: draw who influences whom, multiply small local tables, use Viterbi for the best hidden path and forward–backward for each day's odds.</div>
 <p class="sn-back"><a href="lesson-35.html">open the full lesson →</a></p>

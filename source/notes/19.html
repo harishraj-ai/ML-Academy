@@ -55,35 +55,22 @@
 <div class="box red">Remember <code>model.eval()</code> before evaluating (switches dropout off), and prefer ReLU over sigmoid in hidden layers.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: attention and residuals from scratch</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: attention and residual connections, from scratch</h3>
 <h4>Attention, step by step</h4>
-<p>Three learned matrices turn each token into $Q$, $K$, $V$; each output is a weighted average of all values. Each row of the weight matrix sums to 1.</p>
-<div class="eg"><b>Example from the lesson</b><br>Token 2 puts <b>78%</b> of its attention on token 1; token 3 spreads its attention almost evenly.</div>
-<p><b>Multi-head</b> attention runs several in parallel (tracking grammar, meaning, position…) and concatenates them.</p>
-
-<h4>Why divide by √d</h4>
-<p>Dot products over $d$ dimensions have variance $d$, so scores grow like $\sqrt d$; large scores push the softmax to one-hot, where gradients ≈ 0.</p>
-<div class="eg"><b>Example</b><br>Average largest weight among 10 keys: unscaled <b>0.62</b> at d = 8 → <b>0.95</b> at d = 512 (locks onto one key). Scaled: about <b>0.31</b> at every size, staying soft and trainable.</div>
-
+<p>At a noisy party you can't listen to everyone equally. You tune in to the people talking about what you care about. In attention, each word has a question (query); every word wears a label (key); a word listens most to those whose labels match its question, and takes in what they say (their values).</p>
+<div class="eg"><b>One token, three keys</b><br>Match scores (after scaling): 2, 1, 0.<br>$e^2, e^1, e^0 = 7.39, 2.72, 1.00$; total 11.11.<br>Weights: $0.67, 0.24, 0.09$ (they add to 1).<br>Output $=0.67\,v_1+0.24\,v_2+0.09\,v_3$: mostly token 1's information.</div>
+<h4>Why divide by $\sqrt{d_k}$, measured</h4>
+<p>Longer vectors give bigger dot products, just as adding more numbers gives a bigger total. Very big scores make softmax put nearly all weight on one item, and then its slope is almost zero, so learning stalls. Dividing by $\sqrt{d}$ calms the scores back down.</p>
+<div class="eg"><b>The size effect</b><br>Entries with variance 1, $d=64$ dimensions: dot products have variance 64, so spread $\sqrt{64}=8$.<br>Scores like 8 vs 0 give softmax weights of about $e^8/(e^8+1)\approx0.9997$: one-hot.<br>Divide by 8: spread back to about 1, a soft, trainable mix.</div>
 <h4>Residual connections</h4>
-<p>Compute $\mathbf{h}+f(\mathbf{h})$: the layer learns a <b>correction</b>. Its derivative is $I+J_f$, so there is always an identity path for the gradient.</p>
-<div class="eg"><b>Example: 50-layer tanh network</b><br>Without shortcuts the first layer's gradient is <b>2 × 10⁻¹⁴</b>. With shortcuts about <b>400</b>.</div>
-<p>ResNets (2015) trained 100+ layer image networks this way; every transformer block wraps attention and its feed-forward part in residuals.</p>
-
-<h4>Positions and a transformer block</h4>
-<p>Attention alone ignores order (shuffle tokens → outputs just move). Add <b>positional encodings</b>: sine/cosine waves $\sin(p/10000^{2i/d})$, or rotary encodings (RoPE) in modern LLMs.</p>
-<ol><li>Multi-head self-attention + residual, then layer norm.</li><li>A small feed-forward network per token (GELU) + residual, then layer norm.</li></ol>
-<p>A language model stacks dozens of blocks, uses a <b>causal mask</b> (attend only to earlier tokens), and learns to predict the next token.</p>
-
-<h4>Adapting pretrained models</h4>
-<ul>
-<li><b>Feature extraction</b>: train only a new output layer; very little data.</li>
-<li><b>Fine-tuning</b>: all or top layers, small learning rate; moderate data, best accuracy.</li>
-<li><b>LoRA / adapters</b>: small added matrices, originals frozen; ideal for LLMs.</li>
-<li><b>Prompting / in-context learning</b>: train nothing.</li>
-</ul>
-<div class="eg"><b>LoRA example</b><br>Learn the change as $\Delta W=BA$ with rank 8: a 4096 × 4096 layer needs $2\times4096\times8=$ <b>65,536</b> new numbers instead of 16.8 million.</div>
+<p>Instead of rewriting the whole essay at each draft, each editor only adds corrections in the margin. The original text always gets through, so even after 50 editors it's still readable. A residual block works the same way, and so does the learning signal flowing backwards.</p>
+<div class="eg"><b>Why the "+1" saves the gradient</b><br>Plain: each of 50 layers multiplies the gradient by about 0.5: $0.5^{50}\approx9\times10^{-16}$.<br>Residual: each layer multiplies by about $1+( ext{something small})$, so the product stays around 1 or above instead of collapsing to zero.</div>
+<h4>Positions, and putting a transformer block together</h4>
+<p>Attention alone sees a bag of words: "dog bites man" and "man bites dog" look identical. Adding a position signal to each word, like a seat number, puts the order back.</p>
+<h4>Transfer learning and fine-tuning</h4>
+<p>A doctor who already knows anatomy learns a new speciality far faster than someone starting from zero. A pretrained model already knows edges and shapes, or grammar and facts; you only teach it the last part.</p>
+<div class="eg"><b>How much LoRA saves</b><br>A $4096\times4096$ layer has $4096^2\approx16.8$ million weights.<br>LoRA with $r=8$: $B$ is $4096\times8$, $A$ is $8\times4096$: $2\times4096\times8=65{,}536$ new numbers.<br>About 256× fewer to train and store.</div>
+<div class="sticky"><b>In one breath</b><br>Attention lets each token mix in information from the tokens whose keys match its query, with scores divided by $\sqrt{d}$ so softmax stays soft; residual connections give gradients a direct path through deep stacks; positional encodings restore word order; and fine-tuning a pretrained model (cheaply, with LoRA) beats training from scratch.</div>
 </div>
 <div class="sign">✎ in one line: CNNs for grids, RNNs/LSTMs for steps, transformers for "everything attends to everything", and fine-tune a pretrained model.</div>
 </article>

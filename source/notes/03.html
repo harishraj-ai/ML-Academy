@@ -59,32 +59,24 @@
 
 <div class="deeper">
 <h3 class="dh"><span class="n">★</span>Going deeper: calculus for optimisation</h3>
-
-<h4>The Jacobian</h4>
-<p>A gradient is for "many numbers in → one number out". A network layer is "many in → many out"; its derivative is the <b>Jacobian</b>, a matrix of $\partial f_i/\partial x_j$ (one row per output).</p>
-<div class="eg"><b>Example</b><br>$\mathbf{f}=(x^2y,\;5x+\sin y)$ → $J=\begin{pmatrix}2xy&x^2\\5&\cos y\end{pmatrix}$, so $J(1,2)=\begin{pmatrix}4&1\\5&-0.4161\end{pmatrix}$.</div>
-<p>The chain rule for vector functions = <mark>multiplying Jacobians</mark>. Backpropagation does this layer by layer (only as products with vectors, never building the full matrices).</p>
-
-<h4>The Hessian: curvature</h4>
-<p>Second derivatives form the <b>Hessian</b> $H_{ij}=\partial^2L/\partial w_i\partial w_j$. It's symmetric; its eigenvalues are the curvature in each direction. Where the gradient is zero:</p>
-<ul><li>all eigenvalues positive → <b>minimum</b>;</li><li>all negative → <b>maximum</b>;</li><li>mixed → <b>saddle</b> (a mountain pass).</li></ul>
-<div class="eg"><b>Example</b><br>$w_1^2+10w_2^2$: eigenvalues 2 and 20, a minimum in a valley 10× steeper one way. $w_1^2-w_2^2$: −2 and 2, a saddle.</div>
-<p>In neural networks most zero-gradient points are saddles, not bad minima, one reason gradient descent works better than you'd expect.</p>
-
-<h4>Convexity: exactly one valley</h4>
-<p>A <b>convex</b> function is bowl-shaped: the straight line between any two points on the graph never dips below it. Test: the Hessian is positive semi-definite everywhere. Payoff: <mark>every local minimum is the global minimum</mark>, so gradient descent can't get stuck.</p>
-<ul><li>Convex: MSE for linear regression (Hessian $\frac2nX^\top X$), log loss (Lesson 8), hinge loss (Lesson 15).</li><li>Not convex: neural networks, so the starting point matters.</li></ul>
-
-<h4>Newton's method</h4>
-<p>Near any point, a smooth function looks like a bowl (2nd-order Taylor): $L(\mathbf{w}+\Delta)\approx L+\nabla L^\top\Delta+\tfrac12\Delta^\top H\Delta$. Gradient descent uses only the slope; Newton jumps to the bottom of the bowl: $\Delta=-H^{-1}\nabla L$.</p>
-<div class="eg"><b>Example from the lesson</b><br>Valley $w_1^2+10w_2^2$ from (10, 1): gradient descent must keep $\eta&lt;2/20$ or it blows up in the steep direction, so it needs <b>82 steps</b> at best. Newton lands on the minimum in <b>1 step</b>.</div>
-<p>But the Hessian has $d^2$ entries and costs about $d^3$ to use: impossible for a million weights. So practical methods approximate curvature: <b>L-BFGS</b> (scikit-learn's default for logistic regression) and <b>Adam</b>.</p>
-
-<h4>Checking your gradients</h4>
-<p>Compare a hand-derived gradient with the <b>central difference</b> $\frac{L(\mathbf{w}+h\mathbf{e}_i)-L(\mathbf{w}-h\mathbf{e}_i)}{2h}$ (error shrinks like $h^2$). Use the relative error $\frac{\|g_1-g_2\|}{\|g_1\|+\|g_2\|}$: below $10^{-7}$ is right, around $10^{-4}$ suspicious, above $10^{-2}$ a bug.</p>
-
-<h4>Optimising with a rule: Lagrange multipliers</h4>
-<p>To minimise a function <i>subject to a constraint</i> (e.g. weights must have length 1), add the constraint times a multiplier $\lambda$ and set all derivatives to zero. At the best point the two gradients are parallel. SVMs (Lesson 15) and PCA (Lesson 17) are solved this way.</p>
+<h4>The Jacobian: derivatives of vector functions</h4>
+<p>A gradient is a single row of slopes for one output. A layer has many outputs, so you stack one row per output: that table of slopes is the Jacobian.</p>
+<div class="eg"><b>Reading $J(1,2)$</b><br>Row 1 is output $f_1=x^2y$: slopes $2xy=4$ and $x^2=1$.<br>Row 2 is output $f_2=5x+\sin y$: slopes $5$ and $\cos 2\approx-0.416$.<br>Meaning: nudge $x$ by 0.01 and $f_1$ rises by about 0.04, $f_2$ by about 0.05.</div>
+<h4>The Hessian: curvature in many directions</h4>
+<p>Standing on a hillside, the gradient tells you which way is downhill. The Hessian tells you the <em>shape</em> around you: a bowl, a dome, or a mountain pass.</p>
+<div class="eg"><b>Classify two points</b><br>$L=w_1^2+10w_2^2$: second derivatives 2 and 20, both positive → a minimum (a valley 10× steeper one way).<br>$L=w_1^2-w_2^2$: 2 and −2, mixed signs → a saddle.</div>
+<h4>Convexity: when there's exactly one valley</h4>
+<p>A convex loss is a single smooth bowl: wherever you put a marble, it rolls to the same bottom. A non-convex loss is a bumpy landscape with several dips, and where you start decides where you end.</p>
+<h4>Taylor series and Newton's method</h4>
+<p>Gradient descent feels the slope with its feet and takes a careful step. Newton's method also feels how curved the ground is, guesses where the bottom of the bowl is, and jumps straight there.</p>
+<div class="eg"><b>One Newton step on $L=w_1^2+10w_2^2$ from $(10,1)$</b><br>Gradient: $(2w_1,20w_2)=(20,20)$.<br>Curvatures: 2 and 20.<br>Newton divides each slope by its curvature: step $=(20/2,\ 20/20)=(10,1)$.<br>New point: $(10,1)-(10,1)=(0,0)$, the exact minimum in one step.<br><i>Gradient descent needs 82 steps here. The catch: for a million weights the Hessian has $10^{12}$ entries.</i></div>
+<h4>Checking gradients like a professional</h4>
+<p>Checking your maths homework by measuring: nudge one weight a tiny bit up and down, see how much the loss changes, and compare with your formula.</p>
+<div class="eg"><b>Reading the relative error</b><br>Correct gradient: about $3\times10^{-11}$ (below $10^{-7}$ → right).<br>Buggy gradient (forgot $\tanh'$): $6.7\times10^{-2}$ (above $10^{-2}$ → bug).</div>
+<h4>Optimising with a constraint: Lagrange multipliers</h4>
+<p>You want the highest point on a hill, but you must stay on a fixed path. The best point on the path is where the path runs exactly along a contour line, so you can't go higher by walking either way.</p>
+<div class="eg"><b>Largest rectangle with perimeter 20</b><br>Maximise area $xy$ with $2x+2y=20$.<br>Slopes: area gives $(y,x)$; the rule gives $(2,2)$. Set them parallel: $y=2\lambda$, $x=2\lambda$, so $x=y$.<br>Then $4x=20$, so $x=y=5$, area $25$. The square wins.</div>
+<div class="sticky"><b>In one breath</b><br>The Jacobian is the slope table of a whole layer, the Hessian describes the shape (bowl, dome or saddle), convex losses have one bottom, Newton jumps to the bottom using curvature but is too costly for big models, always check gradients numerically, and Lagrange multipliers handle rules like "length 1".</div>
 </div>
 <div class="sign">✎ in one line: the derivative is the slope, the chain rule links the steps, and learning walks against the gradient.</div>
 </article>

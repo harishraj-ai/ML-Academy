@@ -68,16 +68,14 @@
 <div class="sticky"><b>Log every prediction</b><br>Input, output, model version, timestamp: for debugging, monitoring, joining with outcomes for retraining, and audits.</div>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: drift alarms, champion vs challenger</h3>
-
-<h4>Significant ≠ important</h4>
-<div class="eg"><b>Example from the lesson</b><br>A tiny, harmless shift of 0.03 standard deviations. KS test with 500 rows: p = 0.158 (nothing). With 50,000 rows: p ≈ <b>10⁻⁶</b>, an "alarm" about nothing. PSI stays below 0.03 throughout, because it measures the <i>size</i> of the shift.</div>
-<p>Alert on <b>effect sizes</b> (PSI, the KS statistic, mean change in sd) with thresholds tied to impact, not on p-values, or every big feature alarms daily.</p>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: drift alarms and champion–challenger tests</h3>
+<h4>Significant is not the same as important</h4>
+<p>With a precise enough scale, you can prove a bag of sugar weighs 0.1 g less than last week. True, and completely unimportant. Huge samples make tests "significant" for tiny changes; what matters is how big the change is.</p>
+<div class="eg"><b>Reading it</b><br>500 rows: p = 0.158, no alarm.<br>50,000 rows: the same tiny shift gives $p\approx10^{-6}$, an alarm about nothing.<br>PSI stays tiny (below 0.03) throughout: it measures size, so it isn't fooled.</div>
 <h4>Is the challenger really better?</h4>
-<p>Bootstrap the test set (paired, same rows) to get an interval for the improvement.</p>
-<div class="eg"><b>Example</b><br>Challenger's AUC is <b>0.003</b> higher, but the 95% interval runs from <b>−0.022 to 0.027</b>: can't tell them apart. Switching adds risk for no proven gain.</div>
-<p>Get stronger evidence from more test data, paired comparisons, and a shadow or canary deployment that measures the <b>business outcome</b>, not just the offline metric.</p>
+<p>A new player scores two more goals than your star in one friendly match. Before dropping your star, ask whether that gap is bigger than ordinary match-to-match luck.</p>
+<div class="eg"><b>Reading it</b><br>Challenger AUC 0.728 vs champion 0.725: +0.003.<br>95% interval for the improvement: −0.022 to +0.027.<br>It includes 0 (and negative values), so the data can't tell them apart.</div>
+<div class="sticky"><b>In one breath</b><br>Judge drift by its size (PSI, shift in standard deviations), not by p-values that alarm on anything with enough data; and replace the champion only when the bootstrap interval for the improvement is clearly above zero.</div>
 </div>
 <div class="sign">✎ in one line: ship the whole versioned pipeline, validate inputs, watch drift and real performance, and roll out gradually.</div>
 </article>

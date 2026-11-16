@@ -52,17 +52,14 @@
 </ul>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: checking proportional hazards, RMST</h3>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: checking proportional hazards, and restricted mean survival</h3>
 <h4>When hazards aren't proportional</h4>
-<p>A Cox model reports one hazard ratio for the whole period. If an advantage fades (a welcome offer that helps only early), that single number misleads.</p>
-<div class="eg"><b>Example from the lesson</b><br>First 6 months: group 1 churns at <b>0.39×</b> group 0's rate. After that: <b>1.04×</b>, no advantage. A single Cox ratio would average to about 0.6, true of no period.</div>
-<p>Fixes: separate coefficients per period, stratify, or report the curves. Check visually: $\log(-\log\hat S(t))$ lines should be <b>parallel</b>.</p>
-
-<h4>Restricted mean survival time (RMST)</h4>
-<p>The average time survived within a fixed horizon = the area under the Kaplan–Meier curve up to it. No proportional-hazards assumption needed.</p>
-<div class="eg"><b>Example</b><br>First 12 months: group 1 stays <b>7.71</b> months on average, group 0 <b>5.45</b> → <b>2.3 more months</b> per customer, which converts directly into revenue.</div>
-<p>"2.3 more months in the first year" is easier for decision-makers than a hazard ratio.</p>
+<p>A welcome offer helps new customers stay in their first months and then stops mattering. Averaging "very helpful early" with "no help later" into one number gives an answer that's true for no month at all.</p>
+<div class="eg"><b>Reading the two periods</b><br>Months 0–6: 0.39. Group 1 churns at well under half group 0's rate.<br>Months 6–24: 1.04. No advantage at all.<br>One Cox number would land somewhere around 0.6, true of neither period.</div>
+<h4>Restricted mean survival time</h4>
+<p>The area under a survival curve up to 12 months is simply the average number of months a customer stays during that first year. It's in plain units that anyone can use.</p>
+<div class="eg"><b>Area by hand</b><br>Survival 1.0 for months 0–3, 0.8 for 3–6, 0.6 for 6–12.<br>Area $=3\times1.0+3\times0.8+6\times0.6=3+2.4+3.6=9.0$.<br>Customers stay 9.0 of the first 12 months on average.</div>
+<div class="sticky"><b>In one breath</b><br>Check whether the hazard ratio changes over time before trusting a single Cox number; report the restricted mean survival time ("2.3 more months in the first year") for a clear summary that needs no such assumption.</div>
 </div>
 <div class="sign">✎ in one line: model "when", keep censored people in, use Kaplan–Meier and Cox, judge with the C-index, and check the hazards stay proportional.</div>
 </article>

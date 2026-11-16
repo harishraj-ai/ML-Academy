@@ -60,28 +60,20 @@
 <p>Speed-ups: <b>KD-trees</b> and <b>ball trees</b> skip whole regions that can't hold a nearer point (<code>algorithm="auto"</code> chooses for you).</p>
 
 <div class="deeper">
-<h3 class="dh"><span class="n">★</span>Going deeper: distances, dimensions, fast search</h3>
-
-<h4>The curse, measured</h4>
-<p>In high dimensions <b>distances concentrate</b>: every point ends up about the same distance away.</p>
-<div class="eg"><b>Example from the lesson</b><br>1,000 random points, one query. In 2 dimensions the farthest point is <b>136×</b> farther than the nearest. In 1,000 dimensions only <b>1.11×</b>: the "nearest" neighbour carries little information.</div>
-<p>Why: each dimension adds a small random difference, and sums of many random differences are all close to their average (CLT). Real data is rescued by the <b>manifold hypothesis</b>: images, text and sensor data lie near a much lower-dimensional surface. So reduce dimensions first (PCA) or use learned embeddings.</p>
-
-<h4>Which distance and weighting?</h4>
-<ul><li><b>Euclidean</b>: standardised measurements.</li><li><b>Manhattan</b>: many features or outliers.</li><li><b>Cosine</b> ($1-\cos\theta$): text and embeddings, where a document twice as long shouldn't be "farther".</li></ul>
-<div class="eg"><b>Example</b><br>Breast-cancer data, k = 15: all six distance/weighting combinations score between 0.954 and 0.963, within CV noise.</div>
-<div class="sticky"><b>What matters most, in order</b><br>1. scale the features · 2. choose k by CV · 3. use meaningful features. Tune the metric mainly for text, images or mixed types.</div>
-
+<h3 class="dh"><span class="n">★</span>Going deeper: distances, dimensions and fast neighbour search</h3>
+<h4>The curse of dimensionality, measured</h4>
+<p>In a small room, some people are close to you and some far away, so "nearest" is meaningful. In a space with hundreds of directions, every person differs from you a little in every direction, and those small differences add up to almost the same total for everyone. Everyone becomes roughly equally far away.</p>
+<div class="eg"><b>Reading the ratio</b><br>2 dimensions: farthest/nearest $=1.33/0.01\approx136$. "Nearest" is very special.<br>100 dimensions: $4.65/3.35\approx1.39$.<br>1,000 dimensions: $13.55/12.17\approx1.11$. The nearest point is only 11% closer than the farthest, so it tells you little.</div>
+<h4>Choosing the distance and the weighting</h4>
+<p>Three ways to measure how far apart two places are: as the crow flies (Euclidean), along a city's grid of streets (Manhattan), or simply whether they lie in the same direction from home (cosine).</p>
+<div class="eg"><b>Cosine ignores length</b><br>Document A has word counts (1, 2); document B, twice as long, has (2, 4).<br>Euclidean distance: $\sqrt{1^2+2^2}\approx2.24$, "far apart".<br>Same direction, so $\cos\theta=1$ and cosine distance $=0$: "identical topic".</div>
 <h4>Finding neighbours fast</h4>
-<ul>
-<li><b>Brute force</b>: $O(nd)$ per query, too slow for millions of points.</li>
-<li><b>k-d trees / ball trees</b>: nested boxes or balls; exact and fast in low dimensions (about $O(\log n)$), but the benefit fades above ~20 dimensions.</li>
-<li><b>Approximate (ANN)</b>: graph methods like <b>HNSW</b>, or clustering/quantization (<b>FAISS</b>). Find over 95% of the true neighbours, thousands of times faster. <mark>Vector databases and LLM retrieval</mark> are built on them.</li>
-</ul>
-<p>On 200,000 points in 3 dimensions, a k-d tree finds exactly the same neighbours as brute force, much faster.</p>
-
+<p>Finding the closest café: checking every café in the country is slow. A map split into regions lets you check only your area (a tree). Asking a well-connected local who knows nearby places, and hopping from friend to friend, is even faster and almost always right (approximate search).</p>
+<div class="eg"><b>How much a tree saves</b><br>1,000,000 points. Brute force: 1,000,000 distance checks per query.<br>A balanced tree halves the candidates at each level: about $\log_2(10^6)\approx20$ levels.<br>So a few dozen checks instead of a million (in low dimensions).</div>
 <h4>How good can kNN get?</h4>
-<p>Cover and Hart (1967): with enough data, 1-NN's error is at most <b>twice the Bayes error</b> (the best possible). If $k$ grows slowly with $n$ ($k\to\infty$, $k/n\to0$), kNN's error approaches the Bayes error itself: it's <b>consistent</b>. The catch: "enough data" can be enormous in many dimensions.</p>
+<p>With unlimited data, the nearest neighbour of any new point is practically the same point, so copying its label is almost as good as knowing the true odds. The only mistakes left come from the problem's own randomness.</p>
+<div class="eg"><b>What "twice" means</b><br>A problem where even the perfect model is wrong 5% of the time (Bayes error 5%).<br>With enough data, 1-NN is wrong at most 10% of the time.<br>The catch: in many dimensions, "enough data" can be astronomically large.</div>
+<div class="sticky"><b>In one breath</b><br>In high dimensions all distances look alike, so reduce dimensions or use good embeddings; scale features and tune $k$ before worrying about the metric (use cosine for text); use trees or approximate search for speed; and with enough data kNN gets close to the best possible.</div>
 </div>
 <div class="sign">✎ in one line: vote among the k most similar examples; scale first, pick k by CV, keep the features few and relevant.</div>
 </article>
