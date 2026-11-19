@@ -12,6 +12,8 @@ from running_code import CODE as RUN_CODE
 from running_text import INTRO as RUN_INTRO
 from levels import SIMPLE
 from walks import WALKS, walk_html
+import walks2
+for _n, _f in walks2.NEW: WALKS[_n] = _f()[0]
 from compare import COMPARE, FIGS as CMP_FIGS, CAPS as CMP_CAPS, SEE_ALSO
 from guide import Q as GQ, R as GR, GUIDE_SOURCES
 from checks import CHECKS
@@ -236,7 +238,7 @@ def head(title, desc, math=False, demos=True):
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{e(title)}</title><meta name="description" content="{e(desc)}"><meta property="og:type" content="website"><meta property="og:site_name" content="ML Academy"><meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}"><meta property="og:image" content="{SITE_URL}assets/social-preview.png"><meta property="og:image:width" content="1280"><meta property="og:image:height" content="640"><meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="assets/favicon.svg" type="image/svg+xml"><link rel="icon" href="assets/icon-32.png" sizes="32x32" type="image/png"><link rel="alternate icon" href="assets/favicon.ico"><link rel="apple-touch-icon" href="assets/icon-180.png"><meta name="theme-color" content="#0f2e1d">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml"><link rel="icon" href="assets/icon-32.png" sizes="32x32" type="image/png"><link rel="alternate icon" href="assets/favicon.ico"><link rel="apple-touch-icon" href="assets/icon-180.png"><meta name="theme-color" content="#0f2e1d"><link rel="manifest" href="manifest.webmanifest">
 {FONTS}<link rel="stylesheet" href="assets/base.css">{m}<script defer src="assets/app.js"></script><script defer src="assets/search-index.js"></script><script defer src="assets/search.js"></script><script defer src="assets/terms.js"></script><script defer src="assets/understand.js"></script><script defer src="assets/practice.js"></script><script defer src="assets/review.js"></script><script defer src="assets/a11y.js"></script><script defer src="assets/listen.js"></script><script defer src="assets/routes.js"></script><script defer src="assets/progress.js"></script><script defer src="assets/notes.js"></script>
 </head>
 """
@@ -566,6 +568,12 @@ for (n, p, t, s, mins) in [LESSON0] + LESSONS:
 <button class="to-top" type="button" aria-label="Back to top">{UP}</button>
 {FOOTER}
 </body></html>"""
+    # The Going deeper sections were rewritten (version 3.5) on the finished pages. Until deeper/NN.html is brought up to date,
+    # the published text in deeper/published/NN.html is used verbatim. Edit that file to change a Going deeper section.
+    _pub = os.path.join(HERE, "deeper", "published", f"{n:02d}.html")
+    if os.path.exists(_pub):
+        page, _k = re.subn(r'<h2 id="deeper".*?(?=<h2 id=|</article>)', lambda _m: open(_pub, encoding="utf-8").read(), page, count=1, flags=re.S)
+        if _k != 1: raise SystemExit(f"lesson {n}: Going deeper section not found")
     open(os.path.join(OUT, fname(n)), "w").write(page)
 print("built", n_ready, "lessons")
 
@@ -979,3 +987,27 @@ if '"u":"course-notes.html"' not in _t:
     IDX.append({"t": "Study notes", "s": "Notebook-style revision notes for every lesson, with sketches, worked examples and self-tests. PDF download.", "u": "course-notes.html", "k": "lesson", "x": "study notes course notes revision summary notebook pdf print download all lessons"})
     open(_si, "w").write("window.MLA_INDEX=" + json.dumps(IDX, ensure_ascii=False, separators=(",", ":")) + ";")
 print("PDF of the study notes: node source/course_notes_pdf.js " + OUT)
+
+# ---------------- offline install: web app manifest and service worker ----------------
+import hashlib
+json.dump({"name": "ML Academy", "short_name": "ML Academy", "description": "A free, beginner-first machine learning course.",
+           "start_url": "index.html", "scope": "./", "display": "standalone", "background_color": "#0f2e1d", "theme_color": "#0f2e1d",
+           "icons": [{"src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png"},
+                     {"src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}]},
+          open(os.path.join(OUT, "manifest.webmanifest"), "w"), indent=1)
+_pre, _h = [], hashlib.md5()
+for _root, _dirs, _files in os.walk(OUT):
+    _rel = os.path.relpath(_root, OUT).replace(os.sep, "/")
+    _dirs[:] = sorted(d for d in _dirs if not d.startswith((".", "_")) and not (_rel == "." and d in ("source", "notebooks", "downloads", "workbook", "tools", "Claude outputs")))
+    for _f in sorted(_files):
+        if _f.endswith((".html", ".css", ".js", ".png", ".svg", ".ico", ".woff2", ".webmanifest", ".csv")) and _f != "sw.js" and not (_rel == "." and _f == "workbook.html"):
+            _p = _f if _rel == "." else _rel + "/" + _f
+            _pre.append(_p); _h.update(_p.encode()); _h.update(open(os.path.join(_root, _f), "rb").read())
+open(os.path.join(OUT, "sw.js"), "w").write(
+    f'// Offline support: generated by build.py. Precaches the site so it works without internet once visited.\n'
+    f'const CACHE = "ml-academy-{_h.hexdigest()[:12]}";\nconst FILES = {json.dumps(["./"] + _pre)};\n'
+    'self.addEventListener("install", e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));\n'
+    'self.addEventListener("activate", e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));\n'
+    'self.addEventListener("fetch", e => { if (e.request.method !== "GET" || new URL(e.request.url).origin !== location.origin) return;\n'
+    '  e.respondWith(caches.match(e.request, {ignoreSearch: true}).then(r => r || fetch(e.request).then(res => { if (res.ok) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); } return res; }))); });\n')
+print(f"offline: sw.js precaches {len(_pre)} files")

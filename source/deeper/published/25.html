@@ -1,0 +1,57 @@
+<h2 id="deeper"><span class="sec-num">13.</span>Going deeper: correcting probabilities and how isolation works</h2><div class="simple-sum"><p><span class="lvl-tag">In plain words</span>Two fixes for rare-event models: turning the inflated probabilities of a class-weighted model back into real ones (a balanced model's "60%" can really mean 3%), and why Isolation Forest's random cuts single out anomalies so quickly.</p><button type="button" class="adv-toggle" aria-expanded="false" data-target="adv-deeper">Show the full maths ▾</button></div><div class="adv-body" id="adv-deeper">
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above handles rare classes and anomalies. This section fixes the inflated probabilities that class weighting causes, and shows why Isolation Forest's random splits find anomalies. Read it as <strong>question → tool</strong>:</p>
+<table class="tbl"><thead><tr><th>Question</th><th>Tool</th></tr></thead><tbody><tr><td>Why are my probabilities too high after balancing?</td><td><strong>The prior correction</strong></td></tr><tr><td>Why do random splits find anomalies?</td><td><strong>How isolation works</strong></td></tr></tbody></table>
+<p>You'll need: class weights, oversampling and Isolation Forest from this lesson. New words are explained as they come.</p></div>
+<div class="box def"><div class="box-title">New words for this section</div><ul><li><strong>Base rate $\pi$</strong>: how common positives really are.</li><li><strong>Odds</strong>: chance of yes ÷ chance of no; 0.2 probability = 0.25 odds.</li><li><strong>Brier score</strong>: average squared gap between probability and outcome; lower is better.</li><li><strong>Path length</strong>: how many random splits it takes to get a point on its own.</li></ul></div>
+<h3 id="deeper-prior">Undoing class weights: the prior correction</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>If you train a model as if half of all transactions were fraud, it learns that fraud is common, and its probabilities are wildly too high. The prior correction tells it the real rate again, using Bayes' theorem.</p></div>
+<p>Balanced weights (or oversampling to 50/50) make the model act as if positives and negatives were equally common. If the real positive rate is $\pi$, multiply the model's odds by the real prior odds:</p>
+<p>$$\text{odds}_{\text{real}} = \frac{p}{1-p}\cdot\frac{\pi}{1-\pi}, \qquad p_{\text{real}} = \frac{\text{odds}_{\text{real}}}{1 + \text{odds}_{\text{real}}}$$</p>
+<div class="box example"><div class="box-title">Worked example — correcting one prediction (real rate 2%)</div><ol><li>Balanced model says $p=0.6$: odds $0.6/0.4=1.5$.</li><li>Real prior odds: $0.02/0.98\approx0.0204$.</li><li>Corrected odds $1.5\times0.0204\approx0.031$, so $p\approx0.030$.</li><li>"60% risk" really means about 3%: higher than average (2%), but far from likely.</li></ol></div>
+<pre><code>import numpy as np
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import brier_score_loss
+
+X, y = make_classification(n_samples=40000, n_features=10, n_informative=5, weights=[0.98], flip_y=0, random_state=1)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.5, random_state=0, stratify=y)
+pi = y_tr.mean()                                                    # true positive rate in training data
+p_bal = LogisticRegression(max_iter=1000, class_weight="balanced").fit(X_tr, y_tr).predict_proba(X_te)[:, 1]
+
+# Undo the reweighting: the model behaves as if positives were as common as negatives
+odds = p_bal / (1 - p_bal) * (pi / (1 - pi))
+p_fixed = odds / (1 + odds)
+p_plain = LogisticRegression(max_iter=1000).fit(X_tr, y_tr).predict_proba(X_te)[:, 1]
+for name, p in [("balanced weights", p_bal), ("balanced, corrected", p_fixed), ("plain model", p_plain)]:
+    print(f"{name:20}: average predicted risk {p.mean():.3f} (true rate {y_te.mean():.3f})   Brier score {brier_score_loss(y_te, p):.4f}")</code></pre><p>Output:</p><pre><code>balanced weights    : average predicted risk 0.372 (true rate 0.020)   Brier score 0.1702
+balanced, corrected : average predicted risk 0.017 (true rate 0.020)   Brier score 0.0178
+plain model         : average predicted risk 0.020 (true rate 0.020)   Brier score 0.0169</code></pre><p>How to read it: the balanced model predicts an average risk of 0.372 when the truth is 0.020 (Brier 0.1702). After correction: average 0.017, Brier 0.0178, almost as good as a model trained without weights (0.0169). So if you weight or resample to help the model learn the rare class, apply this correction (or recalibrate with <code>CalibratedClassifierCV</code>) before using the outputs as probabilities: pricing, expected losses, or telling someone their risk.</p>
+<h3 id="deeper-isolation">Why random splits isolate anomalies</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>Play "guess who" with random yes/no questions. In a crowded room it takes many questions to single someone out. A person standing alone in the corner is singled out in one or two. Anomalies are the people in the corner.</p></div>
+<figure class="fig"><svg role="img" aria-label="Sketch: a crowd of points on the left and one far-away point on the right. Two random straight cuts are enough to box in the far point on its own." xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 160"><rect x="20" y="10" width="520" height="140" class="b"/><g class="fa"><circle cx="150" cy="80" r="3"/><circle cx="160" cy="70" r="3"/><circle cx="170" cy="90" r="3"/><circle cx="140" cy="95" r="3"/><circle cx="175" cy="75" r="3"/><circle cx="155" cy="100" r="3"/><circle cx="165" cy="60" r="3"/><circle cx="185" cy="85" r="3"/></g><circle cx="470" cy="40" r="5" class="fa2"/><line x1="400" y1="10" x2="400" y2="150" class="lw2"/><line x1="400" y1="70" x2="540" y2="70" class="lw2"/><text x="200" y="40" class="t w">2 random cuts box in the far point</text><text x="60" y="140" class="t s">points in the crowd need many cuts</text></svg><figcaption>The far point is boxed in after just two random cuts.</figcaption></figure>
+<p>Isolation Forest grows each tree by picking a random feature and a random split value, until every point sits alone. A far-away point is very likely cut off by one of the first few splits; a point deep in a cluster needs many.</p>
+<pre><code>
+# Isolation Forest's intuition: average number of random splits needed to isolate a point
+rng = np.random.default_rng(0)
+pts = np.vstack([rng.normal(0, 1, (500, 2)), [[6, 6]]])            # 500 normal points and one far away
+def splits_to_isolate(i, trials=200):
+    total = 0
+    for _ in range(trials):
+        idx = np.arange(len(pts)); depth = 0
+        while len(idx) &gt; 1:
+            f = rng.integers(2); lo, hi = pts[idx, f].min(), pts[idx, f].max()
+            t = rng.uniform(lo, hi)
+            idx = idx[pts[idx, f] &lt; t] if pts[i, f] &lt; t else idx[pts[idx, f] &gt;= t]
+            depth += 1
+        total += depth
+    return total / trials
+print("average splits to isolate the far point:   ", round(splits_to_isolate(500), 1))
+print("average splits to isolate a typical point: ", round(np.mean([splits_to_isolate(i, 40) for i in range(10)]), 1))</code></pre><p>Output:</p><pre><code>average splits to isolate the far point:    2.3
+average splits to isolate a typical point:  14.6</code></pre><div class="box example"><div class="box-title">Worked example — turning path length into a score</div><ol><li>Far point: 2.3 splits on average; typical point: 14.6.</li><li>The expected path for $n=500$ points is roughly $2\ln 500\approx12.4$.</li><li>Much shorter than expected → anomaly score near 1; about as expected → around 0.5.</li></ol></div>
+<p>Because it never computes distances, Isolation Forest scales linearly with the data and copes with many features. Its main settings are the number of trees and the subsample per tree (256 by default, enough because anomalies stand out even in small samples).</p>
+<div class="box takeaways"><div class="box-title">In one breath</div><p>After class weighting or oversampling, multiply the odds by the real prior odds (or recalibrate) before trusting probabilities; Isolation Forest flags points that random splits separate quickly, because lone points need far fewer cuts.</p></div>
+<div class="box hidden-q deep-iq"><div class="box-title">Interview corner · intermediate</div><p class="hq-sub"><strong>Hidden questions</strong> — answer in your head first, then open.</p><details class="hq"><summary>You trained on a 50/50 resampled dataset, but the real positive rate is 1%. How do you get calibrated probabilities?</summary><p class="iq-trap"><strong>The trap:</strong> Using the raw scores as risks.</p><p>Apply the prior correction: multiply the model's odds by $\pi/(1-\pi)$ divided by the training odds (1 for 50/50), then convert back to a probability. Equivalently, add $\log\frac{\pi}{1-\pi} - \log\frac{\pi_{train}}{1-\pi_{train}}$ to the logit. Or recalibrate on a held-out set with the real class balance (Platt scaling or isotonic regression). Verify with a reliability table and the Brier score.</p></details></div>
+<h3 id="deeper-quiz">Check your understanding: going deeper</h3><div class="quiz deep-quiz"><div class="q" data-correct="b"><p class="q-text">1. A model trained with balanced weights gives $p = 0.5$. The real positive rate is 2%. What is the corrected probability?</p><button data-opt="a">0.5</button><button data-opt="b">About 0.02</button><button data-opt="c">About 0.25</button><div class="q-explain">Odds $1 \times 0.02/0.98 = 0.0204$, so $p \approx 0.020$.</div></div><div class="q" data-correct="a"><p class="q-text">2. Why do class weights inflate predicted probabilities?</p><button data-opt="a">The model learns as if positives were much more common than they are</button><button data-opt="b">They add noise</button><button data-opt="c">They change the features</button><div class="q-explain">Weighting positives up is equivalent to changing the prior class balance.</div></div><div class="q" data-correct="b"><p class="q-text">3. In Isolation Forest, a short average path length means…</p><button data-opt="a">The point is typical</button><button data-opt="b">The point is easy to isolate, so it's likely an anomaly</button><button data-opt="c">The tree is too deep</button><div class="q-explain">Few, different points get separated after few random splits.</div></div><div class="q" data-correct="a"><p class="q-text">4. Why can Isolation Forest use small subsamples (such as 256 points) per tree?</p><button data-opt="a">Anomalies stand out even in small samples, and smaller samples reduce masking by dense clusters</button><button data-opt="b">It can't handle more data</button><button data-opt="c">To save labels</button><div class="q-explain">Subsampling keeps it fast and often improves detection.</div></div><div class="q" data-correct="b"><p class="q-text">5. After oversampling to 50/50, the simplest fix for probabilities is…</p><button data-opt="a">Ignore it</button><button data-opt="b">Apply the prior-odds correction or recalibrate on held-out data</button><button data-opt="c">Retrain with more trees</button><div class="q-explain">Either restores realistic risk estimates.</div></div></div>
+</div>

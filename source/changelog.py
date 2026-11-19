@@ -1,5 +1,9 @@
 # Version history shown on changelog.html (newest first). Dates are when each release was published to the course folder.
 RELEASES = [
+ ("3.6", "19 November 2026", [
+   "Five new animated walkthroughs: logistic regression learning its S-curve (<a href=\"lesson-08.html#boundary\">Lesson 8</a>), sweeping the threshold to trace an ROC curve (<a href=\"lesson-09.html#roc\">Lesson 9</a>), gradient boosting tree by tree (<a href=\"lesson-14.html#gradient-boosting\">Lesson 14</a>), the SVM's widest margin (<a href=\"lesson-15.html#margin\">Lesson 15</a>) and PCA's direction of most variance (<a href=\"lesson-17.html#variance-idea\">Lesson 17</a>). Ten lessons now have one.",
+   "Works offline: once you have visited the published site, it keeps working without internet, and it can be installed as an app from the browser menu.",
+ ]),
  ("3.5", "13 November 2026", [
    "New <a href=\"course-notes.html\">study notes</a>: notebook-style revision notes for all 36 lessons, covering every section and the Going deeper part of each lesson, explained simply with hand-drawn style sketches and worked numbers. They follow the light and dark theme.",
    "A printable PDF of the notes (<a href=\"workbook/ML-Academy-study-notes.pdf\">ML-Academy-study-notes.pdf</a>, A4, 129 pages). Your own highlights and notes stay on <a href=\"notes.html\">My notes</a>.",

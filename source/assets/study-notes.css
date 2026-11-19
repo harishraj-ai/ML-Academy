@@ -1,0 +1,74 @@
+@font-face{font-family:"Patrick Hand";src:url(fonts/patrick-hand-latin-400-normal.woff2) format("woff2");font-display:swap}
+@font-face{font-family:"Caveat";font-weight:700;src:url(fonts/caveat-latin-700-normal.woff2) format("woff2");font-display:swap}
+@font-face{font-family:"Caveat";font-weight:400;src:url(fonts/caveat-latin-400-normal.woff2) format("woff2");font-display:swap}
+.hn{--lh:30px;--paper:#1b2130;--line:#2a3347;--margin:#5a2f35;--ink:#e6e9f2;--pen:#8fb0ff;--red:#ff8a80;--green:#7fd49a;--hl:#6b5d00;--hl2:#1f5131;--sticky:#3a3418;--sticky-ink:#f3e7a8;--muted:#a3abc2}
+:root[data-theme="light"] .hn,.hn.light{--paper:#fdfaf1;--line:#d7e3f2;--margin:#f2b8b5;--ink:#1f2a44;--pen:#2747a8;--red:#c0392b;--green:#2e7d4f;--hl:#fff27a;--hl2:#c8f0c8;--sticky:#fff4b8;--sticky-ink:#4a3b00;--muted:#5d6782;--lh:30px}
+.hn{background:var(--paper);color:var(--ink);font-family:"Patrick Hand","Comic Sans MS",cursive;font-size:20px;line-height:var(--lh);
+ background-image:linear-gradient(90deg,transparent 54px,var(--margin) 54px,var(--margin) 56px,transparent 56px),repeating-linear-gradient(180deg,transparent 0,transparent calc(var(--lh) - 1px),var(--line) calc(var(--lh) - 1px),var(--line) var(--lh));
+ padding:30px 28px 40px 76px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.12),0 8px 24px rgba(0,0,0,.06);max-width:860px;margin:0 auto 40px}
+.hn h2{font-family:Caveat,cursive;font-weight:700;font-size:44px;line-height:60px;margin:0;color:var(--pen)}
+.hn .hn-tag{font-family:Caveat,cursive;font-size:22px;color:var(--muted);line-height:30px}
+.hn h3{font-family:Caveat,cursive;font-weight:700;font-size:30px;line-height:60px;margin:0;color:var(--ink)}
+.hn h3 .n{display:inline-block;width:34px;height:34px;line-height:32px;text-align:center;border:2px solid var(--pen);border-radius:50%;font-size:22px;margin-right:8px;color:var(--pen);transform:rotate(-4deg)}
+.hn p,.hn li{margin:0}
+.hn p+p{margin-top:var(--lh)}
+.hn ul,.hn ol{margin:0;padding-left:26px}
+.hn ul{list-style:none}
+.hn ul>li{position:relative}
+.hn ul>li::before{content:"→";position:absolute;left:-24px;color:var(--pen)}
+.hn mark{background:linear-gradient(100deg,transparent 2%,var(--hl) 6%,var(--hl) 94%,transparent 98%);color:inherit;padding:0 3px;border-radius:3px}
+.hn mark.g{background:linear-gradient(100deg,transparent 2%,var(--hl2) 6%,var(--hl2) 94%,transparent 98%)}
+.hn u{text-decoration:underline wavy var(--red);text-underline-offset:5px}
+.hn .pen{color:var(--pen)}.hn .red{color:var(--red)}.hn .grn{color:var(--green)}
+.hn .sticky{background:var(--sticky);color:var(--sticky-ink);padding:12px 18px;margin:var(--lh) 0;transform:rotate(-1deg);box-shadow:2px 3px 0 rgba(0,0,0,.12);border-radius:2px;max-width:560px}
+.hn .sticky b{font-family:Caveat,cursive;font-size:26px}
+.hn .box{border:2px solid var(--pen);border-radius:14px 10px 16px 9px;padding:10px 16px;margin:var(--lh) 0;max-width:600px}
+.hn .box.red{border-color:var(--red)}
+.hn .eg{border-left:3px dashed var(--green);padding-left:14px;margin:var(--lh) 0}
+.hn .eg b:first-child{font-family:Caveat,cursive;font-size:26px;color:var(--green)}
+.hn .fx{display:inline-block;border:2px solid var(--ink);border-radius:12px 8px 14px 9px;padding:6px 16px;margin:6px 0;background:var(--paper)}
+.hn .katex{font-size:1.05em}
+.hn svg.sk{display:block;max-width:100%;height:auto;margin:10px 0}
+.hn .sk text{font-family:"Patrick Hand",cursive;fill:var(--ink);font-size:17px}
+.hn .sk .p{fill:none;stroke:var(--pen);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.hn .sk .k{fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.hn .sk .r{fill:none;stroke:var(--red);stroke-width:2.4;stroke-linecap:round}
+.hn .sk .g{fill:none;stroke:var(--green);stroke-width:2.4;stroke-linecap:round}
+.hn .sk .dot{fill:var(--pen)}.hn .sk .rdot{fill:var(--red)}
+.hn .sk .hl{fill:var(--hl);opacity:.8}.hn .sk .hl2{fill:var(--hl2);opacity:.8}
+.hn .twocol{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.hn .q{margin-top:var(--lh)}
+.hn details summary{cursor:pointer;color:var(--pen);font-family:Caveat,cursive;font-size:24px}
+.hn .sign{text-align:right;font-family:Caveat,cursive;color:var(--muted);font-size:22px;margin-top:var(--lh)}
+@media (max-width:640px){.hn{padding:22px 14px 30px 40px;font-size:18px;background-image:linear-gradient(90deg,transparent 26px,var(--margin) 26px,var(--margin) 28px,transparent 28px),repeating-linear-gradient(180deg,transparent 0,transparent calc(var(--lh) - 1px),var(--line) calc(var(--lh) - 1px),var(--line) var(--lh))}.hn h2{font-size:36px}.hn .twocol{grid-template-columns:1fr}}
+@media print{.hn{font-size:17px;--lh:26px;box-shadow:none;break-before:page;margin:0;max-width:none}.hn details summary{display:none}.hn .sticky,.hn .box,.hn .eg,.hn svg{break-inside:avoid}}
+.sn-top{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 18px}
+.sn-toc{columns:2;column-gap:28px;padding-left:0;list-style:none;margin:0 0 30px}
+.sn-toc li{break-inside:avoid;margin:0 0 6px}
+.sn-toc .sn-n{display:inline-block;min-width:2em;color:var(--muted)}
+.hn code{font-family:var(--font-mono,ui-monospace,monospace);font-size:.82em;background:rgba(127,127,127,.14);padding:1px 5px;border-radius:4px}
+.hn .sn-back{font-family:Caveat,cursive;font-size:22px;text-align:right;margin:0}
+.hn .sn-back a{color:var(--pen)}
+@media (max-width:640px){.sn-toc{columns:1}}
+@media print{header,footer,.site-header,.site-footer,nav,.sn-top,.sn-contents,.skip-link,.module-hero{display:none!important}.hn .sn-back{display:none}main,.container,.prose{max-width:none!important;padding:0!important;margin:0!important}}
+.hn .deeper{margin-top:var(--lh);border-top:3px double var(--pen);padding-top:6px}
+.hn h3.dh .n{border-style:dashed}
+.hn h4{font-family:Caveat,cursive;font-weight:700;font-size:25px;line-height:var(--lh);margin:var(--lh) 0 0;color:var(--pen)}
+/* PDF: notebook feel in the headings, clean white page, normal body font */
+@media print{
+ .hn,:root[data-theme="light"] .hn{background:#fff!important;background-image:none!important;padding:0 4mm!important;border-radius:0;
+  font-family:var(--font-body,"Inter",system-ui,sans-serif);font-size:10.5pt;line-height:1.55;--lh:9pt;color:#1f2a44}
+ .hn h2{font-size:34pt;line-height:1.15;margin:0 0 6pt}
+ .hn h3{font-size:20pt;line-height:1.25;margin:14pt 0 4pt}
+ .hn h4{font-size:16pt;line-height:1.25;margin:12pt 0 3pt}
+ .hn .hn-tag{font-size:13pt}
+ .hn p+p{margin-top:6pt}
+ .hn ul,.hn ol{margin:3pt 0}
+ .hn li{margin:1.5pt 0}
+ .hn .sticky,.hn .box,.hn .eg{margin:8pt 0}
+ .hn .sticky b:first-child,.hn .eg b:first-child{font-size:15pt}
+ .hn .sk text{font-family:"Patrick Hand",cursive}
+ .hn .sign{margin-top:12pt;font-size:14pt}
+ .hn .deeper{margin-top:16pt;padding-top:4pt}
+ .hn h3{break-after:avoid}.hn h4{break-after:avoid}
+}

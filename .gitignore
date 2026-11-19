@@ -17,3 +17,4 @@ ml-env/
 *.joblib
 _backup_*/
 .DS_Store
+_to_delete/

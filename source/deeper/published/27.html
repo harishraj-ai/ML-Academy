@@ -1,0 +1,54 @@
+<h2 id="deeper"><span class="sec-num">14.</span>Going deeper: alternating least squares and popularity bias</h2><div class="simple-sum"><p><span class="lvl-tag">In plain words</span>Recommenders at scale: fitting matrix factorisation by alternating two easy problems (fix items, solve users; fix users, solve items), and checking that the system doesn't just keep pushing the same popular items.</p><button type="button" class="adv-toggle" aria-expanded="false" data-target="adv-deeper">Show the full maths ▾</button></div><div class="adv-body" id="adv-deeper">
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above factorises the ratings table into user and item tastes. This section shows how it's fitted at scale, and a hidden bias to watch. Read it as <strong>question → tool</strong>:</p>
+<table class="tbl"><thead><tr><th>Question</th><th>Tool</th></tr></thead><tbody><tr><td>How is matrix factorisation fitted on huge data?</td><td><strong>Alternating least squares</strong></td></tr><tr><td>Does it just push popular items?</td><td><strong>Popularity bias</strong></td></tr></tbody></table>
+<p>You'll need: matrix factorisation from this lesson; ridge regression from Lesson 10. New words are explained as they come.</p></div>
+<div class="box def"><div class="box-title">New words for this section</div><ul><li><strong>Factor</strong>: a hidden taste number (e.g. "likes action") for a user or an item.</li><li><strong>Closed form</strong>: an answer computed directly by a formula, with no repeated steps.</li><li><strong>RMSE</strong>: root mean squared error of predicted ratings.</li><li><strong>Implicit feedback</strong>: clicks or plays instead of star ratings.</li><li><strong>Catalogue coverage</strong>: share of all items ever recommended to anyone.</li></ul></div>
+<h3 id="deeper-als">Alternating least squares</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>Solving for two unknowns at once is hard; solving for one while the other is held still is easy. So fix the items and work out every user's tastes, then fix the users and work out every item's, and keep alternating.</p></div>
+<p>With the item factors $Q$ fixed, each user's vector is a small ridge regression on the items they rated, with a direct answer:</p>
+<p>$$\mathbf{p}_u = (Q_u^\top Q_u + \lambda I)^{-1} Q_u^\top \mathbf{r}_u$$</p>
+<p>In words: "which taste vector best explains this user's ratings, with a small ridge penalty". Then fix $P$ and solve for every item the same way. One user-step plus one item-step is a <strong>sweep</strong>.</p>
+<div class="box example"><div class="box-title">Worked example — one user with one factor</div><ol><li>Items rated have factors 1, 2, 3; the user rated them 2, 4, 6. $\lambda=0$.</li><li>$Q^\top Q=1+4+9=14$; $Q^\top r=2+8+18=28$.</li><li>$p_u=28/14=2$: this user's taste is 2, and $2\times$ each item's factor reproduces the ratings exactly.</li></ol></div>
+<pre><code>import numpy as np
+rng = np.random.default_rng(0)
+n_users, n_items, k = 200, 40, 3
+P_true, Q_true = rng.normal(0, 1, (n_users, k)), rng.normal(0, 1, (n_items, k))
+R = P_true @ Q_true.T + rng.normal(0, 0.3, (n_users, n_items))
+mask = rng.random((n_users, n_items)) &lt; 0.2            # only 20% of ratings observed
+test = (rng.random((n_users, n_items)) &lt; 0.25) &amp; mask
+train = mask &amp; ~test
+P, Q, lam = rng.normal(0, 0.1, (n_users, k)), rng.normal(0, 0.1, (n_items, k)), 1.0
+for sweep in range(1, 9):
+    for u in range(n_users):                           # fix Q, solve a small ridge problem per user
+        Qi = Q[train[u]]
+        P[u] = np.linalg.solve(Qi.T @ Qi + lam * np.eye(k), Qi.T @ R[u, train[u]])
+    for i in range(n_items):                           # fix P, solve per item
+        Pu = P[train[:, i]]
+        Q[i] = np.linalg.solve(Pu.T @ Pu + lam * np.eye(k), Pu.T @ R[train[:, i], i])
+    if sweep in (1, 2, 4, 8):
+        rmse = np.sqrt(np.mean((R - P @ Q.T)[test] ** 2))
+        print("sweep", sweep, " test RMSE", round(rmse, 3))</code></pre><p>Output:</p><pre><code>sweep 1  test RMSE 1.635
+sweep 2  test RMSE 1.456
+sweep 4  test RMSE 0.964
+sweep 8  test RMSE 0.762</code></pre><p>How to read it: with 3 true factors and 20% of ratings observed, test RMSE falls from 1.635 after one sweep to 0.762 after eight. Every user's (and item's) update is independent, so ALS runs in parallel easily, which is why Spark's recommender uses it. A weighted version (Hu, Koren and Volinsky) handles implicit feedback, where every unclicked item counts as a weak zero.</p>
+<h3 id="deeper-popularity">Measuring popularity bias</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>A bookshop that only puts bestsellers in the window. Sales look fine, but most of the books are never shown, niche readers are ignored, and new authors never get a chance.</p></div>
+<p>Accuracy metrics reward recommending popular items, because they're most likely to appear in anyone's held-out set. Two simple health checks: <strong>catalogue coverage</strong> and the <strong>average popularity</strong> of recommended items.</p>
+<pre><code>popularity = train.sum(axis=0)                         # how many users interacted with each item
+scores_pop = np.tile(popularity, (n_users, 1)).astype(float)
+scores_mf = P @ Q.T
+for name, S in [("popular", scores_pop), ("matrix factorisation", scores_mf)]:
+    S = np.where(train, -np.inf, S)                    # don't recommend items already seen
+    top = np.argsort(-S, axis=1)[:, :5]
+    coverage = len(np.unique(top)) / n_items
+    avg_pop = popularity[top].mean()
+    print(f"{name:21s} catalogue coverage {coverage:.2f}   average popularity of recommended items {avg_pop:.1f}")
+print("average popularity across all items:", round(popularity.mean(), 1))</code></pre><p>Output:</p><pre><code>popular               catalogue coverage 0.30   average popularity of recommended items 38.7
+matrix factorisation  catalogue coverage 0.85   average popularity of recommended items 30.4
+average popularity across all items: 29.2</code></pre><div class="box example"><div class="box-title">Worked example — reading the rows</div><ol><li>Popularity baseline: reaches only 30% of the catalogue; recommended items are liked by 38.7 users on average vs 29.2 overall.</li><li>Matrix factorisation: 85% coverage, popularity 30.4, close to average.</li></ol></div>
+<p>Track these next to precision@k: a change that raises precision slightly but halves coverage can make the product worse for users and for the people who supply the items.</p>
+<div class="box takeaways"><div class="box-title">In one breath</div><p>ALS fits matrix factorisation by alternating simple ridge regressions for users and items, which parallelises well; and always check coverage and popularity of recommendations, not just accuracy.</p></div>
+<div class="box hidden-q deep-iq"><div class="box-title">Interview corner · intermediate</div><p class="hq-sub"><strong>Hidden questions</strong> — answer in your head first, then open.</p><details class="hq"><summary>SGD or ALS for matrix factorisation: how do you choose?</summary><p class="iq-trap"><strong>The trap:</strong> Saying one is always better.</p><p>SGD is simple, handles explicit ratings and extra terms (biases, side features) easily and is cheap per step, but needs a tuned learning rate. ALS has closed-form steps, needs no learning rate, parallelises across users and items, and handles implicit feedback with all unobserved pairs efficiently, which is why it's common on Spark. Both need regularisation tuned on validation data.</p></details></div>
+<h3 id="deeper-quiz">Check your understanding: going deeper</h3><div class="quiz deep-quiz"><div class="q" data-correct="a"><p class="q-text">1. In ALS, with the item factors fixed, each user's vector is found by…</p><button data-opt="a">A small ridge regression on the items that user rated</button><button data-opt="b">Gradient boosting</button><button data-opt="c">Random search</button><div class="q-explain">That's the closed-form step.</div></div><div class="q" data-correct="a"><p class="q-text">2. Why does ALS parallelise well?</p><button data-opt="a">Each user's (and each item's) update is independent of the others in that step</button><button data-opt="b">It uses no matrices</button><button data-opt="c">It needs only one sweep</button><div class="q-explain">All users can be solved at once, then all items.</div></div><div class="q" data-correct="a"><p class="q-text">3. A recommender's catalogue coverage is 0.1. What does that mean?</p><button data-opt="a">Only 10% of items are ever recommended to anyone</button><button data-opt="b">Precision is 0.1</button><button data-opt="c">10% of users get recommendations</button><div class="q-explain">Coverage is the share of distinct items recommended.</div></div><div class="q" data-correct="a"><p class="q-text">4. Why do accuracy metrics tend to favour popular items?</p><button data-opt="a">Popular items are most likely to be in any user's held-out interactions</button><button data-opt="b">They have better ratings</button><button data-opt="c">They're cheaper</button><div class="q-explain">Recommending them is a safe bet for the metric.</div></div><div class="q" data-correct="a"><p class="q-text">5. What's the ALS update for a user vector?</p><button data-opt="a">$(Q_u^\top Q_u + \lambda I)^{-1} Q_u^\top \mathbf{r}_u$</button><button data-opt="b">$Q_u^\top \mathbf{r}_u$</button><button data-opt="c">$\mathbf{r}_u / \lambda$</button><div class="q-explain">The ridge regression solution.</div></div></div>
+</div>

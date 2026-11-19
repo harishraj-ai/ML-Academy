@@ -15,3 +15,6 @@ ml-env/
 
 # Files created when you run the code yourself
 *.joblib
+_backup_*/
+.DS_Store
+_to_delete/

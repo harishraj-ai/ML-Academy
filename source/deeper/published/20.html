@@ -1,0 +1,79 @@
+<h2 id="deeper"><span class="sec-num">17.</span>Going deeper: leak-proof pipelines and efficient tuning</h2><div class="simple-sum"><p><span class="lvl-tag">In plain words</span>Making pipelines truly leak-proof and tuning efficient: how target encoding can fake 73% accuracy on pure noise, one pipeline for numbers, categories and text together, why random search beats a grid, and how to keep track of experiments.</p><button type="button" class="adv-toggle" aria-expanded="false" data-target="adv-deeper">Show the full maths ▾</button></div><div class="adv-body" id="adv-deeper">
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above builds pipelines to keep preprocessing honest. This section shows a leak that still sneaks in, how to handle mixed data in one pipeline, how to tune efficiently, and how to keep track of experiments. Read it as <strong>question → tool</strong>:</p>
+<table class="tbl"><thead><tr><th>Question</th><th>Tool</th></tr></thead><tbody><tr><td>Can an encoding fake a great score?</td><td><strong>Leakage in target encoding</strong></td></tr><tr><td>How do I handle numbers, categories and text together?</td><td><strong>ColumnTransformer</strong></td></tr><tr><td>Grid search or random search?</td><td><strong>Efficient tuning</strong></td></tr><tr><td>How do I remember what produced my model?</td><td><strong>Experiment tracking</strong></td></tr></tbody></table>
+<p>You'll need: pipelines and data leakage from this lesson and Lesson 5. New words are explained as they come.</p></div>
+<div class="box def"><div class="box-title">New words for this section</div><ul><li><strong>Target encoding</strong>: replacing each category with the average target for that category.</li><li><strong>Leakage</strong>: information about the answer sneaking into the features.</li><li><strong>Cross-fitting</strong>: encoding each row using averages computed from other rows only.</li><li><strong>Imputation</strong>: filling in missing values.</li><li><strong>Log scale</strong>: trying 0.001, 0.01, 0.1 rather than 0.1, 0.2, 0.3.</li></ul></div>
+<h3 id="deeper-target">Target encoding: how much leakage can fake</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>Imagine telling a student the class average for a question, where that average includes their own answer. With 30 students it's a tiny hint. With only 2 students it practically gives the answer away. Target encoding with many rare categories does exactly that.</p></div>
+<div class="box example"><div class="box-title">Worked example — a rare category gives the answer away</div><ol><li>A postcode appears in 2 rows, with targets 1 and 1.</li><li>Its average target is 1.0, so the "feature" is just the answer.</li><li>Encode each row with the other rows only (cross-fitting) and that row's own label can't leak in.</li></ol></div>
+<p>Here a category with 2,000 levels has <em>no</em> real link to the target, so the honest accuracy is 50%:</p>
+<pre><code>import numpy as np
+import pandas as pd
+from sklearn.model_selection import cross_val_score, KFold
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import TargetEncoder
+
+# A category with 2,000 levels (like a postcode) that has NO real link to the target
+rng = np.random.default_rng(0)
+n = 5000
+code = rng.integers(0, 2000, n)
+y = rng.integers(0, 2, n)
+cv = KFold(5, shuffle=True, random_state=0)
+
+# Wrong: encode with each level's average target computed on ALL the data, then cross-validate
+means = pd.Series(y).groupby(code).mean()
+leaky = means[code].to_numpy()[:, None]
+print("naive target encoding, CV accuracy:", round(cross_val_score(LogisticRegression(), leaky, y, cv=cv).mean(), 3))
+
+# Right: TargetEncoder inside the pipeline (it also uses internal cross-fitting when training)
+pipe = make_pipeline(TargetEncoder(cv=KFold(5, shuffle=True, random_state=0)), LogisticRegression())
+print("target encoding inside the pipeline, CV accuracy:", round(cross_val_score(pipe, code[:, None], y, cv=cv).mean(), 3))</code></pre><p>Output:</p><pre><code>naive target encoding, CV accuracy: 0.731
+target encoding inside the pipeline, CV accuracy: 0.497</code></pre><p>How to read it: naive encoding reports 73.1% on pure noise, because with about 2.5 rows per level each level's average is mostly its own rows' labels. Inside the pipeline, scikit-learn's <code>TargetEncoder</code> is refitted per fold and uses cross-fitting, so the score drops to the honest 49.7%. It also <strong>smooths</strong> rare levels towards the overall average (like the Bayesian shrinkage in Lesson 4's Going deeper) and handles unseen levels.</p>
+<h3 id="deeper-column">One pipeline for mixed data</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>Different ingredients need different preparation: wash the vegetables, slice the bread, grate the cheese. <code>ColumnTransformer</code> gives each kind of column its own preparation, all inside one recipe.</p></div>
+<pre><code>from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import Ridge
+
+# One pipeline for mixed data: numbers, a category and free text (Chennai Homes)
+df = pd.read_csv("houses.csv")
+df.loc[2, "age_yrs"] = np.nan                              # pretend one value is missing
+prep = ColumnTransformer([
+    ("num", make_pipeline(SimpleImputer(strategy="median"), StandardScaler()), ["size_m2", "bedrooms", "dist_km", "age_yrs"]),
+    ("cat", OneHotEncoder(handle_unknown="ignore"), ["area"]),
+    ("txt", TfidfVectorizer(), "description"),
+])
+model = make_pipeline(prep, Ridge(alpha=1.0))
+scores = cross_val_score(model, df, df["price_lakh"], cv=KFold(4, shuffle=True, random_state=0), scoring="neg_mean_absolute_error")
+print("columns after preprocessing:", prep.fit_transform(df).shape[1])
+print("4-fold mean absolute error:", round(-scores.mean(), 1), "lakh")</code></pre><p>Output:</p><pre><code>columns after preprocessing: 30
+4-fold mean absolute error: 7.0 lakh</code></pre><p>How to read it: four numeric columns (one with a missing value filled with the training median, then standardised), one-hot encoded areas and TF-IDF of descriptions give 30 columns for ridge regression. With only 12 homes the 7.0 lakh error is just an illustration. The key point is structural: the whole object can be cross-validated, tuned (parameter names like <code>columntransformer__num__simpleimputer__strategy</code>) and saved as one file, so training and serving can't drift apart.</p>
+<h3 id="deeper-search">Grid search vs random search</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>If only one of three settings really matters, a 3×3×2 grid tries just 3 different values of it, wasting most tries. Random search tries a new value of every setting each time, so 18 tries test 18 values of the one that matters.</p></div>
+<figure class="fig"><svg role="img" aria-label="Sketch: nine tries on a grid cover only three distinct values per setting; nine random tries cover nine distinct values per setting." xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 170"><rect x="30" y="20" width="200" height="120" class="b"/><rect x="320" y="20" width="200" height="120" class="b"/><g class="fa"><circle cx="70" cy="50" r="4"/><circle cx="130" cy="50" r="4"/><circle cx="190" cy="50" r="4"/><circle cx="70" cy="80" r="4"/><circle cx="130" cy="80" r="4"/><circle cx="190" cy="80" r="4"/><circle cx="70" cy="110" r="4"/><circle cx="130" cy="110" r="4"/><circle cx="190" cy="110" r="4"/></g><g class="fa2"><circle cx="340" cy="60" r="4"/><circle cx="365" cy="110" r="4"/><circle cx="385" cy="35" r="4"/><circle cx="410" cy="95" r="4"/><circle cx="430" cy="55" r="4"/><circle cx="455" cy="125" r="4"/><circle cx="470" cy="75" r="4"/><circle cx="490" cy="40" r="4"/><circle cx="505" cy="100" r="4"/></g><text x="130" y="160" class="t c s">grid: only 3 values of each setting</text><text x="420" y="160" class="t c s">random: 9 values of each setting</text></svg><figcaption>Same budget of 9 tries: random search explores more values of the setting that matters.</figcaption></figure>
+<p>Sample learning rates and penalties on a log scale (<code>loguniform</code>), since they matter by factors of 10.</p>
+<pre><code>from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.datasets import load_breast_cancer
+from scipy.stats import loguniform, randint
+
+Xb, yb = load_breast_cancer(return_X_y=True)
+gb = HistGradientBoostingClassifier(random_state=0)
+grid = GridSearchCV(gb, {"learning_rate": [0.03, 0.1, 0.3], "max_leaf_nodes": [7, 15, 31],
+                         "l2_regularization": [0.0, 1.0]}, cv=5).fit(Xb, yb)
+rand = RandomizedSearchCV(gb, {"learning_rate": loguniform(0.01, 0.5), "max_leaf_nodes": randint(4, 64),
+                               "l2_regularization": loguniform(1e-3, 10)}, n_iter=18, cv=5, random_state=0).fit(Xb, yb)
+print(f"grid search:   {len(grid.cv_results_['params'])} settings, best CV accuracy {grid.best_score_:.3f}")
+print(f"random search: {len(rand.cv_results_['params'])} settings, best CV accuracy {rand.best_score_:.3f}")</code></pre><p>Output:</p><pre><code>grid search:   18 settings, best CV accuracy 0.975
+random search: 18 settings, best CV accuracy 0.972</code></pre><p>How to read it: with 18 tries each, both reach about the same best CV accuracy (0.975 vs 0.972, within noise). Random search's advantage grows with the number of settings, because a grid's size multiplies. Beyond random search: <strong>Bayesian optimisation</strong> (Optuna's TPE, Lesson 23) uses past results to choose the next try, and <strong>successive halving</strong> (<code>HalvingRandomSearchCV</code>) gives every candidate a little data and only the best ones more.</p>
+<h3 id="deeper-tracking">Keeping track of experiments</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>A lab notebook. A scientist writes down every experiment: what was used, what was done, what happened. Months later anyone can repeat the best one. ML projects need the same, because after a few weeks there are hundreds of runs.</p></div>
+<ul><li><strong>Log every run</strong>: settings, scores, code version (git commit), data version, random seed, library versions. MLflow and Weights &amp; Biases do this in a few lines.</li><li><strong>Version the data</strong> as well as the code (DVC, or dated read-only snapshots).</li><li><strong>Save the whole pipeline</strong>, not just the model, with a model card: intended use, training data, scores by subgroup (Lesson 21), known limits.</li><li><strong>Keep the test set out of the loop.</strong> Every decision made by peeking at test results makes them optimistic (Lesson 4's Going deeper on multiple testing).</li></ul>
+<div class="box takeaways"><div class="box-title">In one breath</div><p>Do target encoding inside the pipeline with cross-fitting, or it can fake accuracy on pure noise; give each column type its own preprocessing in one ColumnTransformer; prefer random (or Bayesian) search to grids; and log every experiment so the winning model can be rebuilt.</p></div>
+<div class="box hidden-q deep-iq"><div class="box-title">Interview corner · intermediate</div><p class="hq-sub"><strong>Hidden questions</strong> — answer in your head first, then open.</p><details class="hq"><summary>How would you build a pipeline for a table with numeric, categorical and text columns, so it can't leak?</summary><p class="iq-trap"><strong>The trap:</strong> Preprocessing the whole dataframe first, then splitting.</p><p>Use a <code>ColumnTransformer</code> inside a <code>Pipeline</code>: imputation and scaling for numbers, one-hot or target encoding (with cross-fitting) for categories, TF-IDF or embeddings for text, then the model. Cross-validate and tune the whole pipeline, so every statistic is learned from training folds only, and save it as one artifact so serving uses identical transformations.</p></details><details class="hq"><summary>Grid search, random search or Bayesian optimisation: which would you use?</summary><p class="iq-trap"><strong>The trap:</strong> Always grid search.</p><p>Grid search only for one or two settings with few values. Random search as a strong default: with the same budget it explores far more values of the settings that matter, and it parallelises trivially. Bayesian optimisation (e.g. Optuna/TPE) when each run is expensive, since it uses earlier results to pick the next settings. Add early stopping or successive halving to drop bad candidates cheaply. Report the final score with nested CV or a held-out test set.</p></details><details class="hq"><summary>Six months later, you need to reproduce the model in production exactly. What should have been recorded?</summary><p class="iq-trap"><strong>The trap:</strong> "The notebook."</p><p>The exact code version (commit), the data snapshot or version and how it was split, every parameter and random seed, library versions (requirements or lock file), the full preprocessing pipeline, and the evaluation metrics, ideally in an experiment tracker or model registry. Without the data version and the preprocessing, the same code can produce a different model.</p></details></div>
+<h3 id="deeper-quiz">Check your understanding: going deeper</h3><div class="quiz deep-quiz"><div class="q" data-correct="b"><p class="q-text">1. Target-encoding a category using averages computed on all the data, then cross-validating, gives…</p><button data-opt="a">An honest score</button><button data-opt="b">An optimistic score, because each row's own target leaks into its feature</button><button data-opt="c">A pessimistic score</button><div class="q-explain">On pure noise it reported 73% instead of 50%.</div></div><div class="q" data-correct="a"><p class="q-text">2. What does <code>ColumnTransformer</code> do?</p><button data-opt="a">Applies different preprocessing to different columns, inside a pipeline</button><button data-opt="b">Removes columns</button><button data-opt="c">Tunes hyperparameters</button><div class="q-explain">Numbers, categories and text each get their own steps, all fitted on training folds only.</div></div><div class="q" data-correct="a"><p class="q-text">3. Why does random search often beat grid search with the same number of tries?</p><button data-opt="a">It tries many more distinct values of each setting, and usually only a few settings matter</button><button data-opt="b">It's exhaustive</button><button data-opt="c">It never overfits</button><div class="q-explain">A grid wastes tries repeating the same few values of the important settings.</div></div><div class="q" data-correct="b"><p class="q-text">4. How should a learning rate between 0.001 and 1 be sampled?</p><button data-opt="a">Uniformly</button><button data-opt="b">On a log scale</button><button data-opt="c">Only at 0.5</button><div class="q-explain">Each order of magnitude should get similar attention; uniform sampling would mostly try values above 0.1.</div></div><div class="q" data-correct="b"><p class="q-text">5. Which should be logged with every training run?</p><button data-opt="a">Only the final accuracy</button><button data-opt="b">Parameters, metrics, code and data versions, seed and library versions</button><button data-opt="c">Nothing, if the code is in git</button><div class="q-explain">Reproducing a model needs all of them.</div></div></div>
+</div>

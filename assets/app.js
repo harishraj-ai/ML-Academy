@@ -223,3 +223,6 @@
     }
   }
 })();
+
+// Offline support: register the service worker when the site is served over https (not from file://).
+if ("serviceWorker" in navigator && location.protocol === "https:") { window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); }); }

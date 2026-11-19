@@ -1,0 +1,47 @@
+<h2 id="deeper"><span class="sec-num">14.</span>Going deeper: checking proportional hazards, and restricted mean survival</h2><div class="simple-sum"><p><span class="lvl-tag">In plain words</span>Two survival-analysis checks: a single Cox hazard ratio can hide an advantage that fades after six months, and the restricted mean survival time (the area under the curve) turns the result into plain months gained.</p><button type="button" class="adv-toggle" aria-expanded="false" data-target="adv-deeper">Show the full maths ▾</button></div><div class="adv-body" id="adv-deeper">
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>The lesson above fits Kaplan–Meier curves and Cox models. This section checks the Cox model's key assumption and gives a simpler summary that doesn't need it. Read it as <strong>question → tool</strong>:</p>
+<table class="tbl"><thead><tr><th>Question</th><th>Tool</th></tr></thead><tbody><tr><td>Is one hazard ratio enough?</td><td><strong>Checking proportional hazards</strong></td></tr><tr><td>How do I explain the gain simply?</td><td><strong>Restricted mean survival time</strong></td></tr></tbody></table>
+<p>You'll need: Kaplan–Meier curves and the Cox model from this lesson. New words are explained as they come.</p></div>
+<div class="box def"><div class="box-title">New words for this section</div><ul><li><strong>Hazard</strong>: the churn rate right now among customers still here.</li><li><strong>Hazard ratio</strong>: one group's hazard divided by the other's.</li><li><strong>Proportional hazards</strong>: the ratio stays the same at all times.</li><li><strong>Horizon</strong>: the time limit for a summary, e.g. the first 12 months.</li></ul></div>
+<h3 id="deeper-ph">When hazards aren't proportional</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>A welcome offer helps new customers stay in their first months and then stops mattering. Averaging "very helpful early" with "no help later" into one number gives an answer that's true for no month at all.</p></div>
+<p>A Cox model reports one hazard ratio for the whole period. A simple check: compute the ratio separately for early and late periods (churn events per month at risk in each group):</p>
+<pre><code>import numpy as np
+rng = np.random.default_rng(5); n = 4000
+g = rng.integers(0, 2, n)
+# Group 1's benefit fades: hazard ratio 0.4 in the first 6 months, 1.0 afterwards.
+t_early = rng.exponential(1 / (0.15 * np.where(g == 1, 0.4, 1.0)))
+t = np.where(t_early &lt; 6, t_early, 6 + rng.exponential(1 / 0.15, n))
+e = (t &lt; 24).astype(int); t = np.minimum(t, 24)
+def hazard(grp, lo, hi):                       # events per month at risk, between months lo and hi
+    m = g == grp
+    events = ((e[m] == 1) &amp; (t[m] &gt;= lo) &amp; (t[m] &lt; hi)).sum()
+    exposure = np.clip(np.minimum(t[m], hi) - lo, 0, None).sum()
+    return events / exposure
+for lo, hi in [(0, 6), (6, 24)]:
+    print(f"months {lo}–{hi}: hazard ratio, group 1 vs group 0, {hazard(1, lo, hi) / hazard(0, lo, hi):.2f}")</code></pre><p>Output:</p><pre><code>months 0–6: hazard ratio, group 1 vs group 0, 0.39
+months 6–24: hazard ratio, group 1 vs group 0, 1.04</code></pre><div class="box example"><div class="box-title">Worked example — reading the two periods</div><ol><li>Months 0–6: 0.39. Group 1 churns at well under half group 0's rate.</li><li>Months 6–24: 1.04. No advantage at all.</li><li>One Cox number would land somewhere around 0.6, true of neither period.</li></ol></div>
+<p>Fixes: separate coefficients for each period, stratify by the variable, or report the curves directly. A classic visual check: plot $\log(-\log \hat S(t))$ for each group; under proportional hazards the lines are parallel.</p>
+<h3 id="deeper-rmst">Restricted mean survival time</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>The area under a survival curve up to 12 months is simply the average number of months a customer stays during that first year. It's in plain units that anyone can use.</p></div>
+<figure class="fig"><svg role="img" aria-label="Sketch: a step-shaped survival curve falling over time, with the area under it up to 12 months shaded; that area is the restricted mean survival time." xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 160"><line x1="40" y1="140" x2="440" y2="140" class="ax"/><line x1="40" y1="20" x2="40" y2="140" class="ax"/><path d="M40 20 H120 V45 H200 V70 H300 V85 H440 V140 H40 Z" class="b2" style="opacity:.6"/><polyline points="40,20 120,20 120,45 200,45 200,70 300,70 300,85 440,85" class="la" fill="none"/><line x1="440" y1="20" x2="440" y2="140" class="dash"/><text x="445" y="40" class="t s">12 months</text><text x="200" y="115" class="t c">shaded area = RMST</text></svg><figcaption>RMST is the area under the survival curve up to the horizon.</figcaption></figure>
+<div class="box example"><div class="box-title">Worked example — area by hand</div><ol><li>Survival 1.0 for months 0–3, 0.8 for 3–6, 0.6 for 6–12.</li><li>Area $=3\times1.0+3\times0.8+6\times0.6=3+2.4+3.6=9.0$.</li><li>Customers stay 9.0 of the first 12 months on average.</li></ol></div>
+<pre><code>def km_curve(tt, ee):
+    times, s, at, out = np.sort(np.unique(tt[ee == 1])), 1.0, None, []
+    for u in times:
+        s *= 1 - ((tt == u) &amp; (ee == 1)).sum() / (tt &gt;= u).sum(); out.append((u, s))
+    return out
+def rmst(curve, horizon):
+    area, prev_t, prev_s = 0.0, 0.0, 1.0
+    for u, s in curve:
+        if u &gt; horizon: break
+        area += prev_s * (u - prev_t); prev_t, prev_s = u, s
+    return area + prev_s * (horizon - prev_t)
+for grp in [0, 1]:
+    print(f"group {grp}: restricted mean survival over 12 months {rmst(km_curve(t[g == grp], e[g == grp]), 12):.2f} months")</code></pre><p>Output:</p><pre><code>group 0: restricted mean survival over 12 months 5.45 months
+group 1: restricted mean survival over 12 months 7.71 months</code></pre><p>How to read it: over the first 12 months, group 1 stays 7.71 months on average and group 0 5.45: <strong>2.3 more months per customer</strong>, which converts directly into revenue. RMST needs no proportional-hazards assumption, and "2.3 more months in the first year" is far easier for decision-makers than a hazard ratio.</p>
+<div class="box takeaways"><div class="box-title">In one breath</div><p>Check whether the hazard ratio changes over time before trusting a single Cox number; report the restricted mean survival time ("2.3 more months in the first year") for a clear summary that needs no such assumption.</p></div>
+<div class="box hidden-q deep-iq"><div class="box-title">Interview corner · intermediate</div><p class="hq-sub"><strong>Hidden questions</strong> — answer in your head first, then open.</p><details class="hq"><summary>How do you check the proportional hazards assumption, and what do you do if it fails?</summary><p class="iq-trap"><strong>The trap:</strong> "It always holds for Cox models."</p><p>Plot log(−log S(t)) by group (parallel lines under PH), test Schoenfeld residuals against time, or compare hazard ratios across time periods. If it fails: stratify by the variable, add time-varying coefficients (an interaction with time or period), or report effects that don't need the assumption, such as RMST differences or survival at fixed horizons.</p></details></div>
+<h3 id="deeper-quiz">Check your understanding: going deeper</h3><div class="quiz deep-quiz"><div class="q" data-correct="a"><p class="q-text">1. A group's hazard ratio is 0.4 early and 1.0 later. What's wrong with reporting one Cox hazard ratio?</p><button data-opt="a">It averages two different effects into a number true of neither period</button><button data-opt="b">Nothing</button><button data-opt="c">Cox models can't handle groups</button><div class="q-explain">The proportional-hazards assumption is violated.</div></div><div class="q" data-correct="a"><p class="q-text">2. What is the restricted mean survival time up to 12 months?</p><button data-opt="a">The area under the survival curve from 0 to 12 months</button><button data-opt="b">The median survival</button><button data-opt="c">The hazard at 12 months</button><div class="q-explain">It's the average time survived within the horizon.</div></div><div class="q" data-correct="a"><p class="q-text">3. Why is RMST useful for decision-makers?</p><button data-opt="a">It's in time units, such as "2 more months on average"</button><button data-opt="b">It's always larger</button><button data-opt="c">It ignores censoring</button><div class="q-explain">It converts directly into value.</div></div><div class="q" data-correct="a"><p class="q-text">4. Under proportional hazards, plots of log(−log S(t)) for two groups are…</p><button data-opt="a">Parallel</button><button data-opt="b">Crossing</button><button data-opt="c">Identical</button><div class="q-explain">A constant hazard ratio gives a constant vertical gap.</div></div><div class="q" data-correct="a"><p class="q-text">5. One fix for a fading effect in a Cox model is…</p><button data-opt="a">Separate coefficients for different time periods</button><button data-opt="b">Dropping censored data</button><button data-opt="c">Using accuracy</button><div class="q-explain">Time-varying coefficients capture the change.</div></div></div>
+</div>

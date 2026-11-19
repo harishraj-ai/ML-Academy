@@ -1,0 +1,102 @@
+<h2 id="deeper"><span class="sec-num">16.</span>Going deeper: making deep networks trainable</h2><div class="simple-sum"><p><span class="lvl-tag">In plain words</span>Why deep networks are hard to train and the standard fixes, each measured: starting the weights at the right size, why sigmoid layers stop learning and ReLU doesn't, batch normalisation to keep layers steady, and dropout so the network can't rely on one unit.</p><button type="button" class="adv-toggle" aria-expanded="false" data-target="adv-deeper">Show the full maths ▾</button></div><div class="adv-body" id="adv-deeper">
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>Deep networks are hard to train: the signal can fade or explode as it passes through many layers. This section shows the standard fixes, each with a measurement. Read it as <strong>question → tool</strong>:</p>
+<table class="tbl"><thead><tr><th>Question</th><th>Tool</th></tr></thead><tbody><tr><td>How should the weights start?</td><td><strong>Xavier and He initialisation</strong></td></tr><tr><td>Why do early layers stop learning?</td><td><strong>Vanishing gradients</strong></td></tr><tr><td>How do I keep each layer stable?</td><td><strong>Batch normalisation</strong></td></tr><tr><td>How do I stop the network memorising?</td><td><strong>Dropout</strong></td></tr><tr><td>What should I try first on a new network?</td><td><strong>A training recipe</strong></td></tr></tbody></table>
+<p>You'll need: layers, activations and backpropagation from this lesson. New words are explained as they come.</p></div>
+<div class="box def"><div class="box-title">New words for this section</div><ul><li><strong>Variance / std</strong>: how spread out a set of numbers is (std = square root of variance).</li><li><strong>Saturation</strong>: tanh or sigmoid stuck near its flat ends, where its slope is almost 0.</li><li><strong>Vanishing gradient</strong>: the learning signal shrinking to almost nothing on its way back to early layers.</li><li><strong>Mini-batch</strong>: the small group of rows used for one training step.</li><li><strong>Inverted dropout</strong>: scaling surviving units up during training so nothing changes at prediction time.</li></ul></div>
+<h3 id="deeper-init">Initialisation: keeping the signal alive</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>Whisper a message down a line of 20 people. If each person speaks a little louder than they heard, it ends as a shout; a little quieter, and it ends as silence. Good initialisation makes each layer pass the signal on at the same volume.</p></div>
+<figure class="fig"><svg role="img" aria-label="Sketch: the size of the signal across 20 layers. With a good initialisation it stays flat; with weights too small it fades to zero; with weights too large it grows or saturates." xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 150"><line x1="40" y1="130" x2="520" y2="130" class="ax"/><text x="280" y="147" class="t c s">layer 1 → layer 20</text><path d="M50 80 Q 300 75 510 78" class="la" fill="none"/><text x="515" y="72" class="t a" text-anchor="end">good start: steady</text><path d="M50 80 Q 150 120 510 128" class="lw" fill="none"/><text x="515" y="120" class="t w" text-anchor="end">too small: fades to 0</text><path d="M50 80 Q 200 50 510 15" class="lv" fill="none"/><text x="300" y="45" class="t v">too big: blows up / saturates</text></svg><figcaption>How the signal's size changes through 20 layers.</figcaption></figure>
+<p>Each layer computes $\mathbf{h}_{\text{new}} = \sigma(W\mathbf{h})$. If a unit's $n$ inputs each have variance 1 and each weight has variance $s^2$, the sum has variance about $n s^2$. Above 1 the signal grows layer after layer; below 1 it shrinks. Two classic fixes keep $ns^2$ near 1:</p>
+<ul><li><strong>Xavier (Glorot)</strong>: weight variance $1/n$, for tanh-like activations.</li><li><strong>He</strong>: weight variance $2/n$, for ReLU, which zeroes about half its inputs and so needs double.</li></ul>
+<div class="box example"><div class="box-title">Worked example — width 256</div><ol><li>Weights with std 0.01: $256\times0.01^2=0.0256$ per layer. After 20 layers: $0.0256^{20}$, effectively 0.</li><li>Xavier: $256\times(1/256)=1$. Steady (for tanh).</li><li>He: $256\times(2/256)=2$, and ReLU halves it back to about 1. Steady.</li></ol></div>
+<p>A batch is passed through 20 layers of width 256 with different setups:</p>
+<pre><code>import numpy as np
+
+# Push a batch through 20 layers of width 256 and watch the activations' spread
+rng = np.random.default_rng(0)
+x0 = rng.normal(size=(500, 256))
+relu = lambda z: np.maximum(z, 0)
+setups = {"tanh, weights std 1":           (np.tanh, 1.0),
+          "tanh, weights std 0.01":        (np.tanh, 0.01),
+          "tanh, Xavier std 1/sqrt(n)":    (np.tanh, 1 / np.sqrt(256)),
+          "ReLU, Xavier std 1/sqrt(n)":    (relu, 1 / np.sqrt(256)),
+          "ReLU, He std sqrt(2/n)":        (relu, np.sqrt(2 / 256))}
+for name, (act, std) in setups.items():
+    h = x0; spreads = []
+    for layer in range(20):
+        h = act(h @ rng.normal(0, std, size=(256, 256)))
+        spreads.append(h.std())
+    print(f"{name:27}: activation std after layers 1, 10, 20: {spreads[0]:.3f}, {spreads[9]:.3g}, {spreads[19]:.3g}")
+
+# With weights of std 1, tanh is saturated: almost every unit sits near −1 or +1, where its slope is ~0
+h = x0
+for _ in range(20): h = np.tanh(h @ rng.normal(0, 1.0, size=(256, 256)))
+print("tanh with std 1: share of units with |activation| &gt; 0.99:", round(np.mean(np.abs(h) &gt; 0.99), 3))</code></pre><p>Output:</p><pre><code>tanh, weights std 1        : activation std after layers 1, 10, 20: 0.975, 0.974, 0.974
+tanh, weights std 0.01     : activation std after layers 1, 10, 20: 0.157, 1.06e-08, 1.12e-16
+tanh, Xavier std 1/sqrt(n) : activation std after layers 1, 10, 20: 0.627, 0.221, 0.163
+ReLU, Xavier std 1/sqrt(n) : activation std after layers 1, 10, 20: 0.581, 0.0212, 0.000893
+ReLU, He std sqrt(2/n)     : activation std after layers 1, 10, 20: 0.829, 0.665, 0.674
+tanh with std 1: share of units with |activation| &gt; 0.99: 0.866</code></pre><ul><li><strong>Too small</strong> (std 0.01): the spread falls to $10^{-16}$ by layer 20; every input gives the same output.</li><li><strong>Too big</strong> (std 1) with tanh: the spread looks fine (0.974), but 86.6% of units sit beyond ±0.99, where tanh is flat, so almost no gradient flows back.</li><li><strong>Xavier</strong> keeps tanh usable; Xavier with ReLU slowly dies (0.000893); <strong>He</strong> keeps ReLU steady (0.674).</li></ul>
+<p>Frameworks build in scaled defaults (PyTorch scales starting weights by the number of inputs), so you rarely set this by hand, but it explains why defaults matter and when to use <code>torch.nn.init.kaiming_normal_</code> for a very deep ReLU network.</p>
+<h3 id="deeper-vanish">Vanishing gradients, measured</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>Backpropagation passes the error backwards, multiplying by each layer's slope. Multiply by 0.25 again and again and almost nothing is left by the time you reach the first layer. Multiply by 1 and the message arrives intact.</p></div>
+<div class="box example"><div class="box-title">Worked example — 20 sigmoid layers</div><ol><li>Sigmoid's steepest slope is 0.25.</li><li>$0.25^{20}\approx9\times10^{-13}$, about a trillionth.</li><li>ReLU's slope is exactly 1 where active: $1^{20}=1$.</li></ol></div>
+<pre><code># Backpropagate through 20 sigmoid layers vs 20 ReLU layers: how big is the gradient at the first layer?
+def grad_norms(act, dact, std):
+    h, cache, Ws = x0[:100], [], []
+    for _ in range(20):
+        W = rng.normal(0, std, size=(256, 256)); z = h @ W
+        cache.append(z); Ws.append(W); h = act(z)
+    g = np.ones_like(h)                                  # pretend dLoss/dOutput is all ones
+    norms = []
+    for z, W in zip(reversed(cache), reversed(Ws)):
+        g = (g * dact(z)) @ W.T                          # chain rule, one layer back
+        norms.append(np.linalg.norm(g))
+    return norms[0], norms[-1]
+
+sig = lambda z: 1 / (1 + np.exp(-z))
+for name, act, dact, std in [("sigmoid", sig, lambda z: sig(z) * (1 - sig(z)), 1 / np.sqrt(256)),
+                             ("ReLU", relu, lambda z: (z &gt; 0).astype(float), np.sqrt(2 / 256))]:
+    last, first = grad_norms(act, dact, std)
+    print(f"{name:7}: gradient size at the last layer {last:.3g}, at the first layer {first:.3g}")</code></pre><p>Output:</p><pre><code>sigmoid: gradient size at the last layer 40.4, at the first layer 3.5e-11
+ReLU   : gradient size at the last layer 186, at the first layer 658</code></pre><p>How to read it: with sigmoid, the gradient at the first layer is $3.5\times10^{-11}$ vs 40.4 at the last, so early layers essentially never learn. With ReLU and He initialisation, both ends are the same size order (186 and 658). This change plus good initialisation is a big part of why deep networks became trainable around 2010–2012. The other big fix is <strong>residual connections</strong> (Lesson 19).</p>
+<h3 id="deeper-norm">Batch normalisation</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>Before mixing a song, every microphone is set to the same level, so one loud singer doesn't drown the rest. Batch norm resets each unit's values to a standard level before the next layer, however the earlier layers change.</p></div>
+<p>For each unit, over the current mini-batch: subtract the mean, divide by the spread, then rescale with two learned numbers $\gamma$ and $\beta$:</p>
+<p>$$\hat{z} = \frac{z - \mu_{\text{batch}}}{\sqrt{\sigma^2_{\text{batch}} + \epsilon}}, \qquad \text{output} = \gamma\,\hat{z} + \beta$$</p>
+<div class="box example"><div class="box-title">Worked example — normalising one unit</div><ol><li>Batch values 2, 4, 6: mean 4, std about 1.63.</li><li>$\hat z$: $-1.22, 0, +1.22$.</li><li>With $\gamma=2$, $\beta=1$: $-1.45, 1, 3.45$. The network chooses the final level.</li></ol></div>
+<p>This allows bigger learning rates and makes training much less sensitive to initialisation. At prediction time it uses running averages saved during training, not the current batch. <strong>Layer normalisation</strong> normalises across the units of one example instead; it doesn't depend on the batch and is standard in transformers.</p>
+<h3 id="deeper-dropout">Dropout</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>A team where random players sit out each practice. Nobody can rely on one star player, so everyone learns to contribute. At the real match, everyone plays.</p></div>
+<p><strong>Dropout</strong> switches off each hidden unit with probability $p$ at every training step. It's like training a huge ensemble of thinner networks that share weights and averaging them at the end. <strong>Inverted dropout</strong> scales the survivors by $1/(1-p)$ during training, so nothing changes at prediction time.</p>
+<div class="box example"><div class="box-title">Worked example — why scale by $1/(1-p)$</div><ol><li>$p=0.5$: about half the units survive.</li><li>Without scaling, the next layer would receive about half its usual total.</li><li>Multiply survivors by $1/(1-0.5)=2$: the total is back to normal.</li></ol></div>
+<pre><code># Inverted dropout: drop units with probability p during training and scale the rest by 1/(1−p)
+p = 0.5
+h = np.ones(100000)
+mask = rng.random(h.shape) &gt; p
+train_out = h * mask / (1 - p)
+print("share of units kept:", round(mask.mean(), 3), "  average activation, training:", round(train_out.mean(), 3), "  at prediction time (no dropout):", h.mean())
+
+# Batch normalisation: standardise each feature over the batch, then rescale with learned gamma and beta
+z = rng.normal(5, 3, size=(64, 4))
+gamma, beta = np.array([1.0, 2.0, 1.0, 0.5]), np.array([0.0, 1.0, -1.0, 0.0])
+bn = gamma * (z - z.mean(0)) / np.sqrt(z.var(0) + 1e-5) + beta
+print("after batch norm, per-feature mean:", (bn.mean(0).round(3) + 0.0), " std:", bn.std(0).round(3))</code></pre><p>Output:</p><pre><code>share of units kept: 0.499   average activation, training: 0.997   at prediction time (no dropout): 1.0
+after batch norm, per-feature mean: [ 0.  1. -1.  0.]  std: [1.  2.  1.  0.5]</code></pre><p>How to read it: about half the units are kept (0.499) and the average activation stays about 1 (0.997), matching prediction time. The batch-norm lines show each feature leaving with exactly the mean $\beta$ and spread $\gamma$ chosen for it.</p>
+<div class="box warn"><div class="box-title">The classic bug</div><p>In PyTorch, <code>model.train()</code> and <code>model.eval()</code> switch dropout and batch norm between training and prediction behaviour. Forgetting <code>model.eval()</code> before predicting gives noisy, wrong predictions.</p></div>
+<h3 id="deeper-recipe">A training recipe for a new network</h3>
+<table class="tbl">
+<thead><tr><th>Choice</th><th>Sensible default</th></tr></thead>
+<tbody>
+<tr><td>Activation</td><td>ReLU (or GELU in transformers)</td></tr>
+<tr><td>Initialisation</td><td>The framework default (He or Xavier variants)</td></tr>
+<tr><td>Normalisation</td><td>Batch norm for CNNs; layer norm for transformers</td></tr>
+<tr><td>Optimiser</td><td>AdamW, learning rate about $10^{-3}$, warm-up then decay (Lesson 7's "Going deeper")</td></tr>
+<tr><td>Regularization</td><td>Weight decay, dropout 0.1–0.5, early stopping, data augmentation</td></tr>
+<tr><td>First check</td><td>Overfit a tiny batch (say 10 examples) to near-zero loss. If you can't, there's a bug.</td></tr>
+</tbody></table>
+<div class="box takeaways"><div class="box-title">In one breath</div><p>Start weights at the right scale (Xavier for tanh, He for ReLU), prefer ReLU so gradients don't vanish, normalise layers to keep them stable, use dropout and weight decay against memorising, remember model.eval(), and start from a proven recipe.</p></div>
+<div class="box hidden-q deep-iq"><div class="box-title">Interview corner · intermediate</div><p class="hq-sub"><strong>Hidden questions</strong> — answer in your head first, then open.</p><details class="hq"><summary>Explain vanishing and exploding gradients and three ways to fix them.</summary><p class="iq-trap"><strong>The trap:</strong> Naming the problem without the mechanism.</p><p>Backprop multiplies, layer by layer, by each layer's weights and activation slopes. If those factors are typically below 1 the gradient shrinks exponentially with depth (vanishing); if above 1 it grows (exploding). Fixes: ReLU-family activations (slope 1 when active); variance-preserving initialisation (Xavier for tanh, He for ReLU); normalisation layers (batch or layer norm); residual connections that give gradients a shortcut; gradient clipping for explosions; and, for sequences, gated units (LSTM, GRU) or attention.</p></details><details class="hq"><summary>How does batch normalisation behave differently in training and inference, and what goes wrong if you forget?</summary><p class="iq-trap"><strong>The trap:</strong> Not knowing there's a difference.</p><p>In training it standardises with the current mini-batch's mean and variance and updates running averages. In inference it uses those running averages, so predictions don't depend on the batch. Forgetting to switch to evaluation mode (<code>model.eval()</code> in PyTorch) makes predictions depend on batch composition and size, often badly for batch size 1. Very small training batches also make batch statistics noisy, which is one reason layer or group norm are used instead.</p></details><details class="hq"><summary>Why does dropout reduce overfitting, and why scale by $1/(1-p)$?</summary><p class="iq-trap"><strong>The trap:</strong> "It removes neurons."</p><p>Randomly dropping units prevents co-adaptation (units relying on specific partners) and acts like training an exponential ensemble of thinned subnetworks that share weights; prediction with the full network approximates averaging them. Scaling survivors by $1/(1-p)$ during training keeps each unit's expected input the same as at test time, when nothing is dropped, so no adjustment is needed at prediction.</p></details></div>
+<h3 id="deeper-quiz">Check your understanding: going deeper</h3><div class="quiz deep-quiz"><div class="q" data-correct="a"><p class="q-text">1. He initialisation uses weight variance $2/n$ rather than $1/n$ because…</p><button data-opt="a">ReLU zeroes about half its inputs, halving the variance passed on</button><button data-opt="b">It trains faster on GPUs</button><button data-opt="c">Tanh needs it</button><div class="q-explain">Doubling the variance compensates for the half of the signal ReLU throws away.</div></div><div class="q" data-correct="a"><p class="q-text">2. A deep sigmoid network's first layers barely learn. The most likely reason is…</p><button data-opt="a">Vanishing gradients: each sigmoid layer multiplies the gradient by at most 0.25</button><button data-opt="b">Too much data</button><button data-opt="c">The learning rate is too small for the last layer</button><div class="q-explain">Over 20 layers the product of slopes can be around $10^{-12}$.</div></div><div class="q" data-correct="b"><p class="q-text">3. At prediction time, batch normalisation uses…</p><button data-opt="a">The statistics of the current batch</button><button data-opt="b">Running averages of the mean and variance saved during training</button><button data-opt="c">No normalisation</button><div class="q-explain">So a single example gets the same output whatever else is in the batch.</div></div><div class="q" data-correct="b"><p class="q-text">4. With inverted dropout and $p = 0.2$, surviving units during training are multiplied by…</p><button data-opt="a">0.8</button><button data-opt="b">1.25</button><button data-opt="c">5</button><div class="q-explain">$1/(1 - p) = 1/0.8 = 1.25$, so the expected activation is unchanged.</div></div><div class="q" data-correct="a"><p class="q-text">5. Weights drawn with standard deviation 1 in a 256-wide tanh network mostly cause…</p><button data-opt="a">Saturation: units stuck near ±1 with almost zero slope</button><button data-opt="b">Activations that shrink to zero</button><button data-opt="c">Perfect training</button><div class="q-explain">The pre-activations are huge (variance about 256), so tanh is flat almost everywhere it's evaluated.</div></div></div>
+</div>

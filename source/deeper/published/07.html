@@ -1,0 +1,221 @@
+<h2 id="deeper"><span class="sec-num">16.</span>Going deeper: modern optimisers and learning-rate schedules</h2><div class="simple-sum"><p><span class="lvl-tag">In plain words</span>Four upgrades to plain gradient descent that real projects use, each fixing one problem: the steps zig-zag (momentum), weights need different step sizes (Adam), the steps never settle (learning-rate schedules), and one giant step wrecks training (gradient clipping).</p><button type="button" class="adv-toggle" aria-expanded="false" data-target="adv-deeper">Show the full maths ▾</button></div><div class="adv-body" id="adv-deeper">
+<div class="box deeper-intro"><div class="box-title">Intermediate · skip on a first read</div>
+<p>In this lesson you used plain gradient descent: look at the slope, take a step downhill, repeat. Real projects almost always add four small upgrades to it. Each one fixes one specific problem, so read this section as <strong>problem → fix</strong>:</p>
+<table class="tbl"><thead><tr><th>Problem</th><th>Fix</th></tr></thead><tbody>
+<tr><td>Steps zig-zag in a narrow valley, so progress is slow</td><td><strong>Momentum</strong></td></tr>
+<tr><td>Some weights need big steps, others small ones</td><td><strong>Adam</strong></td></tr>
+<tr><td>With mini-batches the weights never settle at the bottom</td><td><strong>Learning-rate schedules</strong></td></tr>
+<tr><td>One giant gradient throws the weights far away</td><td><strong>Gradient clipping</strong></td></tr>
+</tbody></table>
+<p>You'll need: gradient descent and the learning rate from this lesson. Nothing else; new words are explained as they come.</p></div>
+
+<div class="box def"><div class="box-title">New words for this section</div><ul>
+<li><strong>Curvature</strong>: how quickly the slope changes in one direction. High curvature = a steep, narrow wall; low curvature = a gentle, flat floor.</li>
+<li><strong>Condition number</strong> $\kappa$: steepest curvature ÷ gentlest curvature. $\kappa=1$ is a round bowl (easy); $\kappa=1000$ is a long thin valley (hard).</li>
+<li><strong>Running average</strong>: an average that is updated every step and slowly forgets old values. With $\beta=0.9$ it mostly remembers about the last 10 values.</li>
+<li><strong>Mini-batch / stochastic gradient</strong>: a slope computed from a small random handful of rows instead of all the data. Cheap, but a little noisy.</li>
+<li><strong>Norm</strong> $\lVert\mathbf{g}\rVert$: the length of a vector, e.g. $\lVert(3,4)\rVert=5$.</li>
+</ul></div>
+
+<h3 id="deeper-rate">Why plain gradient descent is slow: narrow valleys</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>You're walking down a long, narrow canyon in fog. The side walls are very steep, the floor slopes gently towards the exit. If you take big steps, you bounce from wall to wall. So you take tiny steps, but then you crawl along the floor. That's plain gradient descent on a badly shaped loss.</p></div>
+<figure class="fig"><svg role="img" aria-label="Sketch: a long narrow valley seen from above. Plain gradient descent zig-zags across the narrow direction and moves slowly along the valley; momentum's path is smoother and moves further along the valley." viewBox="0 0 640 200" xmlns="http://www.w3.org/2000/svg">
+<ellipse cx="320" cy="100" rx="290" ry="60" class="ring"/><ellipse cx="320" cy="100" rx="190" ry="38" class="ring"/><ellipse cx="320" cy="100" rx="90" ry="17" class="ring"/>
+<circle cx="320" cy="100" r="5" class="fa"/><text x="320" y="128" class="t c s">minimum</text>
+<polyline points="40,62 60,138 80,64 100,136 120,66 140,134 160,68 180,132" class="lw" fill="none"/>
+<text x="110" y="30" class="t w">plain: zig-zags, slow along the valley</text>
+<polyline points="40,62 90,118 150,95 210,102 260,99 300,100" class="la" fill="none"/>
+<text x="250" y="180" class="t a">momentum: the zig-zags cancel, speed builds up</text>
+</svg><figcaption>A narrow valley from above. The narrow direction is steep, the long direction is gentle.</figcaption></figure>
+<p>Why exactly? One learning rate is used for every direction. It has to be small enough for the <strong>steepest</strong> direction, otherwise the steps blow up (the stability limit from this lesson: below $2/\lambda_{\max}$, where $\lambda_{\max}$ is the biggest curvature). But that same small rate is far too small for the <strong>gentle</strong> direction. Near the minimum, each step only shrinks the remaining error in the gentle direction by a factor of about</p>
+<p>$$1 - \frac{\lambda_{\min}}{\lambda_{\max}} = 1 - \frac{1}{\kappa}$$</p>
+<div class="box example"><div class="box-title">Worked example — how many steps?</div><ol>
+<li>Goal: shrink the error 1,000 times.</li>
+<li>Valley with $\kappa=10$: each step keeps $1-1/10=0.9$ of the error. $0.9^{66}\approx 0.001$, so about <strong>66 steps</strong>.</li>
+<li>Valley with $\kappa=1000$: each step keeps $0.999$. You need $0.999^{n}\approx0.001$, so about <strong>6,900 steps</strong>.</li>
+<li>Same goal, 100× more work, only because the valley is thinner.</li>
+</ol></div>
+<p>Two ways out: <strong>change the valley</strong> (feature scaling from this lesson makes curvatures similar, so $\kappa$ shrinks) or <strong>change how you walk</strong> (the optimisers below).</p>
+
+<h3 id="deeper-momentum">Momentum: a ball rolling downhill</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>Instead of a careful walker, roll a heavy ball. It remembers which way it was going. Pushes that keep flipping left-right cancel out; a push that keeps pointing forward builds up speed.</p></div>
+<p>Momentum keeps a <strong>velocity</strong> $\mathbf{v}$, a running sum of past gradients, and steps along it instead of the raw gradient:</p>
+<p>$$\mathbf{v} \leftarrow \beta\,\mathbf{v} + \nabla L, \qquad \mathbf{w} \leftarrow \mathbf{w} - \eta\,\mathbf{v}$$</p>
+<p>In words: new velocity = a fraction $\beta$ of the old velocity + today's gradient. Then step along the velocity.</p>
+<div class="box example"><div class="box-title">Worked example — momentum by hand ($\beta=0.9$)</div>
+<p><strong>Steep direction</strong> (gradient flips: +4, −4, +4, −4):</p><ol>
+<li>$v = 0.9\times0 + 4 = 4$</li>
+<li>$v = 0.9\times4 - 4 = -0.4$</li>
+<li>$v = 0.9\times(-0.4) + 4 = 3.64$</li>
+<li>$v = 0.9\times3.64 - 4 = -0.72$</li></ol>
+<p>The swings are being cancelled: −0.4 and −0.72 instead of −4.</p>
+<p><strong>Gentle direction</strong> (gradient always +1):</p><ol>
+<li>$v = 1$ → $1.9$ → $2.71$ → $3.44$</li></ol>
+<p>It keeps growing (towards 10 in the long run): the ball speeds up along the valley floor.</p></div>
+<p>That's the whole trick: less zig-zag, more forward speed. Typical value: $\beta = 0.9$. <strong>Nesterov momentum</strong> is a small refinement: it looks at the slope where the velocity is about to take you, not where you stand, so it brakes a little earlier.</p>
+
+<h3 id="deeper-adam">Adaptive learning rates: RMSProp and Adam</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>A sound engineer with many sliders. Loud channels get turned down, quiet ones turned up, so every channel ends up at a sensible level. Adam does this for every weight's step size.</p></div>
+<figure class="fig"><svg role="img" aria-label="Sketch: two weights. Weight A has big gradients, weight B tiny ones. Plain gradient descent gives A a huge step and B almost none; Adam gives both a similar step size." viewBox="0 0 640 170" xmlns="http://www.w3.org/2000/svg">
+<text x="150" y="22" class="t c h">plain gradient descent</text><text x="480" y="22" class="t c h">Adam</text>
+<text x="20" y="62" class="t">weight A</text><line x1="90" y1="58" x2="290" y2="58" class="lw"/><text x="290" y="80" class="t s">huge step (may overshoot)</text>
+<text x="20" y="122" class="t">weight B</text><line x1="90" y1="118" x2="94" y2="118" class="lw"/><text x="100" y="140" class="t s">tiny step (barely moves)</text>
+<text x="350" y="62" class="t">weight A</text><line x1="420" y1="58" x2="520" y2="58" class="la"/>
+<text x="350" y="122" class="t">weight B</text><line x1="420" y1="118" x2="520" y2="118" class="la"/><text x="420" y="145" class="t s">similar, sensible steps for both</text>
+</svg><figcaption>Adam divides each weight's step by that weight's typical gradient size.</figcaption></figure>
+<p><strong>RMSProp</strong>: for each weight, keep a running average of its <em>squared</em> gradients (a measure of how big its gradients usually are). Divide the step by the square root of that. Big-gradient weights get smaller steps; small-gradient weights get bigger ones.</p>
+<p><strong>Adam</strong> ("adaptive moment estimation") = RMSProp + momentum. Read the formula piece by piece:</p>
+<p>$$\mathbf{m} \leftarrow \beta_1\mathbf{m} + (1-\beta_1)\,\mathbf{g}, \quad \mathbf{s} \leftarrow \beta_2\mathbf{s} + (1-\beta_2)\,\mathbf{g}^2, \quad \mathbf{w} \leftarrow \mathbf{w} - \eta\,\frac{\hat{\mathbf{m}}}{\sqrt{\hat{\mathbf{s}}} + \epsilon}$$</p>
+<ul>
+<li>$\mathbf{m}$: running average of the gradient → <em>which way</em> to go (momentum).</li>
+<li>$\mathbf{s}$: running average of the squared gradient → <em>how big</em> this weight's gradients usually are.</li>
+<li>$\hat{\mathbf{m}}/\sqrt{\hat{\mathbf{s}}}$: direction ÷ typical size ≈ a step of about $\eta$ for every weight.</li>
+<li>$\epsilon$ (tiny, $10^{-8}$): only there to avoid dividing by zero.</li>
+<li>The hats are a <strong>bias correction</strong>: $\hat{\mathbf{m}} = \mathbf{m}/(1 - \beta_1^k)$ at step $k$ (same for $\mathbf{s}$ with $\beta_2$).</li>
+</ul>
+<div class="box example"><div class="box-title">Worked example — Adam's first step</div><ol>
+<li>Weight A has gradient 100, weight B has gradient 0.01. Plain gradient descent with $\eta=0.1$ would move A by 10 and B by 0.001: 10,000× apart.</li>
+<li>Adam, step 1, weight A: $m = 0.1\times100 = 10$, $s = 0.001\times100^2 = 10$.</li>
+<li><strong>Without</strong> correction: $m/\sqrt{s} = 10/3.16 = 3.16$, a step 3× too big, only because $m$ and $s$ started at zero.</li>
+<li><strong>With</strong> correction: $\hat m = 10/(1-0.9) = 100$, $\hat s = 10/(1-0.999) = 10{,}000$, so $\hat m/\sqrt{\hat s} = 100/100 = 1$.</li>
+<li>Step for A $= 0.1\times1 = 0.1$. Do the same for B: also $0.1$. <strong>Both weights move the same sensible amount</strong>, however different their gradient sizes.</li>
+</ol></div>
+<p>Defaults that work surprisingly often: $\eta = 0.001$, $\beta_1 = 0.9$, $\beta_2 = 0.999$, $\epsilon = 10^{-8}$. Now the real test: all three methods on two valleys, one narrow and one very narrow, each stopping when within 0.001 of the minimum:</p>
+<pre><code>import numpy as np
+
+def run(update, grad, start, steps=20000, tol=1e-3):
+    """Steps until w is within tol of the minimum at (0, 0)."""
+    w, state = np.array(start, dtype=float), {}
+    for k in range(1, steps + 1):
+        w = update(w, grad(w), state, k)
+        if np.linalg.norm(w) &lt; tol: return k
+    return None
+
+def plain(lr):
+    return lambda w, g, s, k: w - lr * g
+
+def momentum(lr, beta):
+    def step(w, g, s, k):
+        s["v"] = beta * s.get("v", 0) + g                  # a running "velocity"
+        return w - lr * s["v"]
+    return step
+
+def adam(lr, b1=0.9, b2=0.999, eps=1e-8):
+    def step(w, g, s, k):
+        s["m"] = b1 * s.get("m", 0) + (1 - b1) * g         # average gradient
+        s["v"] = b2 * s.get("v", 0) + (1 - b2) * g**2      # average squared gradient
+        m_hat, v_hat = s["m"] / (1 - b1**k), s["v"] / (1 - b2**k)   # bias correction
+        return w - lr * m_hat / (np.sqrt(v_hat) + eps)
+    return step
+
+valleys = {"narrow (curvatures 2 and 20)":     (lambda w: np.array([2 * w[0], 20 * w[1]]), 20),
+           "very narrow (curvatures 2 and 2000)": (lambda w: np.array([2 * w[0], 2000 * w[1]]), 2000)}
+for name, (g, top) in valleys.items():
+    lr = 1.8 / top                                         # just under the stability limit 2 / top
+    print(name)
+    print(f"  plain gradient descent: {run(plain(lr), g, [10, 1])} steps")
+    print(f"  momentum (beta 0.3):    {run(momentum(lr * 1.2, 0.3), g, [10, 1])} steps")
+    print(f"  Adam (lr 0.1):          {run(adam(0.1), g, [10, 1])} steps")</code></pre><p>Output:</p><pre><code>narrow (curvatures 2 and 20)
+  plain gradient descent: 47 steps
+  momentum (beta 0.3):    17 steps
+  Adam (lr 0.1):          310 steps
+very narrow (curvatures 2 and 2000)
+  plain gradient descent: 5113 steps
+  momentum (beta 0.3):    2977 steps
+  Adam (lr 0.1):          310 steps</code></pre>
+<p>How to read this table:</p>
+<ul>
+<li><strong>Narrow valley</strong> ($\kappa=10$): momentum wins (17 steps vs 47). Adam is slowest (310): its steps stay about $\eta$ long, so it crawls the last stretch unless the learning rate is lowered over time.</li>
+<li><strong>Very narrow valley</strong> ($\kappa=1000$): plain needs 5,113 steps and momentum 2,977, while Adam <strong>still needs 310</strong>. Because it rescales every direction, Adam barely notices how thin the valley is.</li>
+</ul>
+<p>That robustness is why Adam is the default for deep networks, where millions of weights have wildly different gradient sizes. For small, well-scaled convex problems, simpler methods (or L-BFGS) are often better.</p>
+<div class="box tip"><div class="box-title">Adam vs AdamW</div><p>L2 regularization adds a penalty to the loss to keep weights small. With Adam, that penalty's gradient also gets divided by $\sqrt{\hat{\mathbf{s}}}$, so the busiest weights are barely regularized, the opposite of what you want. <strong>AdamW</strong> shrinks the weights directly instead, $\mathbf{w} \leftarrow \mathbf{w} - \eta\lambda\mathbf{w}$, separately from the adaptive step. It is the standard choice for training transformers.</p></div>
+
+<h3 id="deeper-schedules">Learning-rate schedules</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>Parking a car: drive fast on the road, slow down near the space, creep the last metre. A schedule does the same with the learning rate.</p></div>
+<p>The problem: with mini-batches, every gradient is a little noisy. With a constant learning rate, each noisy step bumps the weights, so they keep <strong>wobbling around</strong> the minimum and never settle. Shrinking the step size over time lets the wobble die down.</p>
+<p>A simple decaying rate is $\eta_t = \eta_0/(1 + t/T)$:</p>
+<div class="box example"><div class="box-title">Worked example — the decay $0.05/(1+t/200)$</div><ol>
+<li>Step 0: $0.05/(1+0) = 0.05$ (full speed).</li>
+<li>Step 200: $0.05/(1+1) = 0.025$ (half).</li>
+<li>Step 1,000: $0.05/(1+5) \approx 0.0083$ (one sixth).</li>
+</ol><p>Fast at the start, slower and slower later, but never exactly zero, so it can still reach anywhere.</p></div>
+<p>(The classic theory, Robbins–Monro, says exactly this: the rates must add up to infinity so you can travel any distance, but their squares must add up to a finite number so the noise dies down. This schedule does both.)</p>
+<pre><code>from sklearn.datasets import load_diabetes
+
+# Mini-batch SGD on the diabetes data: constant learning rate vs a decaying schedule
+Xd, yd = load_diabetes(return_X_y=True)
+Xd = (Xd - Xd.mean(0)) / Xd.std(0); yd = (yd - yd.mean()) / yd.std()
+w_best = np.linalg.lstsq(Xd, yd, rcond=None)[0]
+best = np.mean((Xd @ w_best - yd) ** 2)
+
+def sgd(schedule, epochs=60, batch=16, seed=0):
+    rng = np.random.default_rng(seed); w = np.zeros(10); step = 0; tail = []
+    for ep in range(epochs):
+        for idx in np.array_split(rng.permutation(len(yd)), len(yd) // batch):
+            g = 2 * Xd[idx].T @ (Xd[idx] @ w - yd[idx]) / len(idx)
+            w -= schedule(step) * g; step += 1
+        if ep &gt;= epochs - 10: tail.append(np.mean((Xd @ w - yd) ** 2))
+    return np.mean(tail) - best, np.std(tail)
+
+for name, sch in [("constant 0.05", lambda t: 0.05),
+                  ("decay 0.05/(1 + t/200)", lambda t: 0.05 / (1 + t / 200))]:
+    gap, wobble = sgd(sch)
+    print(f"{name:24}: extra loss above the best {gap:.4f}, wobble between epochs {wobble:.4f}")</code></pre><p>Output:</p><pre><code>constant 0.05           : extra loss above the best 0.0074, wobble between epochs 0.0047
+decay 0.05/(1 + t/200)  : extra loss above the best 0.0019, wobble between epochs 0.0001</code></pre>
+<p>Reading the output: with a constant rate, the loss stays 0.0074 above the best possible value and wobbles by 0.0047 from epoch to epoch. With the decaying schedule, it ends only 0.0019 above, and the wobble almost disappears (0.0001).</p>
+<figure class="fig"><svg role="img" aria-label="Sketch: learning rate against training step for three schedules: a constant flat line, a decay curve that falls quickly then slowly, and warm-up plus cosine which rises at first then falls smoothly to near zero." viewBox="0 0 640 210" xmlns="http://www.w3.org/2000/svg">
+<line x1="50" y1="180" x2="610" y2="180" class="ax"/><line x1="50" y1="20" x2="50" y2="180" class="ax"/>
+<text x="330" y="202" class="t c s">training step →</text><text x="20" y="100" class="t s" transform="rotate(-90 20 100)">learning rate</text>
+<line x1="50" y1="50" x2="610" y2="50" class="lw2"/><text x="600" y="42" class="t w" text-anchor="end">constant</text>
+<path d="M50 50 C 120 110, 200 140, 610 165" class="la" fill="none"/><text x="560" y="155" class="t a" text-anchor="end">decay</text>
+<path d="M50 178 L110 40 C 300 45, 420 160, 610 178" class="lv" fill="none"/><text x="250" y="70" class="t v">warm-up, then cosine</text>
+</svg><figcaption>Big steps early to travel; small steps late to settle.</figcaption></figure>
+<p>Schedules used in practice:</p>
+<ul>
+<li><strong>Step decay</strong>: divide the rate by 10 every so many epochs.</li>
+<li><strong>Cosine decay</strong>: lower the rate smoothly along a cosine curve to near zero.</li>
+<li><strong>Warm-up</strong>: start tiny, increase over the first few hundred or thousand steps, then decay. At the very start Adam's averages are unreliable and big models are fragile, so warm-up is standard for transformers.</li>
+<li><strong>Reduce on plateau</strong>: cut the rate when the validation loss stops improving.</li>
+</ul>
+
+<h3 id="deeper-clipping">Gradient clipping</h3>
+<div class="box intuition"><div class="box-title">Picture it</div><p>A speed limiter on a car: you can still steer anywhere, but you can't go faster than the limit.</p></div>
+<p>Sometimes one gradient is enormous: a cliff in the loss surface, a strange batch, or a recurrent network (Lesson 19) multiplying many large numbers. One such step can throw the weights far away and turn the loss into NaN (not-a-number). <strong>Clipping by norm</strong> says: if the gradient is longer than a limit $c$, shrink it to length $c$, keeping its direction.</p>
+<p>$$\mathbf{g} \leftarrow \mathbf{g}\cdot\min\!\left(1,\ \frac{c}{\lVert\mathbf{g}\rVert}\right)$$</p>
+<div class="box example"><div class="box-title">Worked example — clip to length 1</div><ol>
+<li>Gradient $(300, -400)$. Length $=\sqrt{300^2+400^2} = 500$.</li>
+<li>Limit $c=1$, so the scale factor is $\min(1, 1/500) = 0.002$.</li>
+<li>New gradient $= (300\times0.002,\ -400\times0.002) = (0.6, -0.8)$. Length 1, same direction.</li>
+<li>A short gradient, e.g. length 0.5, gets factor $\min(1, 2)=1$: unchanged.</li>
+</ol></div>
+<figure class="fig"><svg role="img" aria-label="Sketch: a long arrow labelled gradient length 500 is shortened to a short arrow of length 1 pointing the same way." viewBox="0 0 640 120" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ah7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="fa2"/></marker><marker id="ah7b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="fa"/></marker></defs>
+<line x1="30" y1="40" x2="600" y2="40" class="lw" marker-end="url(#ah7)"/><text x="30" y="25" class="t w">before: length 500, would throw the weights far away</text>
+<line x1="30" y1="90" x2="110" y2="90" class="la" marker-end="url(#ah7b)"/><text x="125" y="95" class="t a">after: same direction, length 1</text>
+</svg><figcaption>Clipping keeps the direction and caps the length.</figcaption></figure>
+<pre><code># Gradient clipping: cap the gradient's length before stepping
+def clip(g, max_norm=1.0):
+    n = np.linalg.norm(g)
+    return g * (max_norm / n) if n &gt; max_norm else g
+
+huge = np.array([300.0, -400.0])                 # an exploding gradient, length 500
+print("before clipping:", huge, " length", np.linalg.norm(huge))
+print("after clipping: ", clip(huge), " length", np.linalg.norm(clip(huge)))</code></pre><p>Output:</p><pre><code>before clipping: [ 300. -400.]  length 500.0
+after clipping:  [ 0.6 -0.8]  length 1.0</code></pre>
+<p>The code confirms it. In PyTorch this is one line, <code>torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)</code>, and it's standard for recurrent networks and transformers.</p>
+
+<h3 id="deeper-choose">Choosing an optimiser</h3>
+<table class="tbl">
+<thead><tr><th>Situation</th><th>Good default</th></tr></thead>
+<tbody>
+<tr><td>Small or medium convex problem (linear or logistic regression)</td><td>Exact or quasi-Newton solvers (L-BFGS), as scikit-learn uses</td></tr>
+<tr><td>Huge dataset, simple model</td><td>Mini-batch SGD with momentum and a decaying schedule</td></tr>
+<tr><td>Deep network, first attempt</td><td>Adam or AdamW, learning rate about $10^{-3}$, with warm-up and decay</td></tr>
+<tr><td>Image models tuned for the best final accuracy</td><td>SGD with momentum 0.9 and cosine decay often generalises slightly better</td></tr>
+<tr><td>Loss suddenly becomes NaN</td><td>Lower the learning rate, add gradient clipping, check the inputs</td></tr>
+</tbody></table>
+<div class="box takeaways"><div class="box-title">In one breath</div><p>Momentum smooths the zig-zag, Adam gives every weight its own step size, schedules shrink the steps so training settles, and clipping caps the occasional giant step. For a first deep network: AdamW, learning rate about $10^{-3}$, warm-up then decay, clipping at 1.</p></div>
+<div class="box hidden-q deep-iq"><div class="box-title">Interview corner · intermediate</div><p class="hq-sub"><strong>Hidden questions</strong> — answer in your head first, then open.</p><details class="hq"><summary>Explain Adam in two sentences. Why is it so popular?</summary><p class="iq-trap"><strong>The trap:</strong> Saying "it adapts the learning rate" without saying how.</p><p>Adam keeps two running averages per weight: of the gradient (momentum) and of the squared gradient. It steps along the first divided by the square root of the second, with a bias correction for the early steps. Because each weight's step is scaled by its own gradient size, it copes with badly scaled problems and needs little tuning, which suits deep networks with millions of very different weights.</p></details><details class="hq"><summary>If Adam is so good, why do people still train some models with SGD and momentum?</summary><p class="iq-trap"><strong>The trap:</strong> "SGD is just older."</p><p>On many image tasks, well-tuned SGD with momentum and a decaying schedule reaches slightly better test accuracy than Adam (a generalisation gap that is still debated). SGD also uses less memory (Adam stores two extra numbers per weight) and has fewer moving parts. Adam's strengths are speed, robustness to scaling and less tuning, which is why it dominates for transformers, usually as AdamW.</p></details><details class="hq"><summary>What's the difference between L2 regularization and weight decay, and why does it matter for Adam?</summary><p class="iq-trap"><strong>The trap:</strong> "They're the same thing."</p><p>For plain SGD they are mathematically equivalent. For Adam they aren't: an L2 term in the loss gets divided by Adam's per-weight scaling, so weights with large gradients are barely regularized. Decoupled weight decay (AdamW) shrinks the weights directly, $\mathbf{w} \leftarrow \mathbf{w} - \eta\lambda\mathbf{w}$, separately from the adaptive step, which restores the intended effect and usually generalises better.</p></details><details class="hq"><summary>Why use a learning-rate schedule instead of one well-chosen constant rate?</summary><p class="iq-trap"><strong>The trap:</strong> "To train faster."</p><p>Early on, large steps make fast progress and the noise helps explore; near the end, mini-batch noise keeps the weights bouncing around the minimum unless the step size shrinks. Decaying the rate gets both. Warm-up at the very start avoids instability while optimiser statistics and early layers settle. Theory agrees: SGD needs decaying rates to converge.</p></details></div>
+<h3 id="deeper-quiz">Check your understanding: going deeper</h3><div class="quiz deep-quiz"><div class="q" data-correct="a"><p class="q-text">1. Why does momentum help in a long, narrow valley?</p><button data-opt="a">Zig-zag gradients across the valley cancel, while gradients along it add up</button><button data-opt="b">It computes the Hessian</button><button data-opt="c">It uses a bigger learning rate for every weight</button><div class="q-explain">The velocity averages past gradients: the side-to-side parts cancel and the downhill part accumulates.</div></div><div class="q" data-correct="b"><p class="q-text">2. What does Adam divide each weight's step by?</p><button data-opt="a">The number of steps so far</button><button data-opt="b">The square root of a running average of that weight's squared gradients</button><button data-opt="c">The loss</button><div class="q-explain">That per-weight scaling is the RMSProp part; the running average of gradients is the momentum part.</div></div><div class="q" data-correct="a"><p class="q-text">3. Why does SGD with a constant learning rate keep wobbling near the minimum?</p><button data-opt="a">Mini-batch gradients are noisy, so each step adds noise that never shrinks</button><button data-opt="b">The loss isn't convex</button><button data-opt="c">Floating-point errors</button><div class="q-explain">Decaying the learning rate shrinks the noisy steps so the weights can settle.</div></div><div class="q" data-correct="b"><p class="q-text">4. What does gradient clipping by norm do to a gradient longer than the threshold?</p><button data-opt="a">Sets it to zero</button><button data-opt="b">Rescales it to the threshold length, keeping its direction</button><button data-opt="c">Clips each entry separately to ±threshold</button><div class="q-explain">Clipping by norm keeps the direction. (Clipping each value separately is a different method, which can change the direction.)</div></div><div class="q" data-correct="a"><p class="q-text">5. What is learning-rate warm-up?</p><button data-opt="a">Starting with a small learning rate and increasing it over the first steps</button><button data-opt="b">Training a smaller model first</button><button data-opt="c">Running a few epochs without updates</button><div class="q-explain">It protects fragile early training, especially for Adam-trained transformers, before the usual decay.</div></div></div>
+</div>
